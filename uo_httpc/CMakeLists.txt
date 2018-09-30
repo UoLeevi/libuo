@@ -1,12 +1,11 @@
-cmake_minimum_required (VERSION 3.10)
+cmake_minimum_required(VERSION 3.7)
 project(uo_httpc)
 
 set(CMAKE_PREFIX_PATH "..")
 
 add_library("${CMAKE_PROJECT_NAME}"
-    STATIC
-        src/uo_httpc.c
-        src/uo_http_res.c)
+    src/uo_httpc.c
+    src/uo_http_res.c)
 
 target_include_directories("${CMAKE_PROJECT_NAME}"
     PRIVATE

@@ -1,12 +1,11 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.7)
 project(uo_queue)
 
 configure_file(src/uo_queue.h
     "${CMAKE_SOURCE_DIR}/include/uo_queue.h" COPYONLY)
 
 add_library("${CMAKE_PROJECT_NAME}"
-    SHARED
-        src/uo_queue.c)
+    src/uo_queue.c)
 
 target_include_directories("${CMAKE_PROJECT_NAME}"
     PUBLIC

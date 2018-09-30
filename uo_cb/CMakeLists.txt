@@ -1,18 +1,18 @@
-cmake_minimum_required (VERSION 3.10)
+cmake_minimum_required(VERSION 3.7)
 project(uo_cb)
 
 if(WIN32)
     set(CMAKE_FIND_LIBRARY_PREFIXES "" "lib")
     set(CMAKE_FIND_LIBRARY_SUFFIXES ".so" ".a" ".dll.a")
-    set(CMAKE_PREFIX_PATH "C:/dev/lib")
 endif()
+
+set(CMAKE_PREFIX_PATH "..")
 
 configure_file(src/uo_cb.h
     "${CMAKE_SOURCE_DIR}/include/uo_cb.h" COPYONLY)
 
 add_library("${CMAKE_PROJECT_NAME}"
-    SHARED
-        src/uo_cb.c)
+    src/uo_cb.c)
 
 target_include_directories("${CMAKE_PROJECT_NAME}"
     PRIVATE

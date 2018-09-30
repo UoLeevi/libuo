@@ -1,12 +1,11 @@
-cmake_minimum_required (VERSION 3.10)
+cmake_minimum_required(VERSION 3.7)
 project(uo_stack)
 
 configure_file(src/uo_stack.h
     "${CMAKE_SOURCE_DIR}/include/uo_stack.h" COPYONLY)
 
 add_library("${CMAKE_PROJECT_NAME}"
-    SHARED
-        src/uo_stack.c)
+    src/uo_stack.c)
 
 target_include_directories("${CMAKE_PROJECT_NAME}"
     PRIVATE

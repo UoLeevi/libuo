@@ -1,12 +1,11 @@
-cmake_minimum_required (VERSION 3.10)
+cmake_minimum_required(VERSION 3.7)
 project(uo_hashtbl)
 
 configure_file(src/uo_hashtbl.h
     "${CMAKE_SOURCE_DIR}/include/uo_hashtbl.h" COPYONLY)
 
 add_library("${CMAKE_PROJECT_NAME}" 
-    SHARED
-        src/uo_hashtbl.c)
+    src/uo_hashtbl.c)
 
 target_include_directories("${CMAKE_PROJECT_NAME}"
     PRIVATE
