@@ -57,7 +57,11 @@ void *uo_cb_invoke_func(
 	void *arg,
 	void *state)
 {
-	uo_cb *cb = uo_hashtbl_find(cb_map, state); //TODO remove from hashtbl at some point
+	uo_cb *cb = uo_hashtbl_find(cb_map, state);
+
+	if (cb->opt & uo_cb_opt_invoke_once)
+		uo_hashtbl_remove(cb_map, state);
+		
 	return uo_cb_invoke(cb, arg, state);
 }
 
