@@ -10,6 +10,7 @@ extern "C"
 #include "uo_sock.h"
 
 #include <stddef.h>
+#include <stdbool.h>
 
     typedef enum HTTP_HEADER_FLAGS
     {
@@ -29,7 +30,7 @@ extern "C"
         char *buf;
     } uo_httpc;
 
-    void uo_httpc_init(
+    bool uo_httpc_init(
         size_t thrd_count);
 
     uo_httpc *uo_httpc_create(

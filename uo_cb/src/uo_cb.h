@@ -6,6 +6,8 @@ extern "C" {
 #endif
 
 #include <stddef.h>
+#include <stdbool.h>
+
 #include <semaphore.h>
 
 typedef enum uo_cb_opt {
@@ -18,7 +20,7 @@ typedef struct uo_cb {
 	uo_cb_opt opt;
 } uo_cb;
 
-void uo_cb_init(
+bool uo_cb_init(
 	size_t thrd_count);
 
 uo_cb *uo_cb_create(

@@ -4,6 +4,7 @@
 
 #include <stdbool.h>
 #include <stdlib.h>
+
 #include <pthread.h>
 
 #define UO_F void *(*)(void *, void *)
@@ -78,7 +79,7 @@ static void *execute(
 	}
 }
 
-void uo_cb_init(
+bool uo_cb_init(
 	size_t thrd_count) 
 {
 	if (is_init)
@@ -86,16 +87,15 @@ void uo_cb_init(
 		if (thrd_count > thrds_len) 
 		{
 			thrds = realloc(thrds, sizeof(pthread_t) * thrd_count);
-			for (int i = thrds_len; i < thrd_count; ++i) 
-				pthread_create(thrds + i, NULL, execute, NULL);
+			for (int i = thrds_len; is_init && i < thrd_count; ++i) 
+				is_init &= pthread_create(thrds + i, NULL, execute, NULL) == 0;
 			thrds_len = thrd_count;
 		}
 
-		return;
+		return is_init;
 	}
 
 	is_init = true;
-
 	thrds_len = thrd_count || 1;
 	thrds = malloc(sizeof(pthread_t) * thrds_len);
 
@@ -103,9 +103,11 @@ void uo_cb_init(
 	cb_map = uo_hashtbl_create(0x100, addrofstate, stateequals);
 
 	for (int i = 0; i < thrds_len; ++i) 
-		pthread_create(thrds + i, NULL, execute, NULL);
+		is_init &= pthread_create(thrds + i, NULL, execute, NULL) == 0;
 
 	atexit(uo_cb_quit);
+
+	return is_init;
 }
 
 uo_cb *uo_cb_create(

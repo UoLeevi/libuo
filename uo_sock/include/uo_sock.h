@@ -22,6 +22,7 @@ extern "C" {
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #endif
@@ -29,6 +30,13 @@ extern "C" {
 #include <stdbool.h>
 
 bool uo_sock_init(void);
+
+int uo_setsockopt(
+    int socket,
+    int level,
+    int option_name,
+    const void *option_value,
+    socklen_t option_len);
 
 #ifdef __cplusplus
 }

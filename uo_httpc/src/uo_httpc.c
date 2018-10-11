@@ -14,7 +14,6 @@
 #include <errno.h>
 
 #include <unistd.h>
-
 #include <pthread.h>
 
 #define BUF_GROW 0x10000
@@ -29,6 +28,8 @@
 #define HEADER_HOST "Host: "
 #define HEADER_ACCEPT "Accept: "
 #define HEADER_CONTENT_LENGTH "Content-Length: "
+
+static bool is_init;
 
 static uintmax_t read_content_length(
     char *src)
@@ -55,7 +56,7 @@ static uintmax_t read_content_length(
 }
 
 uo_http_res *uo_http_res_create(
-    const char *headers, 
+    const char *headers,
     const size_t headers_len, 
     const char *body, 
     const size_t body_len);
@@ -65,6 +66,15 @@ static uo_http_res *uo_httpc_make_request(
     void *_)
 {
     int sockfd = socket(httpc->serv_addrinfo->ai_family, SOCK_STREAM, IPPROTO_TCP);
+
+    int opt_TCP_NODELAY = true;
+    uo_setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &opt_TCP_NODELAY, sizeof opt_TCP_NODELAY);
+
+    struct timeval opt_SO_RCVTIMEO = { .tv_sec = 20 };
+    uo_setsockopt(sockfd, IPPROTO_IPV6, SO_RCVTIMEO, &opt_SO_RCVTIMEO, sizeof opt_SO_RCVTIMEO);
+
+    struct timeval opt_SO_SNDTIMEO = { .tv_sec = 20 };
+    uo_setsockopt(sockfd, IPPROTO_IPV6, SO_SNDTIMEO, &opt_SO_SNDTIMEO, sizeof opt_SO_SNDTIMEO);
 
     if (connect(sockfd, httpc->serv_addrinfo->ai_addr, httpc->serv_addrinfo->ai_addrlen) == -1)
         return NULL;
@@ -134,11 +144,21 @@ static uo_http_res *uo_httpc_make_request(
         p - headers_end);
 }
 
-void uo_httpc_init(
+bool uo_httpc_init(
     size_t thrd_count)
 {
-    uo_cb_init(thrd_count);
-    uo_sock_init();
+    if (is_init)
+    {
+        is_init &= uo_cb_init(thrd_count);
+        is_init &= uo_sock_init();
+        return is_init;
+    }
+
+    is_init = true;
+    is_init &= uo_cb_init(thrd_count);
+    is_init &= uo_sock_init();
+
+    return is_init;
 }
 
 uo_httpc *uo_httpc_create(
@@ -204,7 +224,6 @@ void uo_httpc_set_header(
     // only set header if not already set
     if ((httpc->header_flags & header) != header)
     {
-
         httpc->header_flags |= header;
 
         switch (header)

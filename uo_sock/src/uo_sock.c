@@ -20,12 +20,32 @@ bool uo_sock_init()
 
     is_init = true;
 
-    bool s = true;
-
 #ifdef UO_SOCK_WIN32
-    s = WSAStartup(MAKEWORD(1, 1), &WsaDat) != 0;
+    is_init &= WSAStartup(MAKEWORD(1, 1), &WsaDat) == 0;
 #endif
 
     atexit(uo_sock_quit);
-    return s;
+    return is_init;
+}
+
+int uo_setsockopt(
+    int socket,
+    int level,
+    int option_name,
+    const void *option_value,
+    socklen_t option_len)
+{
+#ifdef UO_SOCK_WIN32
+    switch (option_name)
+    {
+        case SO_RCVTIMEO:
+        case SO_SNDTIMEO:
+        {
+            const struct timeval *tv = option_value;
+            DWORD opt = tv->tv_sec * 1000 + tv->tv_usec / 1000;
+            return setsockopt(socket, level, option_name, (char *)&opt, sizeof opt);
+        }
+    }
+#endif
+    return setsockopt(socket, level, option_name, option_value, option_len);
 }
