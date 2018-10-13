@@ -80,12 +80,12 @@ static uo_http_res *uo_httpc_make_request(
     uo_setsockopt(sockfd, IPPROTO_IPV6, SO_SNDTIMEO, &opt_SO_SNDTIMEO, sizeof opt_SO_SNDTIMEO);
 
     if (connect(sockfd, httpc->serv_addrinfo->ai_addr, httpc->serv_addrinfo->ai_addrlen) == -1)
-        uo_err_return(NULL, "unable to connect http client socket.");
+        uo_err_goto(err_close, "unable to connect http client socket.");
 
     char *request = httpc->buf + httpc->headers_len;
 
     if (send(sockfd, request, httpc->request_len, 0) == -1)
-        uo_err_return(NULL, "error on sending http request.");
+        uo_err_goto(err_close, "error on sending http request.");
 
     char *response = request + httpc->request_len;
     size_t response_buf_len = httpc->buf_len - (response - httpc->buf);
@@ -100,10 +100,10 @@ static uo_http_res *uo_httpc_make_request(
         switch (len)
         {
             case -1:
-                uo_err_return(NULL, "error on receiving http response.");
+                uo_err_goto(err_close, "error on receiving http response.");
 
             case 0:
-                uo_err_return(NULL, "server has usexpectedly closed the socket while more http response data was expected.");
+                uo_err_goto(err_close, "server has usexpectedly closed the socket while more http response data was expected.");
         }
 
         response_buf_len = httpc->buf_len - (p - httpc->buf);
@@ -124,16 +124,16 @@ static uo_http_res *uo_httpc_make_request(
     assert(headers_end);
     headers_end += STRLEN(CRLF CRLF);
 
-    while (p - response < content_length)
+    while (p - headers_end < content_length)
     {
         p += len = recv(sockfd, p, response_buf_len, 0);
         switch (len)
         {
             case -1:
-                uo_err_return(NULL, "error on receiving http response.");
+                uo_err_goto(err_close, "error on receiving http response.");
 
             case 0:
-                uo_err_return(NULL, "server has usexpectedly closed the socket while more http response data was expected.");
+                uo_err_goto(err_close, "server has usexpectedly closed the connection before expected number of response payload bytes was received.");
         }
 
         response_buf_len = httpc->buf_len - (p - httpc->buf);
@@ -159,6 +159,11 @@ static uo_http_res *uo_httpc_make_request(
         headers_end - 2 - response,
         headers_end,
         p - headers_end);
+
+err_close:
+    close(sockfd);
+
+    return NULL;
 }
 
 bool uo_httpc_init(
