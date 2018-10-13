@@ -11,11 +11,16 @@ target_include_directories("${CMAKE_PROJECT_NAME}"
     PRIVATE
         src
         ../uo_cb/include
+        ../uo_err/include
         ../uo_sock/include)
 
 find_library(UOLIB_CB 
     NAMES uo_cb
     HINTS "${CMAKE_PREFIX_PATH}/uo_cb/lib")
+
+find_library(UOLIB_ERR 
+    NAMES uo_err
+    HINTS "${CMAKE_PREFIX_PATH}/uo_err/lib")
 
 find_library(UOLIB_SOCK
     NAMES uo_sock
@@ -24,7 +29,8 @@ find_library(UOLIB_SOCK
 target_link_libraries("${CMAKE_PROJECT_NAME}"
     PRIVATE
         "${UOLIB_CB}"
-        "${UOLIB_SOCK}")
+        "${UOLIB_SOCK}"
+        "${UOLIB_ERR}")
 
 set_target_properties("${CMAKE_PROJECT_NAME}"
     PROPERTIES

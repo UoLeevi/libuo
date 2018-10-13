@@ -9,11 +9,11 @@ extern "C"
 #include <stddef.h>
 
 typedef struct uo_http_res
-{
-    char *headers;
-    char *body;
-    size_t headers_len;
+{   
     size_t body_len;
+    size_t headers_len;
+    char *body;
+    char *headers;
 } uo_http_res;
 
 void uo_http_res_destroy(

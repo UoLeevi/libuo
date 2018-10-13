@@ -1,6 +1,7 @@
 #include "uo_httpc.h"
 #include "uo_cb.h"
 #include "uo_sock.h"
+#include "uo_err.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -16,7 +17,7 @@
 #include <unistd.h>
 #include <pthread.h>
 
-#define BUF_GROW 0x10000
+#define BUF_INIT_LEN 0x10000
 
 #define STRLEN(s) (sizeof(s) / sizeof(s[0]) - 1)
 
@@ -66,6 +67,8 @@ static uo_http_res *uo_httpc_make_request(
     void *_)
 {
     int sockfd = socket(httpc->serv_addrinfo->ai_family, SOCK_STREAM, IPPROTO_TCP);
+    if (sockfd == -1)
+        uo_err_return(NULL, "unable to create socket.");
 
     int opt_TCP_NODELAY = true;
     uo_setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &opt_TCP_NODELAY, sizeof opt_TCP_NODELAY);
@@ -77,12 +80,12 @@ static uo_http_res *uo_httpc_make_request(
     uo_setsockopt(sockfd, IPPROTO_IPV6, SO_SNDTIMEO, &opt_SO_SNDTIMEO, sizeof opt_SO_SNDTIMEO);
 
     if (connect(sockfd, httpc->serv_addrinfo->ai_addr, httpc->serv_addrinfo->ai_addrlen) == -1)
-        return NULL;
+        uo_err_return(NULL, "unable to connect http client socket.");
 
     char *request = httpc->buf + httpc->headers_len;
 
     if (send(sockfd, request, httpc->request_len, 0) == -1)
-        return NULL;
+        uo_err_return(NULL, "error on sending http request.");
 
     char *response = request + httpc->request_len;
     size_t response_buf_len = httpc->buf_len - (response - httpc->buf);
@@ -94,14 +97,21 @@ static uo_http_res *uo_httpc_make_request(
     while (!content_length)
     {
         p += len = recv(sockfd, p, response_buf_len, 0);
-        if (len == -1)
-            return NULL;
+        switch (len)
+        {
+            case -1:
+                uo_err_return(NULL, "error on receiving http response.");
+
+            case 0:
+                uo_err_return(NULL, "server has usexpectedly closed the socket while more http response data was expected.");
+        }
+
         response_buf_len = httpc->buf_len - (p - httpc->buf);
         if (!response_buf_len) 
         {
             ptrdiff_t pdiff = p - httpc->buf;
             ptrdiff_t responsediff = response - httpc->buf;
-            httpc->buf = realloc(httpc->buf, httpc->buf_len += BUF_GROW);
+            httpc->buf = realloc(httpc->buf, httpc->buf_len <<= 1);
             p = httpc->buf + pdiff;
             response = httpc->buf + responsediff;
         }
@@ -114,18 +124,25 @@ static uo_http_res *uo_httpc_make_request(
     assert(headers_end);
     headers_end += STRLEN(CRLF CRLF);
 
-    while (p - headers_end < content_length)
+    while (p - response < content_length)
     {
         p += len = recv(sockfd, p, response_buf_len, 0);
-        if (len == -1)
-            return NULL;
+        switch (len)
+        {
+            case -1:
+                uo_err_return(NULL, "error on receiving http response.");
+
+            case 0:
+                uo_err_return(NULL, "server has usexpectedly closed the socket while more http response data was expected.");
+        }
+
         response_buf_len = httpc->buf_len - (p - httpc->buf);
         if (!response_buf_len) 
         {
             ptrdiff_t pdiff = p - httpc->buf;
             ptrdiff_t responsediff = response - httpc->buf;
             ptrdiff_t headers_enddiff = headers_end - httpc->buf;
-            httpc->buf = realloc(httpc->buf, httpc->buf_len += BUF_GROW);
+            httpc->buf = realloc(httpc->buf, httpc->buf_len <<= 1);
             p = httpc->buf + pdiff;
             response = httpc->buf + responsediff;
             headers_end = httpc->buf + headers_enddiff;
@@ -165,7 +182,7 @@ uo_httpc *uo_httpc_create(
     const char *host, 
     const size_t host_len)
 {
-    uo_httpc *httpc = malloc(sizeof(uo_httpc));
+    uo_httpc *httpc = malloc(sizeof *httpc);
 
     struct addrinfo hints = {
         .ai_family = AF_UNSPEC,
@@ -173,21 +190,22 @@ uo_httpc *uo_httpc_create(
         .ai_protocol = IPPROTO_TCP
     };
 
-    int s = getaddrinfo(host, "80", &hints, &httpc->serv_addrinfo);
+    int s;
     
-    if (s != 0) {
-        printf("getaddrinfo: %s\n", gai_strerror(s));
+    if ((s = getaddrinfo(host, "80", &hints, &httpc->serv_addrinfo)) != 0)
+    {
         free(httpc);
-        return NULL;
+        uo_err_return(NULL, "getaddrinfo: %s", gai_strerror(s));
     }
 
-    httpc->buf = malloc(BUF_GROW);
-    httpc->buf_len = BUF_GROW;
     httpc->header_flags = HTTP_HEADER_HOST;
     httpc->headers_len = STRLEN(HEADER_HOST) + host_len + STRLEN(CRLF);
 
-    while (httpc->buf_len < httpc->headers_len)
-        httpc->buf = realloc(httpc->buf, httpc->buf_len += BUF_GROW);
+    httpc->buf_len = BUF_INIT_LEN > httpc->headers_len
+        ? BUF_INIT_LEN
+        : httpc->headers_len;
+
+    httpc->buf = malloc(httpc->buf_len);
 
     void *p = httpc->buf;
     p = memcpy(p, HEADER_HOST, STRLEN(HEADER_HOST)) + STRLEN(HEADER_HOST);
@@ -236,7 +254,7 @@ void uo_httpc_set_header(
                 httpc->headers_len += STRLEN(HEADER_ACCEPT) + value_len + STRLEN(CRLF);
 
                 while (httpc->buf_len < httpc->headers_len)
-                    httpc->buf = realloc(httpc->buf, httpc->buf_len += BUF_GROW);
+                    httpc->buf = realloc(httpc->buf, httpc->buf_len <<= 1);
 
                 p = memcpy(p, HEADER_ACCEPT, STRLEN(HEADER_ACCEPT)) + STRLEN(HEADER_ACCEPT);
                 p = memcpy(p, value, value_len) + value_len;
