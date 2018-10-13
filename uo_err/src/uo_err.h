@@ -36,6 +36,15 @@ void uo_err_exit(
     return (return_val); \
 }
 
+#define uo_err_goto( \
+    goto_label, \
+    fmt, \
+    ...) \
+{ \
+    uo_err(fmt, ##__VA_ARGS__); \
+    goto goto_label; \
+}
+
 #ifdef __cplusplus
 }
 #endif
