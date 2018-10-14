@@ -7,15 +7,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include <math.h>
 #include <ctype.h>
 #include <inttypes.h>
 #include <stdint.h>
 #include <assert.h>
 #include <errno.h>
+#include <time.h>
 
 #include <unistd.h>
 #include <pthread.h>
+
+#define RECV_RETRY_MAX_TRIES 3
+#define RECV_RETRY_WAIT_SLOT_USEC 0x10000
 
 #define BUF_INIT_LEN 0x10000
 
@@ -31,6 +34,14 @@
 #define HEADER_CONTENT_LENGTH "Content-Length: "
 
 static bool is_init;
+
+static int expbackoff_usleep(
+    const uint32_t c, 
+    const useconds_t slot_usec)
+{
+    const uint32_t k = rand() % (1 << c);
+    return usleep(k * slot_usec);
+}
 
 uo_http_res *uo_http_res_create(
     int status_code,
@@ -60,12 +71,12 @@ static uo_http_res *uo_httpc_make_request(
         uo_err("Could not set SO_SNDTIMEO option.");
 
     if (connect(sockfd, httpc->serv_addrinfo->ai_addr, httpc->serv_addrinfo->ai_addrlen) == -1)
-        uo_err_goto(err_close, "Unable to connect http client socket.");
+        uo_err_goto(err_close, "Unable to connect HTTP client socket.");
 
     char *request = httpc->buf + httpc->headers_len;
 
     if (send(sockfd, request, httpc->request_len, 0) == -1)
-        uo_err_goto(err_close, "Error on sending http request.");
+        uo_err_goto(err_close, "Error on sending HTTP request.");
 
     if (shutdown(sockfd, SHUT_WR) == -1)
         uo_err_goto(err_close, "Error on shutting down the socket for sending.");
@@ -74,14 +85,21 @@ static uo_http_res *uo_httpc_make_request(
     size_t response_buf_len = httpc->buf_len - (response - httpc->buf);
 
     char *p = response;
-    ssize_t recv_len = ~0;
+    ssize_t recv_len;
+    uint32_t recv_retries = 0;
 
-    while (recv_len)
+    do
     {
-        p += recv_len = recv(sockfd, p, response_buf_len, 0);
+        while ((recv_len = recv(sockfd, p, response_buf_len, 0)) == -1)
+        {
+            int errno_local = errno;
+            if ((errno_local == EAGAIN || errno_local == EWOULDBLOCK) && recv_retries < RECV_RETRY_MAX_TRIES)
+                expbackoff_usleep(++recv_retries, RECV_RETRY_WAIT_SLOT_USEC);
+            else
+                uo_err_goto(err_close, "Error on receiving HTTP response.");
+        }
 
-        if (recv_len == -1)
-            uo_err_goto(err_close, "Error on receiving http response.");
+        p += recv_len;
 
         if (!(response_buf_len = httpc->buf_len - (p - httpc->buf)))
         {
@@ -95,7 +113,7 @@ static uo_http_res *uo_httpc_make_request(
         }
             
         *p = '\0';
-    }
+    } while (recv_len);
 
     shutdown(sockfd, SHUT_RD);
     close(sockfd);
@@ -184,6 +202,11 @@ uo_httpc *uo_httpc_create(
     assert(p - (void *)httpc->buf == httpc->headers_len);
 
     return httpc;
+
+err_free:
+    free(httpc);
+
+    return NULL;
 }
 
 void uo_httpc_destroy(
