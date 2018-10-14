@@ -3,6 +3,8 @@
 #include "uo_sock.h"
 #include "uo_err.h"
 
+#include <openssl/ssl.h>
+
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -162,14 +164,22 @@ bool uo_httpc_init(
     is_init &= uo_cb_init(thrd_count);
     is_init &= uo_sock_init();
 
+    if (OPENSSL_init_ssl(0, NULL) != 1)
+        uo_err_return(is_init = false, "Initialization of OpenSSL failed");
+
+    srand(time(0));
+
     return is_init;
 }
 
 uo_httpc *uo_httpc_create(
     const char *host, 
-    const size_t host_len)
+    const size_t host_len,
+    UO_HTTPC_OPT opt)
 {
     uo_httpc *httpc = malloc(sizeof *httpc);
+
+    httpc->opt = opt;
 
     struct addrinfo hints = {
         .ai_family = AF_UNSPEC,
@@ -177,13 +187,14 @@ uo_httpc *uo_httpc_create(
         .ai_protocol = IPPROTO_TCP
     };
 
-    int s;
+    int s = getaddrinfo(
+        host, 
+        opt & UO_HTTPC_OPT_TLS ? "443" : "80",
+        &hints, 
+        &httpc->serv_addrinfo);
     
-    if ((s = getaddrinfo(host, "80", &hints, &httpc->serv_addrinfo)) != 0)
-    {
-        free(httpc);
-        uo_err_return(NULL, "getaddrinfo: %s", gai_strerror(s));
-    }
+    if (s != 0)
+        uo_err_goto(err_free, "getaddrinfo: %s", gai_strerror(s));
 
     httpc->header_flags = HTTP_HEADER_HOST;
     httpc->headers_len = STRLEN(HEADER_HOST) + host_len + STRLEN(CRLF);

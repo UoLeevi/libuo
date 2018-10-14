@@ -7,12 +7,15 @@ add_library("${CMAKE_PROJECT_NAME}"
     src/uo_httpc.c
     src/uo_http_res.c)
 
+find_package(OpenSSL)
+
 target_include_directories("${CMAKE_PROJECT_NAME}"
     PRIVATE
         src
         ../uo_cb/include
         ../uo_err/include
-        ../uo_sock/include)
+        ../uo_sock/include
+        "${OPENSSL_INCLUDE_DIR}")
 
 find_library(UOLIB_CB 
     NAMES uo_cb
@@ -30,7 +33,8 @@ target_link_libraries("${CMAKE_PROJECT_NAME}"
     PRIVATE
         "${UOLIB_CB}"
         "${UOLIB_SOCK}"
-        "${UOLIB_ERR}")
+        "${UOLIB_ERR}"
+        "${OPENSSL_SSL_LIBRARY}")
 
 set_target_properties("${CMAKE_PROJECT_NAME}"
     PROPERTIES

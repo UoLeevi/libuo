@@ -19,13 +19,17 @@ extern "C"
         HTTP_HEADER_ACCEPT = 2,
     } HTTP_HEADER_FLAGS;
 
+    typedef enum UO_HTTPC_OPT {
+	    UO_HTTPC_OPT_TLS = 1 << 0
+    } UO_HTTPC_OPT;
+
     typedef struct uo_httpc
     {
-        struct addrinfo *serv_addrinfo;
+        UO_HTTPC_OPT opt;
         HTTP_HEADER_FLAGS header_flags;
+        struct addrinfo *serv_addrinfo;
         size_t headers_len;
         size_t request_len;
-        size_t response_len;
         size_t buf_len;
         char *buf;
     } uo_httpc;
@@ -35,7 +39,8 @@ extern "C"
 
     uo_httpc *uo_httpc_create(
         const char *host, 
-        const size_t host_len);
+        const size_t host_len,
+        UO_HTTPC_OPT opt);
         
     void uo_httpc_destroy(
         uo_httpc *httpc);
