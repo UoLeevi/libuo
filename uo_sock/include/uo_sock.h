@@ -13,6 +13,8 @@ extern "C" {
 
 #ifdef UO_SOCK_WIN32 
 #define _WIN32_WINNT _WIN32_WINNT_WIN8
+#define SHUT_RD SD_RECEIVE
+#define SHUT_WR SD_SEND
 #define SHUT_RDWR SD_BOTH
 #include <winsock2.h>
 #include <ws2tcpip.h>
