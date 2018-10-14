@@ -10,6 +10,7 @@ extern "C"
 
 typedef struct uo_http_res
 {   
+    int status_code;
     size_t body_len;
     size_t headers_len;
     char *body;

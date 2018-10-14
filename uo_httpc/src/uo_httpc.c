@@ -32,31 +32,8 @@
 
 static bool is_init;
 
-static uintmax_t read_content_length(
-    char *src)
-{
-    char *headers_end = strstr(src, CRLF CRLF);
-    if (!headers_end)
-        return 0;
-
-    size_t headers_len = headers_end - src;
-    char headers[headers_len + 1];
-    headers[headers_len] = '\0';
-    memcpy(headers, src, headers_len);
-
-    for (int i = 0; headers[i]; ++i)
-        headers[i] = tolower(headers[i]);
-
-    char *content_length_header = strstr(headers, "content-length: ");
-    if (!content_length_header)
-        return 0;
-
-    char *endptr;
-
-    return strtoumax(content_length_header + 16, &endptr, 10);
-}
-
 uo_http_res *uo_http_res_create(
+    int status_code,
     const char *headers,
     const size_t headers_len, 
     const char *body, 
@@ -68,97 +45,84 @@ static uo_http_res *uo_httpc_make_request(
 {
     int sockfd = socket(httpc->serv_addrinfo->ai_family, SOCK_STREAM, IPPROTO_TCP);
     if (sockfd == -1)
-        uo_err_return(NULL, "unable to create socket.");
+        uo_err_return(NULL, "Unable to create socket.");
 
     int opt_TCP_NODELAY = true;
-    uo_setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &opt_TCP_NODELAY, sizeof opt_TCP_NODELAY);
+    if (uo_setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &opt_TCP_NODELAY, sizeof opt_TCP_NODELAY) == -1)
+        uo_err("Could not set TCP_NODELAY option.");
 
     struct timeval opt_SO_RCVTIMEO = { .tv_sec = 20 };
-    uo_setsockopt(sockfd, IPPROTO_IPV6, SO_RCVTIMEO, &opt_SO_RCVTIMEO, sizeof opt_SO_RCVTIMEO);
+    if (uo_setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &opt_SO_RCVTIMEO, sizeof opt_SO_RCVTIMEO) == -1)
+        uo_err("Could not set SO_RCVTIMEO option.");
 
     struct timeval opt_SO_SNDTIMEO = { .tv_sec = 20 };
-    uo_setsockopt(sockfd, IPPROTO_IPV6, SO_SNDTIMEO, &opt_SO_SNDTIMEO, sizeof opt_SO_SNDTIMEO);
+    if (uo_setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &opt_SO_SNDTIMEO, sizeof opt_SO_SNDTIMEO) == -1)
+        uo_err("Could not set SO_SNDTIMEO option.");
 
     if (connect(sockfd, httpc->serv_addrinfo->ai_addr, httpc->serv_addrinfo->ai_addrlen) == -1)
-        uo_err_goto(err_close, "unable to connect http client socket.");
+        uo_err_goto(err_close, "Unable to connect http client socket.");
 
     char *request = httpc->buf + httpc->headers_len;
 
     if (send(sockfd, request, httpc->request_len, 0) == -1)
-        uo_err_goto(err_close, "error on sending http request.");
+        uo_err_goto(err_close, "Error on sending http request.");
+
+    if (shutdown(sockfd, SHUT_WR) == -1)
+        uo_err_goto(err_close, "Error on shutting down the socket for sending.");
 
     char *response = request + httpc->request_len;
     size_t response_buf_len = httpc->buf_len - (response - httpc->buf);
 
-    uintmax_t content_length = 0;
     char *p = response;
-    ssize_t len;
+    ssize_t recv_len = ~0;
 
-    while (!content_length)
+    while (recv_len)
     {
-        p += len = recv(sockfd, p, response_buf_len, 0);
-        switch (len)
-        {
-            case -1:
-                uo_err_goto(err_close, "error on receiving http response.");
+        p += recv_len = recv(sockfd, p, response_buf_len, 0);
 
-            case 0:
-                uo_err_goto(err_close, "server has usexpectedly closed the socket while more http response data was expected.");
-        }
+        if (recv_len == -1)
+            uo_err_goto(err_close, "Error on receiving http response.");
 
-        response_buf_len = httpc->buf_len - (p - httpc->buf);
-        if (!response_buf_len) 
+        if (!(response_buf_len = httpc->buf_len - (p - httpc->buf)))
         {
             ptrdiff_t pdiff = p - httpc->buf;
             ptrdiff_t responsediff = response - httpc->buf;
+
             httpc->buf = realloc(httpc->buf, httpc->buf_len <<= 1);
+
             p = httpc->buf + pdiff;
             response = httpc->buf + responsediff;
         }
             
         *p = '\0';
-        content_length = read_content_length(response);
     }
 
-    char *headers_end = strstr(response, CRLF CRLF);
-    assert(headers_end);
-    headers_end += STRLEN(CRLF CRLF);
-
-    while (p - headers_end < content_length)
-    {
-        p += len = recv(sockfd, p, response_buf_len, 0);
-        switch (len)
-        {
-            case -1:
-                uo_err_goto(err_close, "error on receiving http response.");
-
-            case 0:
-                uo_err_goto(err_close, "server has usexpectedly closed the connection before expected number of response payload bytes was received.");
-        }
-
-        response_buf_len = httpc->buf_len - (p - httpc->buf);
-        if (!response_buf_len) 
-        {
-            ptrdiff_t pdiff = p - httpc->buf;
-            ptrdiff_t responsediff = response - httpc->buf;
-            ptrdiff_t headers_enddiff = headers_end - httpc->buf;
-            httpc->buf = realloc(httpc->buf, httpc->buf_len <<= 1);
-            p = httpc->buf + pdiff;
-            response = httpc->buf + responsediff;
-            headers_end = httpc->buf + headers_enddiff;
-        }
-    }
-
-    httpc->response_len = p - response;
-
-    shutdown(sockfd, SHUT_RDWR);
+    shutdown(sockfd, SHUT_RD);
     close(sockfd);
 
-    return uo_http_res_create(
-        response,
-        headers_end - 2 - response,
-        headers_end,
-        p - headers_end);
+    int status_code;
+    if (p - response < 12 || !sscanf(response, "HTTP/1.%*c %d", &status_code))
+        uo_err_return(NULL, "Error on receiving the HTTP response.");
+
+    char *headers_end = strstr(response, CRLF CRLF);
+    if (!headers_end)
+        uo_err_return(NULL, "Error on receiving the HTTP response. HTTP header fields were partially missing.");
+
+    char *body = headers_end + STRLEN(CRLF CRLF);
+    
+    return p > body
+        ? uo_http_res_create(
+            status_code,
+            response,
+            headers_end - response,
+            body,
+            p - body)
+        : uo_http_res_create(
+            status_code,
+            response,
+            headers_end - response,
+            NULL,
+            0);
 
 err_close:
     close(sockfd);
