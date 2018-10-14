@@ -150,7 +150,7 @@ void *uo_cb_invoke(
 		result = cb->f[i](result, state);
 
 	if (cb->opt & uo_cb_opt_invoke_once)
-		free(cb);
+		uo_cb_destroy(cb);
 
 	return result;
 }
