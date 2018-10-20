@@ -6,14 +6,13 @@
 uo_queue *uo_queue_create(
 	size_t capasity)
 {
-	uo_queue *queue = malloc(sizeof(uo_queue));
-	memset(queue, 0, sizeof(uo_queue));
+	uo_queue *queue = calloc(1, sizeof *queue);
 	sem_init(&queue->enqueue_sem, 0, capasity);
 	sem_init(&queue->dequeue_sem, 0, 0);
 	pthread_mutex_init(&queue->enqueue_mtx, NULL);
 	pthread_mutex_init(&queue->dequeue_mtx, NULL);
 	queue->capasity = capasity;
-	queue->items = malloc(sizeof(void *) * capasity);
+	queue->items = malloc(sizeof *queue->items * capasity);
 	return queue;
 }
 

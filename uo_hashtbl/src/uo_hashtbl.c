@@ -21,8 +21,7 @@ uo_hashtbl *uo_hashtbl_create(
     bool (*equals)(const void *, const void *))
 {
     uo_hashtbl *hashtbl = malloc(sizeof(uo_hashtbl));
-    hashtbl->items = malloc(capasity * sizeof(uo_kvp));
-    memset(hashtbl->items, 0, capasity * sizeof(uo_kvp));
+    hashtbl->items = calloc(capasity, sizeof *hashtbl->items);
     hashtbl->capasity = capasity;
     hashtbl->hash = hash;
     hashtbl->equals = equals;

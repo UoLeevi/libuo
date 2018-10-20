@@ -6,8 +6,7 @@
 uo_stack *uo_stack_create(
 	size_t capasity)
 {
-	uo_stack *stack = malloc(sizeof(uo_stack));
-	memset(stack, 0, sizeof(uo_stack));
+	uo_stack *stack = calloc(1, sizeof *stack);
 	sem_init(&stack->push_sem, 0, capasity);
 	sem_init(&stack->pop_sem, 0, 0);
 	pthread_mutex_init(&stack->mtx, NULL);
