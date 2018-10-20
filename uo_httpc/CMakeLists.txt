@@ -14,6 +14,7 @@ target_include_directories("${CMAKE_PROJECT_NAME}"
         src
         ../uo_cb/include
         ../uo_err/include
+        ../uo_mem/include
         ../uo_sock/include
         "${OPENSSL_INCLUDE_DIR}")
 

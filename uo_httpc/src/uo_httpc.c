@@ -2,6 +2,7 @@
 #include "uo_cb.h"
 #include "uo_sock.h"
 #include "uo_err.h"
+#include "uo_mem.h"
 
 #include <openssl/ssl.h>
 
@@ -19,8 +20,18 @@
 #include <unistd.h>
 #include <pthread.h>
 
+#ifdef WIN32
+#include <windows.h>
+#include <wincrypt.h>
+#include <tchar.h>
+
+static X509_STORE *x509_store;
+#endif
+
 #define RECV_RETRY_MAX_TRIES 3
 #define RECV_RETRY_WAIT_SLOT_USEC 0x10000
+#define RECV_TIMEOUT_SEC 20
+#define SEND_TIMEOUT_SEC 20
 
 #define BUF_INIT_LEN 0x10000
 
@@ -33,9 +44,50 @@
 
 #define HEADER_HOST "Host: "
 #define HEADER_ACCEPT "Accept: "
+#define HEADER_CONNECTION "Connection: "
 #define HEADER_CONTENT_LENGTH "Content-Length: "
 
+typedef struct uo_tls_info {
+    SSL_CTX *ctx;
+} uo_tls_info;
+
 static bool is_init;
+
+uo_http_res *uo_http_res_create(
+    int status_code,
+    const char *headers,
+    const size_t headers_len, 
+    const char *body, 
+    const size_t body_len);
+
+static ssize_t get_content_length(
+    const char *const response,
+    size_t len)
+{
+    const char *response_end = response + len;
+
+    const char *header = response;
+    const char *header_end = memchr(header, '\r', response_end - header);
+    
+    while (header_end && header_end < response_end)
+    {
+        // Find Content-Length header using bitwise trick to do case insensitive comparison
+        if ((((uint64_t *)header)[0] & 0xDFDFDFDFDFDFDFDF) == (((uint64_t *)HEADER_CONTENT_LENGTH)[0] & 0xDFDFDFDFDFDFDFDF) && 
+            (((uint64_t *)header)[1] & 0xDFDFDFDFDFDFDFDF) == (((uint64_t *)HEADER_CONTENT_LENGTH)[1] & 0xDFDFDFDFDFDFDFDF))
+        {
+            long content_length;
+            const char *header_val = header + STRLEN(HEADER_CONTENT_LENGTH);
+            return sscanf(header_val, "%ld", &content_length) == 1
+                ? content_length
+                : -1;
+        }
+
+        header = header_end + STRLEN(CRLF);
+        header_end = memchr(header, '\r', response_end - header);
+    }
+    
+    return -1;
+}
 
 static int expbackoff_usleep(
     const uint32_t c, 
@@ -45,32 +97,75 @@ static int expbackoff_usleep(
     return usleep(k * slot_usec);
 }
 
-uo_http_res *uo_http_res_create(
-    int status_code,
-    const char *headers,
-    const size_t headers_len, 
-    const char *body, 
-    const size_t body_len);
-
-static uo_http_res *uo_httpc_make_request(
-    uo_httpc *httpc,
-    void *_)
+static int create_tcp_socket(
+    int ai_family)
 {
-    int sockfd = socket(httpc->serv_addrinfo->ai_family, SOCK_STREAM, IPPROTO_TCP);
+    int sockfd = socket(ai_family, SOCK_STREAM, IPPROTO_TCP);
     if (sockfd == -1)
-        uo_err_return(NULL, "Unable to create socket.");
+       return sockfd;
 
     int opt_TCP_NODELAY = true;
     if (uo_setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &opt_TCP_NODELAY, sizeof opt_TCP_NODELAY) == -1)
         uo_err("Could not set TCP_NODELAY option.");
 
-    struct timeval opt_SO_RCVTIMEO = { .tv_sec = 20 };
+    struct timeval opt_SO_RCVTIMEO = { .tv_sec = RECV_TIMEOUT_SEC };
     if (uo_setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &opt_SO_RCVTIMEO, sizeof opt_SO_RCVTIMEO) == -1)
         uo_err("Could not set SO_RCVTIMEO option.");
 
-    struct timeval opt_SO_SNDTIMEO = { .tv_sec = 20 };
+    struct timeval opt_SO_SNDTIMEO = { .tv_sec = SEND_TIMEOUT_SEC };
     if (uo_setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &opt_SO_SNDTIMEO, sizeof opt_SO_SNDTIMEO) == -1)
         uo_err("Could not set SO_SNDTIMEO option.");
+
+    return sockfd;
+}
+
+static bool uo_httpc_set_tls_info(
+    uo_httpc *httpc)
+{
+    uo_tls_info *tls_info = malloc(sizeof *tls_info);
+
+    const SSL_METHOD *method = TLS_client_method();
+    if (!method)
+        uo_err_return(false, "Error creating SSL_METHOD.");
+
+    SSL_CTX *ctx = SSL_CTX_new(method);
+    if (!ctx)
+        uo_err_return(false, "Error creating SSL_CTX.");
+
+    SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
+    SSL_CTX_set_verify_depth(ctx, 4);
+    SSL_CTX_set_min_proto_version(ctx, TLS1_VERSION);
+    SSL_CTX_set_mode(ctx, SSL_MODE_AUTO_RETRY);
+
+    const char *const PREFERRED_CIPHERS = "HIGH:!aNULL:!kRSA:!PSK:!SRP:!MD5:!RC4";
+    if (!SSL_CTX_set_cipher_list(ctx, PREFERRED_CIPHERS))
+        uo_err_goto(err_free_ctx, "Error while setting cipher list for TLS.");
+
+#ifdef WIN32
+    SSL_CTX_set_cert_store(ctx, x509_store);
+#else
+    if (!SSL_CTX_set_default_verify_paths(ctx))
+        uo_err_goto(err_free_ctx, "Error setting CA certificate locations for HTTP client.");
+#endif
+
+    tls_info->ctx = ctx;
+    httpc->tls_info = tls_info;
+
+    return true;
+
+err_free_ctx:
+    SSL_CTX_free(ctx);
+
+    return false;
+}
+
+static uo_http_res *uo_httpc_make_request(
+    uo_httpc *httpc,
+    void *_)
+{
+    int sockfd = create_tcp_socket(httpc->serv_addrinfo->ai_family);
+    if (sockfd == -1)
+        uo_err_return(NULL, "Unable to create socket.");
 
     if (connect(sockfd, httpc->serv_addrinfo->ai_addr, httpc->serv_addrinfo->ai_addrlen) == -1)
         uo_err_goto(err_close, "Unable to connect HTTP client socket.");
@@ -80,14 +175,16 @@ static uo_http_res *uo_httpc_make_request(
     if (send(sockfd, request, httpc->request_len, 0) == -1)
         uo_err_goto(err_close, "Error on sending HTTP request.");
 
-    if (shutdown(sockfd, SHUT_WR) == -1)
-        uo_err_goto(err_close, "Error on shutting down the socket for sending.");
-
     char *response = request + httpc->request_len;
-    size_t response_buf_len = httpc->buf_len - (response - httpc->buf);
-
+    char *response_end = NULL;
+    char *headers_end = NULL;
+    char *body = NULL;
     char *p = response;
+
+    size_t response_buf_len = httpc->buf_len - (response - httpc->buf);
     ssize_t recv_len;
+    ssize_t body_len = -1;
+
     uint32_t recv_retries = 0;
 
     do
@@ -107,28 +204,39 @@ static uo_http_res *uo_httpc_make_request(
         {
             ptrdiff_t pdiff = p - httpc->buf;
             ptrdiff_t responsediff = response - httpc->buf;
+            ptrdiff_t headers_enddiff = headers_end - httpc->buf;
 
             httpc->buf = realloc(httpc->buf, httpc->buf_len <<= 1);
 
             p = httpc->buf + pdiff;
             response = httpc->buf + responsediff;
+
+            if (headers_enddiff > 0)
+                headers_end = httpc->buf + headers_enddiff;
         }
             
         *p = '\0';
-    } while (recv_len);
 
-    shutdown(sockfd, SHUT_RD);
+        if (!headers_end)
+            headers_end = strstr(response, CRLF CRLF);
+
+        if (headers_end && body_len == -1)
+            body_len = get_content_length(response, p - response);
+
+        if (!response_end && headers_end && body_len > 0)
+        {
+            body = headers_end + STRLEN(CRLF CRLF);
+            response_end = body + body_len;
+        }
+
+    } while (recv_len && (!response_end || p < response_end));
+
+    shutdown(sockfd, SHUT_RDWR);
     close(sockfd);
 
     int status_code;
     if (p - response < 12 || !sscanf(response, "HTTP/1.%*c %d", &status_code))
         uo_err_return(NULL, "Error on receiving the HTTP response.");
-
-    char *headers_end = strstr(response, CRLF CRLF);
-    if (!headers_end)
-        uo_err_return(NULL, "Error on receiving the HTTP response. HTTP header fields were partially missing.");
-
-    char *body = headers_end + STRLEN(CRLF CRLF);
     
     return p > body
         ? uo_http_res_create(
@@ -146,6 +254,148 @@ static uo_http_res *uo_httpc_make_request(
 
 err_close:
     close(sockfd);
+
+    return NULL;
+}
+
+static uo_http_res *uo_httpc_make_request_tls(
+    uo_httpc *httpc,
+    void *_)
+{
+    uo_tls_info *tls_info = httpc->tls_info;
+    SSL_CTX *ctx = tls_info->ctx;
+
+    SSL *ssl = SSL_new(ctx);
+    if (!ssl)
+        uo_err_return(NULL, "Unable to setup TLS.");
+
+    uo_mem_using(hostname, httpc->hostname_len + 1)
+    {
+        char *p = hostname;
+        uo_mem_write(p, httpc->hostname, httpc->hostname_len);
+        *p = '\0';
+
+        if (!SSL_set1_host(ssl, hostname)) 
+            uo_err_goto(err_ssl_free, "Unable to setup TLS.");
+
+        if (!SSL_set_tlsext_host_name(ssl, hostname))
+            uo_err_goto(err_ssl_free, "Unable to setup TLS.");
+    }
+
+    int sockfd = create_tcp_socket(httpc->serv_addrinfo->ai_family);
+    if (sockfd == -1)
+        uo_err_goto(err_ssl_free, "Unable to create socket.");
+
+    if (!SSL_set_fd(ssl, sockfd))
+        uo_err_goto(err_ssl_free, "Unable to setup TLS.");
+
+    if (connect(sockfd, httpc->serv_addrinfo->ai_addr, httpc->serv_addrinfo->ai_addrlen) == -1)
+        uo_err_goto(err_close, "Unable to connect HTTP client socket.");
+
+    if (SSL_connect(ssl) != 1)
+        uo_err_goto(err_close, "Error while trying to connect using TLS.");
+
+    if (SSL_do_handshake(ssl) != 1)
+        uo_err_goto(err_close, "Error while conducting the TLS handshake.");
+
+    X509 *cert = SSL_get_peer_certificate(ssl);
+    if (!cert)
+        uo_err_goto(err_close, "Error getting the peer certificate.");
+    
+    X509_free(cert);
+
+    if (SSL_get_verify_result(ssl) != X509_V_OK)
+        uo_err_goto(err_close, "Error verifying the peer certificate.");
+
+    void *request = httpc->buf + httpc->headers_len;
+
+    if (SSL_write(ssl, request, httpc->request_len) != httpc->request_len)
+        uo_err_goto(err_close, "Error while sending the HTTP request.");
+
+    char *response = request + httpc->request_len;
+    char *response_end = NULL;
+    char *headers_end = NULL;
+    char *body = NULL;
+    char *p = response;
+
+    size_t response_buf_len = httpc->buf_len - (response - httpc->buf);
+    ssize_t recv_len;
+    ssize_t body_len = -1;
+
+    uint32_t recv_retries = 0;
+
+    do
+    {
+        while ((recv_len = SSL_read(ssl, p, response_buf_len)) == -1)
+        {
+            int errno_local = errno;
+            if ((errno_local == EAGAIN || errno_local == EWOULDBLOCK) && recv_retries < RECV_RETRY_MAX_TRIES)
+                expbackoff_usleep(++recv_retries, RECV_RETRY_WAIT_SLOT_USEC);
+            else
+                uo_err_goto(err_close, "Error on receiving HTTP response.");
+        }
+
+        p += recv_len;
+
+        if (!(response_buf_len = httpc->buf_len - (p - httpc->buf)))
+        {
+            ptrdiff_t pdiff = p - httpc->buf;
+            ptrdiff_t responsediff = response - httpc->buf;
+            ptrdiff_t headers_enddiff = headers_end - httpc->buf;
+
+            httpc->buf = realloc(httpc->buf, httpc->buf_len <<= 1);
+
+            p = httpc->buf + pdiff;
+            response = httpc->buf + responsediff;
+
+            if (headers_enddiff > 0)
+                headers_end = httpc->buf + headers_enddiff;
+        }
+            
+        *p = '\0';
+
+        if (!headers_end)
+            headers_end = strstr(response, CRLF CRLF);
+
+        if (headers_end && body_len == -1)
+            body_len = get_content_length(response, p - response);
+
+        if (!response_end && headers_end && body_len > 0)
+        {
+            body = headers_end + STRLEN(CRLF CRLF);
+            response_end = body + body_len;
+        }
+
+    } while (recv_len && (!response_end || p < response_end));
+
+    shutdown(sockfd, SHUT_RDWR);
+    close(sockfd);
+
+    SSL_free(ssl);
+
+    int status_code;
+    if (p - response < 12 || !sscanf(response, "HTTP/1.%*c %d", &status_code))
+        uo_err_return(NULL, "Error on receiving the HTTP response.");
+    
+    return p > body
+        ? uo_http_res_create(
+            status_code,
+            response,
+            headers_end - response,
+            body,
+            p - body)
+        : uo_http_res_create(
+            status_code,
+            response,
+            headers_end - response,
+            NULL,
+            0);
+
+err_close:
+    close(sockfd);
+
+err_ssl_free:
+     SSL_free(ssl);
 
     return NULL;
 }
@@ -169,16 +419,40 @@ bool uo_httpc_init(
 
     srand(time(0));
 
+#ifdef WIN32
+
+    x509_store = X509_STORE_new();
+
+    PCCERT_CONTEXT pContext = NULL;
+    HCERTSTORE hStore = CertOpenSystemStore(NULL, "ROOT");
+
+    if (!hStore)
+        uo_err_return(is_init = false, "Initialization of OpenSSL failed");
+
+    while (pContext = CertEnumCertificatesInStore(hStore, pContext))
+    {
+        X509 *x509 = d2i_X509(NULL, (const unsigned char **)&pContext->pbCertEncoded, pContext->cbCertEncoded);
+        if (x509 && X509_STORE_add_cert(x509_store, x509) == 1)
+            X509_free(x509);
+        else
+            uo_err_return(is_init = false, "Initialization of OpenSSL failed");
+    }
+
+    CertCloseStore(hStore, 0);
+
+#endif
+
     return is_init;
 }
 
 uo_httpc *uo_httpc_create(
-    const char *host, 
-    const size_t host_len,
+    const char *hostname, 
+    const size_t hostname_len,
     UO_HTTPC_OPT opt)
 {
     uo_httpc *httpc = malloc(sizeof *httpc);
 
+    httpc->hostname_len = hostname_len;
     httpc->opt = opt;
 
     struct addrinfo hints = {
@@ -187,30 +461,37 @@ uo_httpc *uo_httpc_create(
         .ai_protocol = IPPROTO_TCP
     };
 
-    int s = getaddrinfo(
-        host, 
+    int gai = getaddrinfo(
+        hostname, 
         opt & UO_HTTPC_OPT_TLS ? "443" : "80",
         &hints, 
         &httpc->serv_addrinfo);
     
-    if (s != 0)
-        uo_err_goto(err_free, "getaddrinfo: %s", gai_strerror(s));
+    if (gai != 0)
+        uo_err_goto(err_free, "getaddrinfo: %s", gai_strerror(gai));
 
     httpc->header_flags = HTTP_HEADER_HOST;
-    httpc->headers_len = STRLEN(HEADER_HOST) + host_len + STRLEN(CRLF);
+    httpc->headers_len = STRLEN(HEADER_HOST) + hostname_len + STRLEN(CRLF);
 
     httpc->buf_len = BUF_INIT_LEN > httpc->headers_len
         ? BUF_INIT_LEN
         : httpc->headers_len;
 
     httpc->buf = malloc(httpc->buf_len);
+    httpc->hostname = httpc->buf + STRLEN(HEADER_HOST);
 
     void *p = httpc->buf;
-    p = memcpy(p, HEADER_HOST, STRLEN(HEADER_HOST)) + STRLEN(HEADER_HOST);
-    p = memcpy(p, host, host_len) + host_len;
-    p = memcpy(p, CRLF, STRLEN(CRLF)) + STRLEN(CRLF);
+    uo_mem_write(p, HEADER_HOST, STRLEN(HEADER_HOST));
+    uo_mem_write(p, hostname, hostname_len);
+    uo_mem_write(p, CRLF, STRLEN(CRLF));
+
+    for (size_t i = 0; i < hostname_len; ++i)
+        httpc->hostname[i] = tolower(httpc->hostname[i]);
 
     assert(p - (void *)httpc->buf == httpc->headers_len);
+
+    if ((opt & UO_HTTPC_OPT_TLS) && !uo_httpc_set_tls_info(httpc))
+        uo_err_goto(err_free, "Unable to setup TLS for HTTP client.");
 
     return httpc;
 
@@ -237,6 +518,7 @@ void uo_httpc_set_header(
     switch (header)
     {
         case HTTP_HEADER_ACCEPT:
+        case HTTP_HEADER_CONNECTION:
             break;
         default:
             return;
@@ -259,9 +541,28 @@ void uo_httpc_set_header(
                 while (httpc->buf_len < httpc->headers_len)
                     httpc->buf = realloc(httpc->buf, httpc->buf_len <<= 1);
 
-                p = memcpy(p, HEADER_ACCEPT, STRLEN(HEADER_ACCEPT)) + STRLEN(HEADER_ACCEPT);
-                p = memcpy(p, value, value_len) + value_len;
-                p = memcpy(p, CRLF, STRLEN(CRLF)) + STRLEN(CRLF);
+                uo_mem_write(p, HEADER_ACCEPT, STRLEN(HEADER_ACCEPT));
+                uo_mem_write(p, value, value_len);
+                uo_mem_write(p, CRLF, STRLEN(CRLF));
+
+                assert(p - (void *)httpc->buf == httpc->headers_len);
+
+                break;
+            }
+
+            case HTTP_HEADER_CONNECTION:
+            {
+
+                void *p = httpc->buf + httpc->headers_len;
+
+                httpc->headers_len += STRLEN(HEADER_CONNECTION) + value_len + STRLEN(CRLF);
+
+                while (httpc->buf_len < httpc->headers_len)
+                    httpc->buf = realloc(httpc->buf, httpc->buf_len <<= 1);
+
+                uo_mem_write(p, HEADER_CONNECTION, STRLEN(HEADER_CONNECTION));
+                uo_mem_write(p, value, value_len);
+                uo_mem_write(p, CRLF, STRLEN(CRLF));
 
                 assert(p - (void *)httpc->buf == httpc->headers_len);
 
@@ -281,17 +582,19 @@ void uo_httpc_get(
     void *request = httpc->buf + httpc->headers_len;
 
     void *p = request;
-    p = memcpy(p, HTTP_GET, STRLEN(HTTP_GET)) + STRLEN(HTTP_GET);
-    p = memcpy(p, path, path_len) + path_len;
-    p = memcpy(p, HTTP_1_1, STRLEN(HTTP_1_1)) + STRLEN(HTTP_1_1);
-    p = memcpy(p, CRLF, STRLEN(CRLF)) + STRLEN(CRLF);
-    p = memcpy(p, httpc->buf, httpc->headers_len) + httpc->headers_len;
-    p = memcpy(p, CRLF, STRLEN(CRLF)) + STRLEN(CRLF);
+    uo_mem_write(p, HTTP_GET, STRLEN(HTTP_GET));
+    uo_mem_write(p, path, path_len);
+    uo_mem_write(p, HTTP_1_1, STRLEN(HTTP_1_1));
+    uo_mem_write(p, CRLF, STRLEN(CRLF));
+    uo_mem_write(p, httpc->buf, httpc->headers_len);
+    uo_mem_write(p, CRLF, STRLEN(CRLF));
     httpc->request_len = p - request;
 
     uo_cb *cb = uo_cb_create(uo_cb_opt_invoke_once);
 
-    uo_cb_append(cb, (void *(*)(void *, void *))uo_httpc_make_request);
+    uo_cb_append(cb, (void *(*)(void *, void *))(httpc->opt & UO_HTTPC_OPT_TLS 
+        ? uo_httpc_make_request_tls 
+        : uo_httpc_make_request));
     uo_cb_append(cb, (void *(*)(void *, void *))handle_response);
 
     uo_cb_invoke_async(cb, httpc, state, NULL);

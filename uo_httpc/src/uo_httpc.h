@@ -14,13 +14,14 @@ extern "C"
 
     typedef enum HTTP_HEADER_FLAGS
     {
-        HTTP_HEADER_NONE = 0,
-        HTTP_HEADER_HOST = 1,
-        HTTP_HEADER_ACCEPT = 2,
+        HTTP_HEADER_NONE,
+        HTTP_HEADER_HOST,
+        HTTP_HEADER_ACCEPT,
+        HTTP_HEADER_CONNECTION
     } HTTP_HEADER_FLAGS;
 
     typedef enum UO_HTTPC_OPT {
-	    UO_HTTPC_OPT_TLS = 1 << 0
+	    UO_HTTPC_OPT_TLS = 1 << 0,
     } UO_HTTPC_OPT;
 
     typedef struct uo_httpc
@@ -31,15 +32,26 @@ extern "C"
         size_t headers_len;
         size_t request_len;
         size_t buf_len;
-        char *buf;
+        size_t hostname_len;
+        char *hostname;
+        char *buf; /*
+
+            Host: <hostname>\r\n
+            [Header1: ...\r\n
+            ...
+            HeaderN: ...\r\n]
+            \r\n
+            [request]
+            [response]\0*/
+        void *tls_info;
     } uo_httpc;
 
     bool uo_httpc_init(
         size_t thrd_count);
 
     uo_httpc *uo_httpc_create(
-        const char *host, 
-        const size_t host_len,
+        const char *hostname, 
+        const size_t hostname_len,
         UO_HTTPC_OPT opt);
         
     void uo_httpc_destroy(
