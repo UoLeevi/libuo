@@ -52,12 +52,16 @@ uo_tcpserv_conf *uo_tcpserv_conf_create()
             if (!fp)
                 uo_err_exit("Unable to read tcpserv key file.");
 
-            key->key_len = sb.st_size;
             key->key = malloc(sb.st_size + 1);
             key->key[sb.st_size] = '\0';
 
             if (fread(key->key, sizeof(char), sb.st_size, fp) != sb.st_size || ferror(fp))
                 uo_err_exit("Unable to read tcpserv key file.");
+
+            key->key_len = sb.st_size;
+            
+            while (isspace(key->key[key->key_len - 1]))
+                key->key[--key->key_len] = '\0';
 
             fclose(fp);
 
