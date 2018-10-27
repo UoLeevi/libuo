@@ -23,6 +23,7 @@ typedef enum HTTP_HEADER_FLAGS
 
 typedef enum UO_HTTPC_OPT {
     UO_HTTPC_OPT_TLS = 1 << 0,
+    UO_HTTPC_OPT_SEM = 1 << 1
 } UO_HTTPC_OPT;
 
 typedef struct uo_httpc
@@ -52,7 +53,7 @@ bool uo_httpc_init(
 
 uo_httpc *uo_httpc_create(
     const char *hostname, 
-    const size_t hostname_len,
+    size_t hostname_len,
     UO_HTTPC_OPT opt);
     
 void uo_httpc_destroy(
@@ -62,21 +63,30 @@ void uo_httpc_set_header(
     uo_httpc *httpc,
     HTTP_HEADER_FLAGS header,
     const char *value,
-    const size_t value_len);
+    size_t value_len);
 
-void uo_httpc_get(
+void *uo_httpc_get(
     uo_httpc *httpc,
     const char *path,
-    const size_t path_len,
+    size_t path_len,
     void *(*handle_response)(uo_http_res *, void *state),
     void *state);
 
-void uo_httpc_post(
+void *uo_httpc_post(
     uo_httpc *httpc,
     const char *path,
-    const size_t path_len,
+    size_t path_len,
     const char *body,
-    const size_t body_len,
+    size_t body_len,
+    void *(*handle_response)(uo_http_res *, void *state),
+    void *state);
+
+void *uo_httpc_put(
+    uo_httpc *httpc,
+    const char *path,
+    size_t path_len,
+    const char *body,
+    size_t body_len,
     void *(*handle_response)(uo_http_res *, void *state),
     void *state);
 

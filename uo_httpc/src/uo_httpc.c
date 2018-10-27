@@ -19,6 +19,7 @@
 
 #include <unistd.h>
 #include <pthread.h>
+#include <semaphore.h>
 
 #ifdef WIN32
 #include <windows.h>
@@ -41,6 +42,7 @@ static X509_STORE *x509_store;
 
 #define HTTP_GET "GET "
 #define HTTP_POST "POST "
+#define HTTP_PUT "PUT "
 #define HTTP_1_1 " HTTP/1.1"
 
 #define HEADER_HOST "Host: "
@@ -191,7 +193,7 @@ static uo_http_res *uo_httpc_make_request(
     const uo_tls_info *const tls_info = httpc->tls_info;
     SSL *ssl;
 
-    void *request = httpc->buf + httpc->headers_len;
+    char *request = httpc->buf + httpc->headers_len;
 
     int sockfd = create_tcp_socket(httpc->serv_addrinfo->ai_family);
     if (sockfd == -1)
@@ -242,14 +244,10 @@ static uo_http_res *uo_httpc_make_request(
         if (SSL_write(ssl, request, httpc->request_len) != httpc->request_len)
             uo_err_goto(err_close, "Error while sending the HTTP request.");
     }
-    else
-    {
-        if (send(sockfd, request, httpc->request_len, 0) == -1)
+    else if (send(sockfd, request, httpc->request_len, 0) == -1)
             uo_err_goto(err_close, "Error on sending HTTP request.");
-    }
 
     char *response = request + httpc->request_len;
-    char *response_end = NULL;
     char *headers_end = NULL;
     char *p = response;
 
@@ -267,10 +265,7 @@ static uo_http_res *uo_httpc_make_request(
             if ((errno_local == EAGAIN || errno_local == EWOULDBLOCK) && recv_retries < RECV_RETRY_MAX_TRIES)
                 expbackoff_usleep(++recv_retries, RECV_RETRY_WAIT_SLOT_USEC);
             else
-            {
-                printf("%s", response);
                 uo_err_goto(err_close, "Error on receiving HTTP response.");
-            }
         }
 
         p += recv_len;
@@ -331,10 +326,7 @@ static uo_http_res *uo_httpc_make_request(
                     if ((errno_local == EAGAIN || errno_local == EWOULDBLOCK) && recv_retries < RECV_RETRY_MAX_TRIES)
                         expbackoff_usleep(++recv_retries, RECV_RETRY_WAIT_SLOT_USEC);
                     else
-                    {
-                        printf("%s", response);
                         uo_err_goto(err_close, "Error on receiving HTTP response.");
-                    }
                 }
 
                 p += recv_len;
@@ -364,7 +356,7 @@ static uo_http_res *uo_httpc_make_request(
 
         case -1: /* stop reading on error or when no more data */
         {
-            while (recv_len = (tls_info ? SSL_read(ssl, p, response_buf_len) : recv(sockfd, p, response_buf_len, 0)) > 0)
+            while ((recv_len = (tls_info ? SSL_read(ssl, p, response_buf_len) : recv(sockfd, p, response_buf_len, 0))) > 0)
             {
                 p += recv_len;
 
@@ -398,10 +390,7 @@ static uo_http_res *uo_httpc_make_request(
                     if ((errno_local == EAGAIN || errno_local == EWOULDBLOCK) && recv_retries < RECV_RETRY_MAX_TRIES)
                         expbackoff_usleep(++recv_retries, RECV_RETRY_WAIT_SLOT_USEC);
                     else
-                    {
-                        printf("%s", response);
                         uo_err_goto(err_close, "Error on receiving HTTP response.");
-                    }
                 }
 
                 p += recv_len;
@@ -461,6 +450,61 @@ err_ssl_free:
     return NULL;
 }
 
+static void *uo_httpc_init_request(
+    uo_httpc *httpc,
+    const char *method,
+    size_t method_len,
+    const char *path,
+    size_t path_len,
+    const char *body,
+    size_t body_len,
+    void *(*handle_response)(uo_http_res *, void *state),
+    void *state)
+{
+    while (httpc->buf_len < body_len + httpc->headers_len * 2 + 0x400)
+        uo_httpc_grow_buf(httpc);
+
+    char *const request = httpc->buf + httpc->headers_len;
+
+    char *p = request;
+    uo_mem_write(p, method, method_len);
+    uo_mem_write(p, path, path_len);
+    uo_mem_write(p, HTTP_1_1, STRLEN(HTTP_1_1));
+    uo_mem_write(p, CRLF, STRLEN(CRLF));
+    uo_mem_write(p, httpc->buf, httpc->headers_len);
+
+    if (body)
+    {
+        uo_mem_write(p, HEADER_CONTENT_LENGTH, STRLEN(HEADER_CONTENT_LENGTH));
+        p += sprintf(p, "%lu", body_len);
+        uo_mem_write(p, CRLF CRLF, STRLEN(CRLF) * 2);
+        uo_mem_write(p, body, body_len);
+    }
+    else
+    {
+        uo_mem_write(p, CRLF, STRLEN(CRLF));
+    }
+
+    httpc->request_len = p - request;
+
+    uo_cb *cb = uo_cb_create(UO_CB_OPT_DESTROY);
+
+    uo_cb_append(cb, (void *(*)(void *, void *))uo_httpc_make_request);
+    uo_cb_append(cb, (void *(*)(void *, void *))handle_response);
+
+    if (httpc->opt & UO_HTTPC_OPT_SEM)
+    {
+        sem_t *sem = malloc(sizeof *sem);
+        uo_cb_invoke_async(cb, httpc, state, sem);
+        return sem;
+    }
+    else
+    {
+        uo_cb_invoke_async(cb, httpc, state, NULL);
+        return NULL;
+    }
+}
+
 bool uo_httpc_init(
     size_t thrd_count)
 {
@@ -485,7 +529,7 @@ bool uo_httpc_init(
     x509_store = X509_STORE_new();
 
     PCCERT_CONTEXT pContext = NULL;
-    HCERTSTORE hStore = CertOpenSystemStore(NULL, "ROOT");
+    HCERTSTORE hStore = CertOpenSystemStore(0, "ROOT");
 
     if (!hStore)
         uo_err_return(is_init = false, "Initialization of OpenSSL failed");
@@ -508,7 +552,7 @@ bool uo_httpc_init(
 
 uo_httpc *uo_httpc_create(
     const char *hostname, 
-    const size_t hostname_len,
+    size_t hostname_len,
     UO_HTTPC_OPT opt)
 {
     uo_httpc *httpc = malloc(sizeof *httpc);
@@ -579,7 +623,7 @@ void uo_httpc_set_header(
     uo_httpc *httpc, 
     HTTP_HEADER_FLAGS header, 
     const char *value, 
-    const size_t value_len)
+    size_t value_len)
 {
     switch (header)
     {
@@ -658,62 +702,63 @@ void uo_httpc_set_header(
     }
 }
 
-void uo_httpc_get(
+void *uo_httpc_get(
     uo_httpc *httpc,
     const char *path,
-    const size_t path_len,
+    size_t path_len,
     void *(*handle_response)(uo_http_res *, void *state),
     void *state)
 {
-    void *request = httpc->buf + httpc->headers_len;
-
-    void *p = request;
-    uo_mem_write(p, HTTP_GET, STRLEN(HTTP_GET));
-    uo_mem_write(p, path, path_len);
-    uo_mem_write(p, HTTP_1_1, STRLEN(HTTP_1_1));
-    uo_mem_write(p, CRLF, STRLEN(CRLF));
-    uo_mem_write(p, httpc->buf, httpc->headers_len);
-    uo_mem_write(p, CRLF, STRLEN(CRLF));
-    httpc->request_len = p - request;
-
-    uo_cb *cb = uo_cb_create(uo_cb_opt_invoke_once);
-
-    uo_cb_append(cb, (void *(*)(void *, void *))uo_httpc_make_request);
-    uo_cb_append(cb, (void *(*)(void *, void *))handle_response);
-
-    uo_cb_invoke_async(cb, httpc, state, NULL);
+    return uo_httpc_init_request(
+        httpc, 
+        HTTP_GET, 
+        STRLEN(HTTP_GET),
+        path,
+        path_len,
+        NULL,
+        0,
+        handle_response,
+        state);
 }
 
-void uo_httpc_post(
+void *uo_httpc_post(
     uo_httpc *httpc,
     const char *path,
-    const size_t path_len,
+    size_t path_len,
     const char *body,
-    const size_t body_len,
+    size_t body_len,
     void *(*handle_response)(uo_http_res *, void *state),
     void *state)
 {
-    while (httpc->buf_len < body_len + httpc->headers_len * 2 + 0x400)
-        uo_httpc_grow_buf(httpc);
+    return uo_httpc_init_request(
+        httpc, 
+        HTTP_POST, 
+        STRLEN(HTTP_POST),
+        path,
+        path_len,
+        body,
+        body_len,
+        handle_response,
+        state);
+}
 
-    void *request = httpc->buf + httpc->headers_len;
-
-    void *p = request;
-    uo_mem_write(p, HTTP_POST, STRLEN(HTTP_POST));
-    uo_mem_write(p, path, path_len);
-    uo_mem_write(p, HTTP_1_1, STRLEN(HTTP_1_1));
-    uo_mem_write(p, CRLF, STRLEN(CRLF));
-    uo_mem_write(p, httpc->buf, httpc->headers_len);
-    uo_mem_write(p, HEADER_CONTENT_LENGTH, STRLEN(HEADER_CONTENT_LENGTH));
-    p += sprintf(p, "%lu", body_len);
-    uo_mem_write(p, CRLF CRLF, STRLEN(CRLF) * 2);
-    uo_mem_write(p, body, body_len);
-    httpc->request_len = p - request;
-
-    uo_cb *cb = uo_cb_create(uo_cb_opt_invoke_once);
-
-    uo_cb_append(cb, (void *(*)(void *, void *))uo_httpc_make_request);
-    uo_cb_append(cb, (void *(*)(void *, void *))handle_response);
-
-    uo_cb_invoke_async(cb, httpc, state, NULL);
+void *uo_httpc_put(
+    uo_httpc *httpc,
+    const char *path,
+    size_t path_len,
+    const char *body,
+    size_t body_len,
+    void *(*handle_response)(uo_http_res *, void *state),
+    void *state)
+{
+    return uo_httpc_init_request(
+        httpc, 
+        HTTP_PUT, 
+        STRLEN(HTTP_PUT),
+        path,
+        path_len,
+        body,
+        body_len,
+        handle_response,
+        state);
 }
