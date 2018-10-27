@@ -20,7 +20,7 @@ typedef struct uo_stack {
 uo_stack *uo_stack_create(
 	size_t capasity);
 
-void *uo_stack_destroy(
+void uo_stack_destroy(
 	uo_stack *);
 
 bool uo_stack_push(

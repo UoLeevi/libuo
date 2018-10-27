@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.7)
 project(uo_cb)
 
+set(CMAKE_C_FLAGS "-Wall -O2")
+set(CMAKE_C_FLAGS_RELEASE "-Wall -O2")
+set(CMAKE_C_FLAGS_DEBUG "-Wall -g")
+
 if(WIN32)
     set(CMAKE_FIND_LIBRARY_PREFIXES "" "lib")
     set(CMAKE_FIND_LIBRARY_SUFFIXES ".so" ".a" ".dll.a")

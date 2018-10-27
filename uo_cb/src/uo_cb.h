@@ -10,21 +10,21 @@ extern "C" {
 
 #include <semaphore.h>
 
-typedef enum uo_cb_opt {
-	uo_cb_opt_invoke_once = 1 << 0
-} uo_cb_opt;
+typedef enum UO_CB_OPT {
+	UO_CB_OPT_DESTROY = 1 << 0
+} UO_CB_OPT;
 
 typedef struct uo_cb {
 	size_t count;
 	void *(**f)(void *arg, void *state);
-	uo_cb_opt opt;
+	UO_CB_OPT opt;
 } uo_cb;
 
 bool uo_cb_init(
 	size_t thrd_count);
 
 uo_cb *uo_cb_create(
-	uo_cb_opt);
+	UO_CB_OPT);
 
 void uo_cb_destroy(
 	uo_cb *);

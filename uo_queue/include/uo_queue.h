@@ -23,7 +23,7 @@ typedef struct uo_queue {
 uo_queue *uo_queue_create(
 	size_t capasity);
 
-void *uo_queue_destroy(
+void uo_queue_destroy(
 	uo_queue *);
 
 bool uo_queue_enqueue(

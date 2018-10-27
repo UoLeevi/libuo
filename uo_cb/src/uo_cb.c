@@ -42,7 +42,7 @@ static void uo_cb_quit(void)
 	is_quitting = true;
 	
 	for (int i = 0; i < thrds_len; ++i)
-		uo_cb_invoke_async(uo_cb_create(uo_cb_opt_invoke_once), NULL, NULL, NULL);
+		uo_cb_invoke_async(uo_cb_create(UO_CB_OPT_DESTROY), NULL, NULL, NULL);
 
 	for (int i = 0; i < thrds_len; ++i)
 		pthread_join(thrds[i], NULL);
@@ -60,7 +60,7 @@ void *uo_cb_invoke_func(
 {
 	uo_cb *cb = uo_hashtbl_find(cb_map, state);
 
-	if (cb->opt & uo_cb_opt_invoke_once)
+	if (cb->opt & UO_CB_OPT_DESTROY)
 		uo_hashtbl_remove(cb_map, state);
 		
 	return uo_cb_invoke(cb, arg, state);
@@ -77,6 +77,8 @@ static void *execute(
 			sem_post(async_cb->sem);
 		free(async_cb);
 	}
+
+	return NULL;
 }
 
 bool uo_cb_init(
@@ -111,7 +113,7 @@ bool uo_cb_init(
 }
 
 uo_cb *uo_cb_create(
-	uo_cb_opt opt)
+	UO_CB_OPT opt)
 {
 	uo_cb *cb = malloc(sizeof(uo_cb));
 	cb->count = 0;
@@ -149,7 +151,7 @@ void *uo_cb_invoke(
 	for (size_t i = 0; i < cb->count; ++i)
 		result = cb->f[i](result, state);
 
-	if (cb->opt & uo_cb_opt_invoke_once)
+	if (cb->opt & UO_CB_OPT_DESTROY)
 		uo_cb_destroy(cb);
 
 	return result;

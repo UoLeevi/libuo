@@ -11,9 +11,11 @@ uo_stack *uo_stack_create(
 	sem_init(&stack->pop_sem, 0, 0);
 	pthread_mutex_init(&stack->mtx, NULL);
 	stack->items = malloc(sizeof(void *) * capasity);
+
+	return stack;
 }
 
-void *uo_stack_destroy(
+void uo_stack_destroy(
 	uo_stack *stack)
 {
 	free(stack->items);

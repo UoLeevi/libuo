@@ -16,7 +16,7 @@ uo_queue *uo_queue_create(
 	return queue;
 }
 
-void *uo_queue_destroy(
+void uo_queue_destroy(
 	uo_queue *queue)
 {
 	free(queue->items);

@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.7)
 project(uo_err)
 
+set(CMAKE_C_FLAGS "-Wall -O2")
+set(CMAKE_C_FLAGS_RELEASE "-Wall -O2")
+set(CMAKE_C_FLAGS_DEBUG "-Wall -g")
+
 configure_file(src/uo_err.h
     "${CMAKE_SOURCE_DIR}/include/uo_err.h" COPYONLY)
 
