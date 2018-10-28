@@ -8,6 +8,7 @@ extern "C"
 
 #include "uo_http_res.h"
 #include "uo_sock.h"
+#include "uo_cb.h"
 
 #include <stddef.h>
 #include <stdbool.h>
@@ -69,8 +70,7 @@ void *uo_httpc_get(
     uo_httpc *httpc,
     const char *path,
     size_t path_len,
-    void *(*handle_response)(uo_http_res *, void *state),
-    void *state);
+    uo_cb *uo_http_res_cb);
 
 void *uo_httpc_post(
     uo_httpc *httpc,
@@ -78,8 +78,7 @@ void *uo_httpc_post(
     size_t path_len,
     const char *body,
     size_t body_len,
-    void *(*handle_response)(uo_http_res *, void *state),
-    void *state);
+    uo_cb *uo_http_res_cb);
 
 void *uo_httpc_put(
     uo_httpc *httpc,
@@ -87,8 +86,7 @@ void *uo_httpc_put(
     size_t path_len,
     const char *body,
     size_t body_len,
-    void *(*handle_response)(uo_http_res *, void *state),
-    void *state);
+    uo_cb *uo_http_res_cb);
 
 #ifdef __cplusplus
 }

@@ -1,6 +1,4 @@
 #include "uo_httpc.h"
-#include "uo_cb.h"
-#include "uo_sock.h"
 #include "uo_err.h"
 #include "uo_mem.h"
 
@@ -188,10 +186,10 @@ err_free_ctx:
 
 static uo_http_res *uo_httpc_make_request(
     uo_httpc *httpc,
-    void *_)
+    uo_cb *_)
 {
     const uo_tls_info *const tls_info = httpc->tls_info;
-    SSL *ssl;
+    SSL *ssl = NULL;
 
     char *request = httpc->buf + httpc->headers_len;
 
@@ -458,8 +456,7 @@ static void *uo_httpc_init_request(
     size_t path_len,
     const char *body,
     size_t body_len,
-    void *(*handle_response)(uo_http_res *, void *state),
-    void *state)
+    uo_cb *uo_http_res_cb)
 {
     while (httpc->buf_len < body_len + httpc->headers_len * 2 + 0x400)
         uo_httpc_grow_buf(httpc);
@@ -487,22 +484,15 @@ static void *uo_httpc_init_request(
 
     httpc->request_len = p - request;
 
-    uo_cb *cb = uo_cb_create(UO_CB_OPT_DESTROY);
+    uo_cb_prepend(uo_http_res_cb, (void *(*)(void *, uo_cb *))uo_httpc_make_request);
 
-    uo_cb_append(cb, (void *(*)(void *, void *))uo_httpc_make_request);
-    uo_cb_append(cb, (void *(*)(void *, void *))handle_response);
+    sem_t *sem = httpc->opt & UO_HTTPC_OPT_SEM
+        ? malloc(sizeof *sem)
+        : NULL;
 
-    if (httpc->opt & UO_HTTPC_OPT_SEM)
-    {
-        sem_t *sem = malloc(sizeof *sem);
-        uo_cb_invoke_async(cb, httpc, state, sem);
-        return sem;
-    }
-    else
-    {
-        uo_cb_invoke_async(cb, httpc, state, NULL);
-        return NULL;
-    }
+    uo_cb_invoke_async(uo_http_res_cb, httpc, sem);
+
+    return sem;
 }
 
 bool uo_httpc_init(
@@ -706,8 +696,7 @@ void *uo_httpc_get(
     uo_httpc *httpc,
     const char *path,
     size_t path_len,
-    void *(*handle_response)(uo_http_res *, void *state),
-    void *state)
+    uo_cb *uo_http_res_cb)
 {
     return uo_httpc_init_request(
         httpc, 
@@ -717,8 +706,7 @@ void *uo_httpc_get(
         path_len,
         NULL,
         0,
-        handle_response,
-        state);
+        uo_http_res_cb);
 }
 
 void *uo_httpc_post(
@@ -727,8 +715,7 @@ void *uo_httpc_post(
     size_t path_len,
     const char *body,
     size_t body_len,
-    void *(*handle_response)(uo_http_res *, void *state),
-    void *state)
+    uo_cb *uo_http_res_cb)
 {
     return uo_httpc_init_request(
         httpc, 
@@ -738,8 +725,7 @@ void *uo_httpc_post(
         path_len,
         body,
         body_len,
-        handle_response,
-        state);
+        uo_http_res_cb);
 }
 
 void *uo_httpc_put(
@@ -748,8 +734,7 @@ void *uo_httpc_put(
     size_t path_len,
     const char *body,
     size_t body_len,
-    void *(*handle_response)(uo_http_res *, void *state),
-    void *state)
+    uo_cb *uo_http_res_cb)
 {
     return uo_httpc_init_request(
         httpc, 
@@ -759,6 +744,5 @@ void *uo_httpc_put(
         path_len,
         body,
         body_len,
-        handle_response,
-        state);
+        uo_http_res_cb);
 }

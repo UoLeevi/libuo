@@ -10,13 +10,18 @@ extern "C" {
 
 #include <semaphore.h>
 
-typedef enum UO_CB_OPT {
+typedef enum UO_CB_OPT
+{
 	UO_CB_OPT_DESTROY = 1 << 0
 } UO_CB_OPT;
 
-typedef struct uo_cb {
+typedef struct uo_cb 
+{
 	size_t count;
-	void *(**f)(void *arg, void *state);
+	void *(**f)(void *arg, struct uo_cb *);
+	size_t stack_capacity;
+	size_t stack_top;
+	void **stack;
 	UO_CB_OPT opt;
 } uo_cb;
 
@@ -31,22 +36,30 @@ void uo_cb_destroy(
 
 void uo_cb_append(
 	uo_cb *,
-	void *(*)(void *arg, void *state));
+	void *(*)(void *arg, uo_cb *));
+
+void uo_cb_prepend(
+	uo_cb *,
+	void *(*)(void *arg, uo_cb *));
 
 void *uo_cb_invoke(
 	uo_cb *cb,
-	void *arg,
-	void *state);
+	void *arg);
 
 void uo_cb_invoke_async(
 	uo_cb *cb,
 	void *arg,
-	void *state,
 	sem_t *sem);
 
-void *(*uo_cb_as_func(
+void uo_cb_push_data(
 	uo_cb *, 
-	void *state))(void *arg, void *state);
+	void *);
+
+void *uo_cb_pop_data(
+	uo_cb *);
+
+void *uo_cb_peek_data(
+	uo_cb *);
 
 #ifdef __cplusplus
 }

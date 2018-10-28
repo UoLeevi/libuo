@@ -28,10 +28,11 @@ static void uo_tcpserv_handle_signal(
 
 static void *uo_tcpserv_send_res(
     uo_tcpserv_res *res, 
-    void *state)
+    uo_cb *uo_tcpserv_res_cb)
 {
-    int client_sockfd = *(int *)state;
-    free(state);
+    int *sockfd_ptr = uo_cb_pop_data(uo_tcpserv_res_cb);
+    int client_sockfd = *sockfd_ptr;
+    free(sockfd_ptr);
 
     if (res && res->data)
     {
@@ -49,7 +50,7 @@ static void *uo_tcpserv_send_res(
 static void *uo_tcpserv_serve(
     void *arg) 
 {
-    void *(*handle_cmd)(uo_tcpserv_arg *, void *state, void *(*send_res)(uo_tcpserv_res *, void *state)) = arg;
+    void *(*handle_cmd)(uo_tcpserv_arg *, uo_cb *uo_tcpserv_res_cb) = arg;
 
     size_t buf_len = 0x1000;
     char *buf = malloc(buf_len);
@@ -87,7 +88,11 @@ static void *uo_tcpserv_serve(
         cmd->data = data;
         cmd->data_len = data_len;
 
-        handle_cmd(cmd, client_sockfd, uo_tcpserv_send_res);
+        uo_cb *uo_tcpserv_res_cb = uo_cb_create(UO_CB_OPT_DESTROY);
+        uo_cb_append(uo_tcpserv_res_cb, (void *(*)(void *, uo_cb *))uo_tcpserv_send_res);
+        uo_cb_push_data(uo_tcpserv_res_cb, client_sockfd);
+
+        handle_cmd(cmd, uo_tcpserv_res_cb);
 
         continue;
 
@@ -100,7 +105,7 @@ err_close:
 
 void uo_tcpserv_start(
     bool (*configure_cmd_handler)(uo_tcpserv_arg),
-    void *(*handle_cmd)(uo_tcpserv_arg *, void *state, void *(*send_res)(uo_tcpserv_res *, void *state)))
+    void *(*handle_cmd)(uo_tcpserv_arg *, uo_cb *uo_tcpserv_res_cb))
 {
     uo_tcpserv_conf *conf = uo_tcpserv_conf_create();
     conn_queue = uo_queue_create(0x100);
