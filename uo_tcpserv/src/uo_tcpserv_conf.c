@@ -87,7 +87,7 @@ uo_tcpserv_conf *uo_tcpserv_conf_create()
 
     free(buf);
 
-    if (!conf->keys_len || !conf->port) 
+    if (!conf->port) 
         uo_err_exit("Error occured while parsing tcpserv configuration.");
 
     return conf;

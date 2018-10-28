@@ -116,7 +116,7 @@ void uo_tcpserv_start(
     if (!uo_cb_init(2))
         uo_err_exit("Error initializing uo_cb.");
 
-    if (!configure_cmd_handler((uo_tcpserv_arg) { .data = conf->keys[0].key, .data_len = conf->keys[0].key_len }))
+    if (configure_cmd_handler && !configure_cmd_handler((uo_tcpserv_arg) { .data = conf->keys[0].key, .data_len = conf->keys[0].key_len }))
         uo_err_exit("Unable to configure client.");
 
     pthread_t thrd;
