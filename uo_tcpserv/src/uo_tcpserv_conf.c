@@ -24,7 +24,7 @@ uo_tcpserv_conf *uo_tcpserv_conf_create()
     char *buf = malloc(sb.st_size + 1);
     buf[sb.st_size] = '\0';
 
-    if (fread(buf, sizeof(char), sb.st_size, fp) != sb.st_size || ferror(fp))
+    if (fread(buf, sizeof *buf, sb.st_size, fp) != sb.st_size || ferror(fp))
         uo_err_exit("Unable to read tcpserv configuration.");
 
     fclose(fp);
@@ -80,7 +80,7 @@ uo_tcpserv_conf *uo_tcpserv_conf_create()
             continue;
         }
 
-        uo_err_exit("Error occured while parsing tcpserv configuration.");
+        uo_err_exit("An unrecognized token was encountered while parsing tcpserv configuration.");
 
         
     } while (token = strtok(NULL, delim));
