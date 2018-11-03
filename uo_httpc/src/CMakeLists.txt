@@ -4,8 +4,10 @@ project(uo_httpc VERSION 0.1.0)
 if(WIN32)
     set(OPENSSL_ROOT_DIR "/Program files/OpenSSL")
 endif()
-
 find_package(OpenSSL MODULE REQUIRED)
+
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
 
 if(NOT TARGET uo::uo_cb)
     find_package(uo_cb CONFIG REQUIRED)
@@ -36,7 +38,8 @@ target_link_libraries(uo_httpc
         uo::uo_mem
         uo::uo_queue
         OpenSSL::SSL
-        OpenSSL::Crypto)
+        OpenSSL::Crypto
+        Threads::Threads)
 
 if(WIN32)
     target_link_libraries(uo_httpc PUBLIC crypt32)

@@ -1,8 +1,15 @@
 cmake_minimum_required(VERSION 3.7)
 project(uo_queue VERSION 0.1.0)
 
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
 add_library(uo_queue
     uo_queue.c)
+
+target_link_libraries(uo_queue
+    PUBLIC
+        Threads::Threads)
 
 target_compile_features(uo_queue
     PUBLIC

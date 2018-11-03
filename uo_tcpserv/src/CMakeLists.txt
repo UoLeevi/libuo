@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.7)
 project(uo_tcpserv VERSION 0.1.0)
 
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
 if(NOT TARGET uo::uo_cb)
     find_package(uo_cb CONFIG REQUIRED)
 endif()
@@ -24,7 +27,8 @@ target_link_libraries(uo_tcpserv
     PRIVATE
         uo::uo_err
         uo::uo_queue
-        uo::uo_sock)
+        uo::uo_sock
+        Threads::Threads)
 
 target_compile_features(uo_tcpserv
     PUBLIC
