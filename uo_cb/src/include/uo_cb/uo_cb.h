@@ -19,7 +19,6 @@ typedef struct uo_cb
 {
 	size_t count;
 	void *(**f)(void *arg, struct uo_cb *);
-	size_t stack_capacity;
 	size_t stack_top;
 	void **stack;
 	UO_CB_OPT opt;

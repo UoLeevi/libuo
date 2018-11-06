@@ -87,7 +87,6 @@ uo_cb *uo_cb_create(
 	uo_cb *cb = calloc(1, sizeof *cb);
 	cb->f = malloc(sizeof *cb->f * 2);
 	cb->stack = malloc(sizeof *cb->stack * 2);
-	cb->stack_capacity = 2;
 	cb->opt = opt;
 	return cb;
 }
@@ -104,7 +103,7 @@ void uo_cb_append(
 	uo_cb *cb,
 	void *(*f)(void *arg, uo_cb *))
 {
-	if (cb->count && !(cb->count & (cb->count - 1)))
+	if (cb->count >= 2 && !(cb->count & (cb->count - 1)))
 		cb->f = realloc(cb->f, sizeof *cb->f * (cb->count * 2));
 
 	cb->f[cb->count++] = f;
@@ -114,7 +113,7 @@ void uo_cb_prepend(
 	uo_cb *cb,
 	void *(*f)(void *arg, uo_cb *))
 {
-	if (cb->count && !(cb->count & (cb->count - 1)))
+	if (cb->count >= 2 && !(cb->count & (cb->count - 1)))
 		cb->f = realloc(cb->f, sizeof *cb->f * (cb->count * 2));
 	
 	memmove(cb->f + 1, cb->f, sizeof *cb->f * cb->count++);
@@ -156,8 +155,8 @@ void uo_cb_push_data(
 	uo_cb *cb, 
 	void *data)
 {
-	if (cb->stack_top == cb->stack_capacity)
-		cb->stack = realloc(cb->stack, sizeof *cb->stack * (cb->stack_capacity *= 2));
+	if (cb->stack_top >= 2 && !(cb->stack_top & (cb->stack_top - 1)))
+		cb->stack = realloc(cb->stack, sizeof *cb->stack * (cb->stack_top * 2));
 	
 	cb->stack[cb->stack_top++] = data; 
 }
@@ -165,7 +164,12 @@ void uo_cb_push_data(
 void *uo_cb_pop_data(
 	uo_cb *cb)
 {
-	return cb->stack[--cb->stack_top];
+	void *data = cb->stack[--cb->stack_top];
+
+	if (cb->stack_top >= 2 && !(cb->stack_top & (cb->stack_top - 1)))
+		cb->stack = realloc(cb->stack, sizeof *cb->stack * cb->stack_top);
+
+	return data;
 }
 
 void *uo_cb_peek_data(
