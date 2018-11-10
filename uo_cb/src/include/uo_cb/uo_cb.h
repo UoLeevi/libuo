@@ -12,7 +12,7 @@ extern "C" {
 
 typedef enum UO_CB_OPT
 {
-	UO_CB_OPT_DESTROY = 1 << 0
+	UO_CB_OPT_DESTROY = 	1 << 0
 } UO_CB_OPT;
 
 typedef struct uo_cb 
@@ -24,8 +24,7 @@ typedef struct uo_cb
 	UO_CB_OPT opt;
 } uo_cb;
 
-bool uo_cb_init(
-	size_t thrd_count);
+bool uo_cb_init(void);
 
 uo_cb *uo_cb_create(
 	UO_CB_OPT);
@@ -50,14 +49,14 @@ void uo_cb_invoke_async(
 	void *arg,
 	sem_t *sem);
 
-void uo_cb_push_data(
+void uo_cb_stack_push(
 	uo_cb *, 
 	void *);
 
-void *uo_cb_pop_data(
+void *uo_cb_stack_pop(
 	uo_cb *);
 
-void *uo_cb_peek_data(
+void *uo_cb_stack_peek(
 	uo_cb *);
 
 #ifdef __cplusplus
