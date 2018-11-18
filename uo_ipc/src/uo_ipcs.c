@@ -195,7 +195,7 @@ uo_ipcs *uo_ipcs_create(
     pthread_create(ipcs->server_thrd, NULL, uo_ipcs_serve, ipcs);
 
     ipcs->listen_thrd = malloc(sizeof(pthread_t));
-    pthread_create(ipcs->server_thrd, NULL, uo_ipcs_listen, ipcs);
+    pthread_create(ipcs->listen_thrd, NULL, uo_ipcs_listen, ipcs);
 
     return ipcs;
 
