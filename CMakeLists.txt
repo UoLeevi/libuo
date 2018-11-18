@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.7)
 project(uo)
 
 add_subdirectory(uo_cb)
+add_subdirectory(uo_conf)
 add_subdirectory(uo_err)
 add_subdirectory(uo_hashtbl)
 add_subdirectory(uo_httpc)
