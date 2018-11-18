@@ -5,6 +5,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <time.h>
 
 #include <unistd.h>
 
@@ -25,7 +26,8 @@ uo_ipcc *uo_ipcc_create(
 
     uo_ipcc *ipcc = calloc(1, sizeof *ipcc);
     
-    *(uint32_t *)ipcc->conn.eom = (uint32_t)rand();
+    srand(time(NULL));
+    ipcc->conn.eom = ~0 - (uint32_t)rand();
 
     int s = -1;
 
@@ -94,14 +96,14 @@ uo_ipcmsg uo_ipcc_send_msg(
         if (connect(sockfd, addrinfo->ai_addr, addrinfo->ai_addrlen) == -1)
             uo_err_goto(err_close, "Unable to connect ipcc.");
 
-        if (send(sockfd, ipcc->conn.eom, sizeof ipcc->conn.eom, 0) == -1)
+        if (send(sockfd, (char *)&ipcc->conn.eom, sizeof ipcc->conn.eom, 0) == -1)
             uo_err_goto(err_close, "Error while sending ipc message.");
     }
 
     if (send(ipcc->conn.sockfd, msg.data, msg.data_len, 0) == -1)
         uo_err_goto(err_close, "Error while sending ipc message.");
 
-    if (send(ipcc->conn.sockfd, ipcc->conn.eom, sizeof ipcc->conn.eom, 0) == -1)
+    if (send(ipcc->conn.sockfd, (char *)&ipcc->conn.eom, sizeof ipcc->conn.eom, 0) == -1)
         uo_err_goto(err_close, "Error while sending ipc message.");
 
     if (is_last_msg)
@@ -128,7 +130,7 @@ uo_ipcmsg uo_ipcc_send_msg(
         }            
         *p = '\0';
 
-    }  while (len && (*(uint32_t *)(p - sizeof ipcc->conn.eom) != *(uint32_t *)ipcc->conn.eom));
+    }  while (len && (*(uint32_t *)(p - sizeof ipcc->conn.eom) != ipcc->conn.eom));
 
     if (is_last_msg)
     {
@@ -145,6 +147,7 @@ uo_ipcmsg uo_ipcc_send_msg(
 
 err_close:
     close(ipcc->conn.sockfd);
+    ipcc->conn.sockfd = 0;
 
     return (uo_ipcmsg) { 0 };
 }

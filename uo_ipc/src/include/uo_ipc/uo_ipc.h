@@ -7,11 +7,12 @@ extern "C" {
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 typedef struct uo_ipcconn
 {
     int sockfd;
-    char eom[4];
+    uint32_t eom;
     char *buf;
     size_t buf_len;
 } uo_ipcconn;
@@ -21,6 +22,7 @@ typedef struct uo_ipcmsg
     char *data;
     size_t data_len;
     bool should_free;
+    bool is_last_msg;
 } uo_ipcmsg;
 
 bool uo_ipc_init(void);

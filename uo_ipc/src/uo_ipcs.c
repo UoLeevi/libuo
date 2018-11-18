@@ -18,14 +18,14 @@ static void *uo_ipcs_process_msg(
     uo_ipcmsg *msg,
     uo_cb *uo_icpmsg_cb)
 {
-    uo_ipcconn *conn = uo_cb_pop_data(uo_icpmsg_cb);
-    uo_queue *conn_queue = uo_cb_pop_data(uo_icpmsg_cb);
+    uo_ipcconn *conn = uo_cb_stack_pop(uo_icpmsg_cb);
+    uo_queue *conn_queue = uo_cb_stack_pop(uo_icpmsg_cb);
 
     if (msg && msg->data)
         if (send(conn->sockfd, msg->data, msg->data_len, 0) == -1)
             uo_err_goto(err_close, "Error while sending ipc message.");
 
-    if (send(conn->sockfd, conn->eom, sizeof conn->eom, 0) == -1)
+    if (send(conn->sockfd, (char *)&conn->eom, sizeof conn->eom, 0) == -1)
         uo_err_goto(err_close, "Error while sending ipc message.");
 
     char c;
@@ -82,9 +82,8 @@ static void *uo_ipcs_serve(
     {
         uo_ipcconn *conn = uo_queue_dequeue(ipcs->conn_queue, true);
 
-        if (*(uint32_t *)conn->eom == 0)
-            if (recv(conn->sockfd, conn->eom, sizeof conn->eom, MSG_WAITALL) == -1)
-                uo_err_goto(err_close, "Error while receiving ipc message.");
+        if (!conn->eom && recv(conn->sockfd, (char *)&conn->eom, sizeof conn->eom, MSG_WAITALL) == -1)
+            uo_err_goto(err_close, "Error while receiving ipc message.");
             
         ssize_t len;
         char *p = conn->buf;
@@ -108,11 +107,11 @@ static void *uo_ipcs_serve(
 
             *p = '\0';
 
-        }  while (len && (*(uint32_t *)(p - sizeof conn->eom) != *(uint32_t *)conn->eom));
+        }  while (len && (*(uint32_t *)(p - sizeof conn->eom) != conn->eom));
 
         uo_cb *uo_icpmsg_cb = uo_cb_create(UO_CB_OPT_DESTROY);
-        uo_cb_push_data(uo_icpmsg_cb, ipcs->conn_queue);
-        uo_cb_push_data(uo_icpmsg_cb, conn);
+        uo_cb_stack_push(uo_icpmsg_cb, ipcs->conn_queue);
+        uo_cb_stack_push(uo_icpmsg_cb, conn);
         uo_cb_append(uo_icpmsg_cb, (void *(*)(void *, uo_cb *))uo_ipcs_process_msg);
 
         uo_ipcmsg *msg = malloc(sizeof *msg);
@@ -138,7 +137,7 @@ uo_ipcs *uo_ipcs_create(
     size_t servname_len,
     void *(*handle_msg)(uo_ipcmsg *, uo_cb *uo_ipcmsg_cb))
 {
-    uo_ipcs *ipcs = malloc(sizeof *ipcs);
+    uo_ipcs *ipcs = calloc(1, sizeof *ipcs);
     
     ipcs->handle_msg = handle_msg;
 

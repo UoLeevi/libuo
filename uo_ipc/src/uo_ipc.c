@@ -2,9 +2,6 @@
 #include "uo_cb.h"
 #include "uo_sock.h"
 
-#include <stdlib.h>
-#include <time.h>
-
 static bool is_init;
 
 bool uo_ipc_init(void)
@@ -13,10 +10,9 @@ bool uo_ipc_init(void)
         return is_init;
     
     is_init = true;
-
-    srand(time(NULL));
+    
     is_init &= uo_sock_init();
-    is_init &= uo_cb_init(2);
+    is_init &= uo_cb_init();
 
     return is_init;
 
