@@ -30,7 +30,7 @@ static void *uo_tcpserv_send_res(
     uo_tcpserv_res *res, 
     uo_cb *uo_tcpserv_res_cb)
 {
-    int *sockfd_ptr = uo_cb_pop_data(uo_tcpserv_res_cb);
+    int *sockfd_ptr = uo_cb_stack_pop(uo_tcpserv_res_cb);
     int client_sockfd = *sockfd_ptr;
     free(sockfd_ptr);
 
@@ -90,7 +90,7 @@ static void *uo_tcpserv_serve(
 
         uo_cb *uo_tcpserv_res_cb = uo_cb_create(UO_CB_OPT_DESTROY);
         uo_cb_append(uo_tcpserv_res_cb, (void *(*)(void *, uo_cb *))uo_tcpserv_send_res);
-        uo_cb_push_data(uo_tcpserv_res_cb, client_sockfd);
+        uo_cb_stack_push(uo_tcpserv_res_cb, client_sockfd);
 
         handle_cmd(cmd, uo_tcpserv_res_cb);
 
@@ -113,7 +113,7 @@ void uo_tcpserv_start(
     if (!uo_sock_init())
         uo_err_exit("Error initializing uo_sock.");
 
-    if (!uo_cb_init(2))
+    if (!uo_cb_init())
         uo_err_exit("Error initializing uo_cb.");
 
     if (configure_cmd_handler && !configure_cmd_handler((uo_tcpserv_arg) { .data = conf->keys[0].key, .data_len = conf->keys[0].key_len }))

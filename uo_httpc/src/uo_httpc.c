@@ -500,13 +500,13 @@ bool uo_httpc_init(
 {
     if (is_init)
     {
-        is_init &= uo_cb_init(thrd_count);
+        is_init &= uo_cb_init();
         is_init &= uo_sock_init();
         return is_init;
     }
 
     is_init = true;
-    is_init &= uo_cb_init(thrd_count);
+    is_init &= uo_cb_init();
     is_init &= uo_sock_init();
 
     if (OPENSSL_init_ssl(0, NULL) != 1)
