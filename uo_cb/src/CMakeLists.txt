@@ -5,7 +5,9 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
 add_library(uo_cb
-    uo_cb.c)
+    uo_cb.c
+    uo_cb_queue.c
+    uo_cb_thrd_pool.c)
 
 target_link_libraries(uo_cb
     PUBLIC
@@ -20,7 +22,9 @@ target_compile_features(uo_cb
 target_include_directories(uo_cb
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/uo_cb>
-        $<INSTALL_INTERFACE:include/uo_cb>)
+        $<INSTALL_INTERFACE:include/uo_cb>
+    PRIVATE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 
 add_library(uo::uo_cb ALIAS uo_cb)
 
