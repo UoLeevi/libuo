@@ -79,7 +79,7 @@ static inline void uo_cb_thrd_pool_notify_after_invoke(void)
 	bool is_paused = atomic_exchange(&thrd_pool.is_paused, false);
 	
 	if (is_paused)
-		sem_post(thrd_pool.update_sem);
+		sem_post(&thrd_pool.update_sem);
 }
 
 static void *uo_cb_execute(

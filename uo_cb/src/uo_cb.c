@@ -1,5 +1,6 @@
 #include "uo_cb.h"
 #include "uo_cb_queue.h"
+#include "uo_cb_thrd_pool.h"
 
 #include <pthread.h>
 #include <unistd.h>
