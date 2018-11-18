@@ -5,18 +5,18 @@
 extern "C" {
 #endif
 
-#include <pthread.h>
 #include <semaphore.h>
+
+#include <stdatomic.h>
+#include <stddef.h>
 #include <stdbool.h>
 
 typedef struct uo_queue {
-	size_t head;
-	size_t tail;
+	atomic_size_t head;
+	atomic_size_t tail;
     size_t capasity;
 	sem_t enqueue_sem;
 	sem_t dequeue_sem;
-	pthread_mutex_t enqueue_mtx;
-    pthread_mutex_t dequeue_mtx;
 	void **items;
 } uo_queue;
 
