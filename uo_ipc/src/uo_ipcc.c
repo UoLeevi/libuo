@@ -14,9 +14,7 @@
 
 uo_ipcc *uo_ipcc_create(
     char *nodename,
-    size_t nodename_len,
-    char *servname,
-    size_t servname_len)
+    char *servname)
 {
     struct addrinfo hints = {
         .ai_family = AF_UNSPEC,
@@ -29,19 +27,7 @@ uo_ipcc *uo_ipcc_create(
     srand(time(NULL));
     ipcc->conn.eom = ~0 - (uint32_t)rand();
 
-    int s = -1;
-
-    uo_mem_using(nodename_ntbs, nodename_len + 1)
-        uo_mem_using(servname_ntbs, servname_len + 1)
-        {
-            memcpy(nodename_ntbs, nodename, nodename_len);
-            ((char *)nodename_ntbs)[nodename_len] = '\0';
-            memcpy(servname_ntbs, servname, servname_len);
-            ((char *)servname_ntbs)[servname_len] = '\0';
-
-            s = getaddrinfo(nodename_ntbs, servname_ntbs, &hints, (struct addrinfo **)&ipcc->addrinfo);            
-        }
-    
+    int s = getaddrinfo(nodename, servname, &hints, (struct addrinfo **)&ipcc->addrinfo);   
     if (s != 0) 
 		uo_err_goto(err_free, "Unable to create uo_ipcc. getaddrinfo: %s", gai_strerror(s));
 
@@ -68,8 +54,7 @@ void uo_ipcc_destroy(
 
 uo_ipcmsg uo_ipcc_send_msg(
     uo_ipcc *ipcc,
-    uo_ipcmsg msg,
-    bool is_last_msg)
+    uo_ipcmsg msg)
 {
     if (!ipcc->conn.sockfd)
     {
@@ -106,7 +91,7 @@ uo_ipcmsg uo_ipcc_send_msg(
     if (send(ipcc->conn.sockfd, (char *)&ipcc->conn.eom, sizeof ipcc->conn.eom, 0) == -1)
         uo_err_goto(err_close, "Error while sending ipc message.");
 
-    if (is_last_msg)
+    if (msg.is_last_msg)
         shutdown(ipcc->conn.sockfd, SHUT_WR);
 
     char *p = ipcc->conn.buf;
@@ -132,7 +117,7 @@ uo_ipcmsg uo_ipcc_send_msg(
 
     }  while (len && (*(uint32_t *)(p - sizeof ipcc->conn.eom) != ipcc->conn.eom));
 
-    if (is_last_msg)
+    if (msg.is_last_msg)
     {
         shutdown(ipcc->conn.sockfd, SHUT_RD);
         close(ipcc->conn.sockfd);

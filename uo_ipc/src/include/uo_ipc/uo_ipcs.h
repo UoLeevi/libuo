@@ -20,7 +20,6 @@ typedef struct uo_ipcs
 
 uo_ipcs *uo_ipcs_create(
     char *servname,
-    size_t servname_len,
     void *(*handle_msg)(uo_ipcmsg *, uo_cb *uo_ipcmsg_cb));
 
 #ifdef __cplusplus

@@ -88,7 +88,7 @@ static void *uo_cb_execute(
 	while (!is_quitting)
 	{
 		uo_cb *cb;
-		while (cb = uo_cb_queue_try_dequeue())
+		if (cb = uo_cb_queue_try_dequeue())
 		{
 			uo_cb_thrd_pool_notify_before_invoke();
 

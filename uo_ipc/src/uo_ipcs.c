@@ -1,6 +1,5 @@
 #include "uo_ipcs.h"
 #include "uo_err.h"
-#include "uo_mem.h"
 #include "uo_queue.h"
 #include "uo_sock.h"
 
@@ -91,7 +90,7 @@ static void *uo_ipcs_serve(
 
         do
         {
-            if ((len = recv(conn->sockfd, p, recv_buf_len, 0)) == -1)
+            if ((len = recv(conn->sockfd, p, recv_buf_len, 0)) <= 0)
                 uo_err_goto(err_close, "Error while receiving ipc message.");
 
             p += len;
@@ -105,9 +104,10 @@ static void *uo_ipcs_serve(
                 p = conn->buf + pdiff;
             }
 
-            *p = '\0';
+        }  while (*(uint32_t *)(p - sizeof conn->eom) != conn->eom);
 
-        }  while (len && (*(uint32_t *)(p - sizeof conn->eom) != conn->eom));
+        p -= sizeof conn->eom;
+        *p = '\0';
 
         uo_cb *uo_icpmsg_cb = uo_cb_create(UO_CB_OPT_DESTROY);
         uo_cb_stack_push(uo_icpmsg_cb, ipcs->conn_queue);
@@ -116,7 +116,7 @@ static void *uo_ipcs_serve(
 
         uo_ipcmsg *msg = malloc(sizeof *msg);
         msg->data = conn->buf;
-        msg->data_len = (p - sizeof conn->eom) - conn->buf;
+        msg->data_len = p - conn->buf;
         msg->should_free = false;
         
         ipcs->handle_msg(msg, uo_icpmsg_cb);
@@ -134,7 +134,6 @@ err_close:
 
 uo_ipcs *uo_ipcs_create(
     char *servname,
-    size_t servname_len,
     void *(*handle_msg)(uo_ipcmsg *, uo_cb *uo_ipcmsg_cb))
 {
     uo_ipcs *ipcs = calloc(1, sizeof *ipcs);
@@ -159,15 +158,8 @@ uo_ipcs *uo_ipcs_create(
     else
         uo_err_goto(err_free, "Unable to create socket");
 
-    uint16_t porth;
-    uo_mem_using(servname_ntbs, servname_len + 1)
-    {
-        memcpy(servname_ntbs, servname, servname_len);
-        ((char *)servname_ntbs)[servname_len] = '\0';
-
-        char *endptr;
-        porth = strtoul(servname_ntbs, &endptr, 10);
-    }
+    char *endptr;
+    uint16_t porth = strtoul(servname, &endptr, 10);
 
     struct sockaddr_in6 addr = {
         .sin6_family = AF_INET6,
