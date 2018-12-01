@@ -5,6 +5,7 @@ add_library(uo_sock
     uo_sock.c)
 
 if(WIN32)
+    target_compile_definitions(uo_sock PUBLIC _WIN32_WINNT=0x0601)
     target_link_libraries(uo_sock PUBLIC ws2_32)
 endif()
 
