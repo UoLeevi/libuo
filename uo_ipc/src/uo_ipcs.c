@@ -1,4 +1,5 @@
 #include "uo_ipcs.h"
+#include "uo_io.h"
 #include "uo_err.h"
 #include "uo_queue.h"
 #include "uo_sock.h"
@@ -10,66 +11,157 @@
 #include <pthread.h>
 #include <unistd.h>
 
-#define RECV_TIMEOUT_SEC 10
-#define SEND_TIMEOUT_SEC RECV_TIMEOUT_SEC
+#define UO_IPCS_RCV_TIMEO_SEC 10
+#define UO_IPCS_SND_TIMEO_SEC UO_IPCS_RCV_TIMEO_SEC
 
-static void *uo_ipcs_process_msg(
-    uo_ipcmsg *msg,
-    uo_cb *uo_icpmsg_cb)
+#define UO_IPCS_BUF_LEN 0x1000
+
+typedef struct uo_ipcconn
 {
-    uo_ipcconn *conn = uo_cb_stack_pop(uo_icpmsg_cb);
-    uo_queue *conn_queue = uo_cb_stack_pop(uo_icpmsg_cb);
+    char *buf;
+    int sockfd;
+} uo_ipcconn;
 
-    if (msg && msg->data)
-        if (send(conn->sockfd, msg->data, msg->data_len, 0) == -1)
-            uo_err_goto(err_close, "Error while sending ipc message.");
+static void uo_ipcconn_resize_buf(
+    uo_ipcconn *ipcconn,
+    size_t buf_len)
+{
+    ipcconn->buf = realloc(ipcconn->buf, buf_len);
+}
 
-    if (send(conn->sockfd, (char *)&conn->eom, sizeof conn->eom, 0) == -1)
-        uo_err_goto(err_close, "Error while sending ipc message.");
+static uo_ipcconn *uo_ipcconn_create(
+    int sockfd)
+{
+    uo_ipcconn *ipcconn = malloc(sizeof *ipcconn);
+    ipcconn->sockfd = sockfd;
+    ipcconn->buf = malloc(UO_IPCS_BUF_LEN);
+    return ipcconn;
+}
 
-    char c;
-    if (recv(conn->sockfd, &c, 1, MSG_PEEK) == 0)
+static void uo_ipcconn_destroy(
+    uo_ipcconn *ipcconn)
+{
+    close(ipcconn->sockfd);
+    free(ipcconn->buf);
+    free(ipcconn);
+}
+
+static void *uo_ipcs_send(
+    uo_ipcmsg ipcmsg,
+    uo_cb *ipcs_send_cb)
+{
+    uo_ipcconn *conn = uo_cb_stack_pop(ipcs_send_cb);
+
+    int32_t wlen;
+    int32_t len = sizeof(uint32_t) + uo_ipcmsg_get_payload_len(ipcmsg);
+    char *p = ipcmsg;
+    int wfd = conn->sockfd;
+    
+    while (len)
     {
-        shutdown(conn->sockfd, SHUT_RDWR);
-        close(conn->sockfd);
-        free(conn->buf);
-        free(conn);
+        if ((wlen = uo_io_write(wfd, p, len)) <= 0)
+        {
+            uo_ipcconn_destroy(conn);
+            return NULL;
+        }
+        
+        len -= wlen;
+        p += wlen;
+    }
+
+    uo_ipcs *ipcs = uo_cb_stack_pop(ipcs_send_cb);
+    uo_queue_enqueue(ipcs->conn_queue, conn, true);
+}
+
+static void *uo_ipcs_recv_rest(
+    void *recv_len,
+    uo_cb *ipcs_recv_first_cb)
+{
+    ssize_t len = (uintptr_t)recv_len;
+    uo_ipcconn *conn = uo_cb_stack_pop(ipcs_recv_first_cb);
+
+    if (!len)
+    {
+        uo_ipcconn_destroy(conn);
+        return NULL;
+    }
+
+    char *p = uo_cb_stack_pop(ipcs_recv_first_cb);
+    uint32_t left_len = (uintptr_t)uo_cb_stack_pop(ipcs_recv_first_cb);
+    uo_ipcs *ipcs = uo_cb_stack_pop(ipcs_recv_first_cb);
+
+    left_len -= len;
+
+    if (left_len)
+    {
+        p += len;
+        uo_cb *ipcs_recv_rest_cb = uo_cb_create(UO_CB_OPT_DESTROY);
+        uo_cb_append(ipcs_recv_rest_cb, uo_ipcs_recv_rest);
+        uo_cb_stack_push(ipcs_recv_rest_cb, ipcs);
+        uo_cb_stack_push(ipcs_recv_rest_cb, (void *)(uintptr_t)left_len);
+        uo_cb_stack_push(ipcs_recv_rest_cb, p);
+        uo_cb_stack_push(ipcs_recv_rest_cb, conn);
+
+        uo_io_read_async(conn->sockfd, p, left_len, ipcs_recv_rest_cb);
     }
     else
-        uo_queue_enqueue(conn_queue, conn, true);
-
-    if (msg && msg->should_free)
-        free(msg->data);
-    free(msg);
-
-    return NULL;
-
-err_close:
-    close(conn->sockfd);
-    free(conn->buf);
-    free(conn);
-    if (msg->should_free)
-        free(msg->data);
-    free(msg);
+    {
+        uo_cb *ipcs_send_cb = uo_cb_create(UO_CB_OPT_DESTROY);
+        uo_cb_append(ipcs_send_cb, (void *(*)(void *, uo_cb *))uo_ipcs_send);
+        uo_cb_stack_push(ipcs_send_cb, ipcs);
+        uo_cb_stack_push(ipcs_send_cb, conn);
+        ipcs->handle_msg(conn->buf, ipcs_send_cb);
+    }
 
     return NULL;
 }
 
-static void *uo_ipcs_listen(
-    void *arg)
+static void *uo_ipcs_recv_first(
+    void *recv_len,
+    uo_cb *ipcs_recv_first_cb)
 {
-    uo_ipcs *ipcs = arg;
-    while (!ipcs->is_closing) 
+    ssize_t len = (uintptr_t)recv_len;
+    uo_ipcconn *conn = uo_cb_stack_pop(ipcs_recv_first_cb);
+
+    if (len < sizeof(uint32_t))
     {
-        uo_ipcconn *conn = calloc(1, sizeof *conn);
-        conn->buf = malloc(conn->buf_len = 0x100);
-        
-        while ((conn->sockfd = accept(ipcs->sockfd, NULL, NULL)) == -1)
-            uo_err("Error while accepting connection.");
-        
-        uo_queue_enqueue(ipcs->conn_queue, conn, true);
+        uo_ipcconn_destroy(conn);
+        return NULL;
     }
 
+    uint32_t payload_len = uo_ipcmsg_get_payload_len(conn->buf);
+    uint32_t total_len = payload_len + sizeof(uint32_t);
+
+    if (total_len + 1 > UO_IPCS_BUF_LEN)
+        uo_ipcconn_resize_buf(conn, total_len + 1);
+
+    conn->buf[total_len] = '\0';
+
+    uint32_t left_len = total_len - len;
+    uo_ipcs *ipcs = uo_cb_stack_pop(ipcs_recv_first_cb);
+
+    if (left_len)
+    {
+        char *p = conn->buf + len;
+        uo_cb *ipcs_recv_rest_cb = uo_cb_create(UO_CB_OPT_DESTROY);
+        uo_cb_append(ipcs_recv_rest_cb, uo_ipcs_recv_rest);
+        uo_cb_stack_push(ipcs_recv_rest_cb, ipcs);
+        uo_cb_stack_push(ipcs_recv_rest_cb, (void *)(uintptr_t)left_len);
+        uo_cb_stack_push(ipcs_recv_rest_cb, p);
+        uo_cb_stack_push(ipcs_recv_rest_cb, conn);
+
+        uo_io_read_async(conn->sockfd, p, left_len, ipcs_recv_rest_cb);
+    }
+    else
+    {
+        uo_cb *ipcs_send_cb = uo_cb_create(UO_CB_OPT_DESTROY);
+        uo_cb_append(ipcs_send_cb, (void *(*)(void *, uo_cb *))uo_ipcs_send);
+        uo_cb_stack_push(ipcs_send_cb, ipcs);
+        uo_cb_stack_push(ipcs_send_cb, conn);
+        ipcs->handle_msg(conn->buf, ipcs_send_cb);
+    }
+
+    return NULL;
 }
 
 static void *uo_ipcs_serve(
@@ -81,60 +173,37 @@ static void *uo_ipcs_serve(
     {
         uo_ipcconn *conn = uo_queue_dequeue(ipcs->conn_queue, true);
 
-        if (!conn->eom && recv(conn->sockfd, (char *)&conn->eom, sizeof conn->eom, MSG_WAITALL) == -1)
-            uo_err_goto(err_close, "Error while receiving ipc message.");
-            
-        ssize_t len;
-        char *p = conn->buf;
-        size_t recv_buf_len = conn->buf_len;
+        uo_cb *ipcs_recv_first_cb = uo_cb_create(UO_CB_OPT_DESTROY);
+        uo_cb_append(ipcs_recv_first_cb, uo_ipcs_recv_first);
+        uo_cb_stack_push(ipcs_recv_first_cb, ipcs);
+        uo_cb_stack_push(ipcs_recv_first_cb, conn);
 
-        do
-        {
-            if ((len = recv(conn->sockfd, p, recv_buf_len, 0)) <= 0)
-                uo_err_goto(err_close, "Error while receiving ipc message.");
-
-            p += len;
-            recv_buf_len -= len;
-
-            if (!recv_buf_len)
-            {
-                recv_buf_len = conn->buf_len;
-                ptrdiff_t pdiff = p - conn->buf;
-                conn->buf = realloc(conn->buf, conn->buf_len *= 2);
-                p = conn->buf + pdiff;
-            }
-
-        }  while (*(uint32_t *)(p - sizeof conn->eom) != conn->eom);
-
-        p -= sizeof conn->eom;
-        *p = '\0';
-
-        uo_cb *uo_icpmsg_cb = uo_cb_create(UO_CB_OPT_DESTROY);
-        uo_cb_stack_push(uo_icpmsg_cb, ipcs->conn_queue);
-        uo_cb_stack_push(uo_icpmsg_cb, conn);
-        uo_cb_append(uo_icpmsg_cb, (void *(*)(void *, uo_cb *))uo_ipcs_process_msg);
-
-        uo_ipcmsg *msg = malloc(sizeof *msg);
-        msg->data = conn->buf;
-        msg->data_len = p - conn->buf;
-        msg->should_free = false;
-        
-        ipcs->handle_msg(msg, uo_icpmsg_cb);
-
-        continue;
-
-err_close:
-        close(conn->sockfd);
-        free(conn->buf);
-        free(conn);
+        uo_io_read_async(conn->sockfd, conn->buf, UO_IPCS_BUF_LEN, ipcs_recv_first_cb);
     }
     
     return NULL;
 }
 
+static void *uo_ipcs_listen(
+    void *arg)
+{
+    uo_ipcs *ipcs = arg;
+
+    while (!ipcs->is_closing) 
+    {
+        int sockfd;
+        while ((sockfd = accept(ipcs->sockfd, NULL, NULL)) == -1)
+            uo_err("Error while accepting connection.");
+        
+        uo_queue_enqueue(ipcs->conn_queue, uo_ipcconn_create(sockfd), true);
+    }
+
+    return NULL;
+}
+
 uo_ipcs *uo_ipcs_create(
     char *servname,
-    void *(*handle_msg)(uo_ipcmsg *, uo_cb *uo_ipcmsg_cb))
+    void *(*handle_msg)(uo_ipcmsg, uo_cb *uo_ipcmsg_cb))
 {
     uo_ipcs *ipcs = calloc(1, sizeof *ipcs);
     
@@ -149,10 +218,10 @@ uo_ipcs *uo_ipcs_create(
 		int opt_TCP_NODELAY = true;
 		uo_setsockopt(ipcs->sockfd, IPPROTO_TCP, TCP_NODELAY, &opt_TCP_NODELAY, sizeof opt_TCP_NODELAY);
 
-        struct timeval opt_SO_RCVTIMEO = { .tv_sec = RECV_TIMEOUT_SEC };
+        struct timeval opt_SO_RCVTIMEO = { .tv_sec = UO_IPCS_RCV_TIMEO_SEC };
 		uo_setsockopt(ipcs->sockfd, IPPROTO_IPV6, SO_RCVTIMEO, &opt_SO_RCVTIMEO, sizeof opt_SO_RCVTIMEO);
 
-        struct timeval opt_SO_SNDTIMEO = { .tv_sec = SEND_TIMEOUT_SEC };
+        struct timeval opt_SO_SNDTIMEO = { .tv_sec = UO_IPCS_SND_TIMEO_SEC };
         uo_setsockopt(ipcs->sockfd, IPPROTO_IPV6, SO_SNDTIMEO, &opt_SO_SNDTIMEO, sizeof opt_SO_SNDTIMEO);
     }
     else

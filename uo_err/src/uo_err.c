@@ -5,10 +5,17 @@
 #include <string.h>
 #include <errno.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 void uo_print_err(
     const char *fmt,
     va_list args)
 {
+#ifdef _WIN32
+    DWORD winerr = GetLastError();
+#endif
     int errno_local = errno;
 
     if (fmt) 
@@ -17,8 +24,24 @@ void uo_print_err(
         fputc('\n', stderr);
     }
 
-    if (errno_local != 0)
+    if (errno_local)
         fprintf(stderr, "(errno = %d) : %s\n", errno_local, strerror(errno_local));
+
+#ifdef _WIN32
+    if (winerr)
+    {
+        char buf[256];
+        FormatMessage(
+            FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+            NULL,
+            winerr,
+            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+            buf, 
+            (sizeof buf / sizeof *buf),
+            NULL);
+        fprintf(stderr, "(GetLastError() = %d) : %s\n", winerr, buf);
+    }
+#endif
 
     fflush(stderr);
 }

@@ -15,12 +15,12 @@ typedef struct uo_ipcs
     void *listen_thrd;
     void *server_thrd;
     void *conn_queue;
-    void *(*handle_msg)(uo_ipcmsg *, uo_cb *uo_ipcmsg_cb);
+    void *(*handle_msg)(uo_ipcmsg, uo_cb *ipcmsg_cb);
 } uo_ipcs;
 
 uo_ipcs *uo_ipcs_create(
     char *servname,
-    void *(*handle_msg)(uo_ipcmsg *, uo_cb *uo_ipcmsg_cb));
+    void *(*handle_msg)(uo_ipcmsg, uo_cb *ipcmsg_cb));
 
 #ifdef __cplusplus
 }

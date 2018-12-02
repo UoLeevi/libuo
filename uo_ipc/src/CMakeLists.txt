@@ -7,6 +7,9 @@ find_package(Threads REQUIRED)
 if(NOT TARGET uo::uo_cb)
     find_package(uo_cb CONFIG REQUIRED)
 endif()
+if(NOT TARGET uo::uo_io)
+    find_package(uo_io CONFIG REQUIRED)
+endif()
 if(NOT TARGET uo::uo_err)
     find_package(uo_err CONFIG REQUIRED)
 endif()
@@ -22,13 +25,14 @@ endif()
 
 add_library(uo_ipc
     uo_ipc.c
-    uo_ipcc.c
+    uo_ipcmsg.c
     uo_ipcs.c)
 
 target_link_libraries(uo_ipc
     PUBLIC
         uo::uo_cb
     PRIVATE
+        uo::uo_io
         uo::uo_err
         uo::uo_mem
         uo::uo_queue
