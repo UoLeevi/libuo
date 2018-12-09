@@ -197,7 +197,7 @@ bool uo_io_read_async(
 	epevt->data.ptr = ioop;
 	uo_cb_stack_push(cb, epevt);
 	return (epoll_ctl(epfd, EPOLL_CTL_ADD, rfd, epevt) == 0)
-		|| (errno == EEXISTS && epoll_ctl(epfd, EPOLL_CTL_MOD, rfd, epevt) == 0);
+		|| (errno == EEXIST && epoll_ctl(epfd, EPOLL_CTL_MOD, rfd, epevt) == 0);
 #endif
 }
 
@@ -223,6 +223,6 @@ bool uo_io_write_async(
 	uo_cb_stack_push(cb, epevt);
 
 	return (epoll_ctl(epfd, EPOLL_CTL_ADD, wfd, epevt) == 0)
-		|| (errno == EEXISTS && epoll_ctl(epfd, EPOLL_CTL_MOD, wfd, epevt) == 0);
+		|| (errno == EEXIST && epoll_ctl(epfd, EPOLL_CTL_MOD, wfd, epevt) == 0);
 #endif
 }
