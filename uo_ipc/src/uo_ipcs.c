@@ -11,8 +11,7 @@
 #include <pthread.h>
 #include <unistd.h>
 
-#define UO_IPCS_RCV_TIMEO_SEC 10
-#define UO_IPCS_SND_TIMEO_SEC UO_IPCS_RCV_TIMEO_SEC
+#define UO_IPCS_SND_TIMEO_SEC 10
 
 #define UO_IPCS_BUF_LEN 0x1000
 
@@ -217,9 +216,6 @@ uo_ipcs *uo_ipcs_create(
 
 		int opt_TCP_NODELAY = true;
 		uo_setsockopt(ipcs->sockfd, IPPROTO_TCP, TCP_NODELAY, &opt_TCP_NODELAY, sizeof opt_TCP_NODELAY);
-
-        struct timeval opt_SO_RCVTIMEO = { .tv_sec = UO_IPCS_RCV_TIMEO_SEC };
-		uo_setsockopt(ipcs->sockfd, IPPROTO_IPV6, SO_RCVTIMEO, &opt_SO_RCVTIMEO, sizeof opt_SO_RCVTIMEO);
 
         struct timeval opt_SO_SNDTIMEO = { .tv_sec = UO_IPCS_SND_TIMEO_SEC };
         uo_setsockopt(ipcs->sockfd, IPPROTO_IPV6, SO_SNDTIMEO, &opt_SO_SNDTIMEO, sizeof opt_SO_SNDTIMEO);

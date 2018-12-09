@@ -15,7 +15,7 @@ uint32_t uo_ipcmsg_get_payload_len(
 
 void uo_ipcmsg_set_payload_len(
     uo_ipcmsg,
-    uint32_t owned_mem_len);
+    uint32_t payload_len);
 
 char *uo_ipcmsg_get_payload(
     uo_ipcmsg);
