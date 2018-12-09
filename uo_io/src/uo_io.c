@@ -7,6 +7,7 @@
 #ifdef _WIN32
 #include <windows.h>
 #else
+#include <errno.h>
 #include <unistd.h>
 #include <sys/epoll.h>
 #include <pthread.h>
@@ -195,7 +196,8 @@ bool uo_io_read_async(
 	epevt->events = EPOLLIN | EPOLLONESHOT;
 	epevt->data.ptr = ioop;
 	uo_cb_stack_push(cb, epevt);
-	return epoll_ctl(epfd, EPOLL_CTL_ADD, rfd, epevt) == 0;
+	return (epoll_ctl(epfd, EPOLL_CTL_ADD, rfd, epevt) == 0)
+		|| (errno == EEXISTS && epoll_ctl(epfd, EPOLL_CTL_MOD, rfd, epevt) == 0);
 #endif
 }
 
@@ -219,6 +221,8 @@ bool uo_io_write_async(
 	epevt->events = EPOLLOUT | EPOLLONESHOT;
 	epevt->data.ptr = ioop;
 	uo_cb_stack_push(cb, epevt);
-	return epoll_ctl(epfd, EPOLL_CTL_ADD, wfd, epevt) == 0;
+
+	return (epoll_ctl(epfd, EPOLL_CTL_ADD, wfd, epevt) == 0)
+		|| (errno == EEXISTS && epoll_ctl(epfd, EPOLL_CTL_MOD, wfd, epevt) == 0);
 #endif
 }
