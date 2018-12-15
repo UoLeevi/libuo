@@ -11,13 +11,23 @@ size_t uo_base64_len(
     size_t len);
 
 char *uo_base64_encode(
-    char *dst, 
-    const void *src, 
+    char *dst,
+    const void *src,
     size_t src_len);
 
 void *uo_base64_decode(
-    void *dst, 
-    const char *src, 
+    void *dst,
+    const char *src,
+    size_t src_len);
+
+char *uo_base64url_encode(
+    char *dst,
+    const void *src,
+    size_t src_len);
+
+void *uo_base64url_decode(
+    void *dst,
+    const char *src,
     size_t src_len);
 
 #ifdef __cplusplus
