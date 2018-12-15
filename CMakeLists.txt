@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.7)
 project(uo)
 
 add_subdirectory(uo_err)
+add_subdirectory(uo_base64)
 add_subdirectory(uo_mem)
 add_subdirectory(uo_queue)
 add_subdirectory(uo_stack)
