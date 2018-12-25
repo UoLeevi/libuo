@@ -1,11 +1,19 @@
 cmake_minimum_required(VERSION 3.7)
 project(uo_mem VERSION 0.1.0)
 
+if(NOT TARGET uo::uo_macro)
+    find_package(uo_macro CONFIG REQUIRED)
+endif()
+
 add_library(uo_mem INTERFACE)
 
 target_compile_features(uo_mem
     INTERFACE
         c_std_11)
+
+target_link_libraries(uo_mem
+    INTERFACE
+        uo::uo_macro)
 
 target_include_directories(uo_mem
     INTERFACE
