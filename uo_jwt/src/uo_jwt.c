@@ -9,55 +9,68 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-uo_jwt uo_jwt_hs256_create(
-    const char *iss,
-    const char *exp,
-    const char *sub,
-    const char *aud,
-    const char *secret)
+char *uo_jwt_hs256_append_header(
+    char *dst)
 {
-    char *jwt = malloc(0x1000);
-    char *p, *header, *payload, *signature;
+    char *p = dst;
+    p = uo_base64url_encode(p, "{ \"alg\": \"HS256\", \"typ\": \"JWT\" }", 32);
+    p = uo_mem_append_str_literal(p, ".{ ");
+    return p;
+}
 
-    header = p = jwt;
+char *uo_jwt_hs256_append_signature(
+    char *dst,
+    char *jwt_header,
+    const char *key,
+    size_t key_len)
+{
+    char *p = dst - 2;
+    p = uo_mem_append_str_literal(p, " }");
 
-    p = uo_base64url_encode(header, 
-        "{ \"alg\": \"HS256\", \"typ\": \"JWT\" }", 32);
+    char *jwt_payload = jwt_header + 44;
+    p = uo_base64url_encode(jwt_payload, jwt_payload, p - jwt_payload);
+    p = uo_mem_append_str_literal(p, ".");
 
-    *p++ = '.';
-    payload = p;
-
-    memcpy(p, "{ \"iss\": ", 8);
-    p += 8;
-    p = uo_json_encode(p, iss);
-
-    memcpy(p, ", \"exp\": ", 8);
-    p += 8;
-    p = uo_json_encode(p, exp);
-
-    memcpy(p, ", \"sub\": ", 8);
-    p += 8;
-    p = uo_json_encode(p, sub);
-    
-    memcpy(p, ", \"aud\": ", 8);
-    p += 8;
-    p = uo_json_encode(p, aud);
-    *p++ = ' ';
-    *p++ = '}';
-
-    p = uo_base64url_encode(payload, payload, p - payload);
-    
-    *p++ = '.';
-    signature = p;
-
-    unsigned int signature_len;
     HMAC(EVP_sha256(), 
-        secret, strlen(secret),
-        jwt, (p - 1) - jwt,
-        signature, &signature_len);
+        key, key_len,
+        jwt_header, (p - 1) - jwt_header,
+        p, NULL);
 
-    p = uo_base64url_encode(signature, signature, signature_len);
+    p = uo_base64url_encode(p, p, 32);
     *p = '\0';
 
-    return jwt;
+    return p;
+}
+
+bool uo_jwt_verify(
+    const char *jwt,
+    size_t jwt_len,
+    const char *key,
+    size_t key_len)
+{
+    char *header_end = memchr(jwt, '.', jwt_len);
+    if (!header_end)
+        return false;
+
+    char *payload = header_end + 1;
+    char *payload_end = memchr(payload, '.', jwt_len - (jwt - payload));
+    if (!payload_end)
+        return false;
+
+    char *signature = payload_end + 1;
+    if (jwt + jwt_len - signature != 43)
+        return false;
+
+    char hs256[43]; 
+    // hmac sha256 output length is 32 bytes.
+    // base64url encoding increases the size by 1/3 to 43 bytes
+
+    HMAC(EVP_sha256(), 
+        key, key_len,
+        jwt, payload_end - jwt,
+        hs256, NULL);
+
+    uo_base64url_encode(hs256, hs256, 32);
+    
+    return memcmp(signature, hs256, 43) == 0;
 }

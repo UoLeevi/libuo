@@ -5,16 +5,32 @@
 extern "C" {
 #endif
 
+#include "uo_json.h"
+
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
 // https://tools.ietf.org/html/rfc7519
 
-typedef char *uo_jwt;
+char *uo_jwt_hs256_append_header(
+    char *dst);
 
-uo_jwt uo_jwt_hs256_create(
-    const char *iss,
-    const char *exp,
-    const char *sub,
-    const char *aud,
-    const char *secret);
+char *uo_jwt_hs256_append_signature(
+    char *dst,
+    char *jwt_header,
+    const char *key,
+    size_t key_len);
+
+#define uo_jwt_append_claim(dst, key, val) \
+    uo_mem_append_str_literal( \
+        uo_json_encode_kvp(dst, key, val), ", ")
+
+bool uo_jwt_verify(
+    const char *jwt,
+    size_t jwt_len,
+    const char *key,
+    size_t key_len);
 
 #ifdef __cplusplus
 }

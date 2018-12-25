@@ -14,9 +14,10 @@ add_library(uo_jwt
     uo_jwt.c)
 
 target_link_libraries(uo_jwt
+    PUBLIC
+        uo::uo_json
     PRIVATE
         uo::uo_base64
-        uo::uo_json
         OpenSSL::Crypto)
 
 target_compile_features(uo_jwt
