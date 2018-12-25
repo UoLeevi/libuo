@@ -1,8 +1,16 @@
 cmake_minimum_required(VERSION 3.7)
 project(uo_json VERSION 0.1.0)
 
+if(NOT TARGET uo::uo_mem)
+    find_package(uo_mem CONFIG REQUIRED)
+endif()
+
 add_library(uo_json
     uo_json.c)
+
+target_link_libraries(uo_json
+    PUBLIC
+        uo::uo_mem)
 
 target_compile_features(uo_json
     PUBLIC

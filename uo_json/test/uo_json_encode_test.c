@@ -73,6 +73,24 @@ bool uo_json_encode_utf8_test(void)
     passed &= strcmp(json,
         "null") == 0;
 
+    end = uo_json_encode(json,
+        ((char[]) { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, '\0' }));
+    *end = '\0';
+    passed &= strcmp(json,
+        "\"\\u0001\\u0002\\u0003\\u0004\\u0005\\u0006\\u0007\\u0008\\u0009\\u000A\\u000B\\u000C\\u000D\\u000E\\u000F\"") == 0;
+
+    end = uo_json_encode_kvp(json,
+        "key", "value");
+    *end = '\0';
+    passed &= strcmp(json,
+        "\"key\": \"value\"") == 0;
+
+    end = uo_json_encode_kvp(json,
+        "key", 1);
+    *end = '\0';
+    passed &= strcmp(json,
+        "\"key\": 1") == 0;
+
     return passed;
 }
 

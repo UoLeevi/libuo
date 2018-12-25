@@ -7,6 +7,8 @@ extern "C" {
 
 // https://tools.ietf.org/html/rfc8259
 
+#include "uo_mem.h"
+
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -62,11 +64,19 @@ char *uo_json_encode_noop(
 
 #define uo_json_encode(dst, val) _Generic((val), \
                      _Bool: uo_json_encode_bool(dst, val), \
-                    char *: uo_json_encode_utf8_cstring(dst, (uintptr_t)val), \
-                    const char *: uo_json_encode_utf8_cstring(dst, (uintptr_t)val), \
-                    void *: uo_json_encode_utf8_cstring(dst, (uintptr_t)val), \
-                   default: uo_json_encode_number(dst, val) \
+                    char *: uo_json_encode_utf8_cstring(dst, (uintptr_t)(val)), \
+              const char *: uo_json_encode_utf8_cstring(dst, (uintptr_t)(val)), \
+                    void *: uo_json_encode_utf8_cstring(dst, (uintptr_t)(val)), \
+              const void *: uo_json_encode_utf8_cstring(dst, (uintptr_t)(val)), \
+                   default: uo_json_encode_number(dst, (val)) \
 )
+
+#define uo_json_encode_kvp(dst, key, val) \
+    (uo_json_encode( \
+        uo_mem_append_str_literal( \
+            uo_json_encode_utf8_cstring(dst, key), \
+            ": "), \
+        val))
 
 #ifdef __cplusplus
 }
