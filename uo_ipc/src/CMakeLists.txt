@@ -4,6 +4,12 @@ project(uo_ipc VERSION 0.1.0)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
+if(NOT TARGET uo::uo_buf)
+    find_package(uo_buf CONFIG REQUIRED)
+endif()
+if(NOT TARGET uo::uo_tcp)
+    find_package(uo_tcp CONFIG REQUIRED)
+endif()
 if(NOT TARGET uo::uo_cb)
     find_package(uo_cb CONFIG REQUIRED)
 endif()
@@ -31,7 +37,9 @@ add_library(uo_ipc
 target_link_libraries(uo_ipc
     PUBLIC
         uo::uo_cb
+        uo::uo_buf
     PRIVATE
+        uo::uo_tcp
         uo::uo_io
         uo::uo_err
         uo::uo_mem

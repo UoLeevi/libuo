@@ -1,4 +1,5 @@
 #include "uo_ipc.h"
+#include "uo_tcp.h"
 #include "uo_cb.h"
 #include "uo_io.h"
 #include "uo_sock.h"
@@ -23,6 +24,7 @@ bool uo_ipc_init(void)
 
     is_init = true;
 
+    is_init &= uo_tcp_init();
     is_init &= uo_cb_init();
     is_init &= uo_sock_init();
     is_init &= uo_io_init();
