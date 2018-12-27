@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include <stddef.h>
+#include <sys/types.h>
 
 typedef unsigned char *uo_buf;
 
