@@ -16,6 +16,7 @@ uo_tcp_conn *uo_tcp_conn_create(
     tcp_conn->buf = uo_buf_alloc(UO_TCP_BUF_SIZE);
     tcp_conn->sockfd = sockfd;
     tcp_conn->state = state;
+    tcp_conn->evt_data.recv_len = 0;
     return tcp_conn;
 }
 

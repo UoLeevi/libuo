@@ -16,9 +16,14 @@ extern "C"
 typedef struct uo_tcp_server
 {
     void *state;
-    void (*connected)(void *state);
-    void (*data_received)(void *state, uo_buf, size_t new_data_len, bool *recv_again);
-    void (*prepare_response)(void *state, uo_buf, uo_cb *send_response_cb);
+    struct
+    {
+        uo_tcp_evt_handler after_accept_handler;
+        uo_tcp_evt_handler after_recv_handler;
+        uo_tcp_evt_handler before_send_handler;
+        uo_tcp_evt_handler after_send_handler;
+        uo_tcp_evt_handler after_close_handler;
+    } evt;
     void *listen_thrd;
     void *server_thrd;
     void *conn_queue;
@@ -28,13 +33,13 @@ typedef struct uo_tcp_server
 
 uo_tcp_server *uo_tcp_server_create(
     const char *port,
-    void *state,
-    void (*connected)(void *state),
-    void (*data_received)(void *state, uo_buf, size_t new_data_len, bool *recv_again),
-    void (*prepare_response)(void *state, uo_buf, uo_cb *send_response_cb));
+    void *state);
+
+void uo_tcp_server_start(
+    uo_tcp_server *);
 
 void uo_tcp_server_destroy(
-    uo_tcp_server *tcp_server);
+    uo_tcp_server *);
 
 #ifdef __cplusplus
 }

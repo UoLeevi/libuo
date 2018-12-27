@@ -11,14 +11,14 @@
 #include <pthread.h>
 #include <unistd.h>
 
-static void *uo_tcp_send(
+static void *uo_tcp_server_send(
     void *arg,
-    uo_cb *tcp_recv_cb)
+    uo_cb *cb)
 {
-    uo_tcp_conn *tcp_conn = uo_cb_stack_pop(tcp_recv_cb);
+    uo_tcp_conn *tcp_conn = uo_cb_stack_pop(cb);
 
     ssize_t wlen;
-    unsigned char *p = tcp_conn->buf = arg;
+    unsigned char *p = tcp_conn->buf;
     size_t len = uo_buf_get_len_before_ptr(p);
     int wfd = tcp_conn->sockfd;
     
@@ -34,11 +34,41 @@ static void *uo_tcp_send(
         p += wlen;
     }
 
-    uo_tcp_server *tcp_server = uo_cb_stack_pop(tcp_recv_cb);
+    uo_tcp_server *tcp_server = uo_cb_stack_pop(cb);
     uo_queue_enqueue(tcp_server->conn_queue, tcp_conn, true);
 }
 
-static void *uo_tcp_recv(
+static void *uo_tcp_server_after_recv(
+    void *arg,
+    uo_cb *cb)
+{
+    uo_tcp_conn *tcp_conn = uo_cb_stack_pop(cb);
+    uo_tcp_server *tcp_server = uo_cb_stack_pop(cb);
+
+    if (tcp_conn->evt_data.recv_again)
+    {
+        if (!uo_buf_get_len_after_ptr(tcp_conn->buf))
+            tcp_conn->buf = uo_buf_realloc_2x(tcp_conn->buf);
+
+        uo_queue_enqueue(tcp_server->conn_queue, tcp_conn, true);
+    }
+    else
+    {
+        uo_cb *cb = uo_cb_create(UO_CB_OPT_DESTROY);
+        uo_cb_stack_push(cb, tcp_server);
+        uo_cb_stack_push(cb, tcp_conn);
+        uo_cb_append(cb, uo_tcp_server_send);
+
+        if (tcp_server->evt.before_send_handler)
+            tcp_server->evt.before_send_handler(tcp_conn, cb);
+        else
+            uo_cb_invoke(cb, NULL);
+    }
+
+    return NULL;
+}
+
+static void *uo_tcp_server_recv(
     void *recv_len,
     uo_cb *tcp_recv_cb)
 {
@@ -53,26 +83,26 @@ static void *uo_tcp_recv(
 
     uo_tcp_server *tcp_server = uo_cb_stack_pop(tcp_recv_cb);
 
-    bool recv_again = false;
-    tcp_server->data_received(tcp_conn->state, tcp_conn->buf, len, &recv_again);
+    tcp_conn->evt_data.recv_len = len;
+    uo_buf_set_ptr_rel(tcp_conn->buf, len);
 
-    if (recv_again && !uo_buf_get_len_after_ptr(tcp_conn->buf))
-        tcp_conn->buf = uo_buf_realloc_2x(tcp_conn->buf);
+    uo_cb *cb = uo_cb_create(UO_CB_OPT_DESTROY);
+    uo_cb_stack_push(cb, tcp_server);
+    uo_cb_stack_push(cb, tcp_conn);
 
-    if (recv_again)
+    if (tcp_server->evt.after_recv_handler)
     {
-        if (!uo_buf_get_len_after_ptr(tcp_conn->buf))
-            tcp_conn->buf = uo_buf_realloc_2x(tcp_conn->buf);
-
-        uo_queue_enqueue(tcp_server->conn_queue, tcp_conn, true);
+        uo_cb_append(cb, uo_tcp_server_after_recv);
+        tcp_server->evt.after_recv_handler(tcp_conn, cb);
     }
     else
     {
-        uo_cb *tcp_send_cb = uo_cb_create(UO_CB_OPT_DESTROY);
-        uo_cb_append(tcp_send_cb, (void *(*)(void *, uo_cb *))uo_tcp_send);
-        uo_cb_stack_push(tcp_send_cb, tcp_server);
-        uo_cb_stack_push(tcp_send_cb, tcp_conn);
-        tcp_server->prepare_response(tcp_conn->state, tcp_conn->buf, tcp_send_cb);
+        uo_cb_append(cb, uo_tcp_server_send);
+
+        if (tcp_server->evt.before_send_handler)
+            tcp_server->evt.before_send_handler(tcp_conn, cb);
+        else
+            uo_cb_invoke(cb, NULL);
     }
 
     return NULL;
@@ -88,9 +118,9 @@ static void *uo_tcp_server_serve(
         uo_tcp_conn *tcp_conn = uo_queue_dequeue(tcp_server->conn_queue, true);
 
         uo_cb *tcp_recv_cb = uo_cb_create(UO_CB_OPT_DESTROY);
-        uo_cb_append(tcp_recv_cb, uo_tcp_recv);
         uo_cb_stack_push(tcp_recv_cb, tcp_server);
         uo_cb_stack_push(tcp_recv_cb, tcp_conn);
+        uo_cb_append(tcp_recv_cb, uo_tcp_server_recv);
 
         uo_io_read_async(
             tcp_conn->sockfd, 
@@ -102,7 +132,17 @@ static void *uo_tcp_server_serve(
     return NULL;
 }
 
-static void *uo_tcp_server_listen(
+static void *uo_tcp_server_after_accept(
+    void *arg,
+    uo_cb *cb)
+{
+    uo_tcp_conn *tcp_conn = uo_cb_stack_pop(cb);
+    uo_queue *tcp_conn_queue = uo_cb_stack_pop(cb);
+    uo_queue_enqueue(tcp_conn_queue, tcp_conn, true);
+    return NULL;
+}
+
+static void *uo_tcp_server_accept(
     void *arg)
 {
     uo_tcp_server *tcp_server = arg;
@@ -115,28 +155,35 @@ static void *uo_tcp_server_listen(
 
         uo_tcp_conn *tcp_conn = uo_tcp_conn_create(sockfd, tcp_server->state);
 
-        if (tcp_server->connected)
-            tcp_server->connected(tcp_conn->state);
-
-        uo_queue_enqueue(tcp_server->conn_queue, tcp_conn, true);
+        if (tcp_server->evt.after_accept_handler)
+        {
+            uo_cb *cb = uo_cb_create(UO_CB_OPT_DESTROY);
+            uo_cb_stack_push(cb, tcp_server->conn_queue);
+            uo_cb_stack_push(cb, tcp_conn);
+            uo_cb_append(cb, uo_tcp_server_after_accept);
+            tcp_server->evt.after_accept_handler(tcp_conn, cb);
+        }
+        else
+            uo_queue_enqueue(tcp_server->conn_queue, tcp_conn, true);
     }
 
     return NULL;
 }
 
+void uo_tcp_server_start(
+    uo_tcp_server *tcp_server)
+{
+    pthread_create(tcp_server->server_thrd, NULL, uo_tcp_server_serve, tcp_server);
+    pthread_create(tcp_server->listen_thrd, NULL, uo_tcp_server_accept, tcp_server);
+}
+
 uo_tcp_server *uo_tcp_server_create(
     const char *port,
-    void *state,
-    void (*connected)(void *state),
-    void (*data_received)(void *state, uo_buf, size_t new_data_len, bool *recv_again),
-    void (*prepare_response)(void *state, uo_buf, uo_cb *uo_buf_cb))
+    void *state)
 {
     uo_tcp_server *tcp_server = calloc(1, sizeof *tcp_server);
 
     tcp_server->state = state;
-    tcp_server->connected = connected;
-    tcp_server->data_received = data_received;
-    tcp_server->prepare_response = prepare_response;
 
     tcp_server->sockfd = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
 	if (tcp_server->sockfd != -1)
@@ -176,10 +223,7 @@ uo_tcp_server *uo_tcp_server_create(
     tcp_server->conn_queue = uo_queue_create(0x100);
 
     tcp_server->server_thrd = malloc(sizeof(pthread_t));
-    pthread_create(tcp_server->server_thrd, NULL, uo_tcp_server_serve, tcp_server);
-
     tcp_server->listen_thrd = malloc(sizeof(pthread_t));
-    pthread_create(tcp_server->listen_thrd, NULL, uo_tcp_server_listen, tcp_server);
 
     return tcp_server;
 
