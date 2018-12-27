@@ -6,19 +6,16 @@
 #include <stdint.h>
 #include <stdio.h>
 
-static void uo_ipcs_data_received(
-    void *state, 
-    uo_buf buf, 
-    size_t new_data_len, 
-    bool *recv_again)
+static void uo_ipcs_after_recv(
+    uo_tcp_conn *tcp_conn,
+    uo_cb *cb)
 {
-    uint32_t msg_len;
+    size_t msg_len = uo_buf_get_len_before_ptr(tcp_conn->buf);
 
-    uo_buf_set_ptr_rel(buf, new_data_len);
-    unsigned char *p = uo_buf_get_ptr(buf);
+    tcp_conn->evt_data.recv_again = msg_len >= sizeof (uint32_t) 
+        && uo_ipcmsg_get_payload_len(tcp_conn->buf) + sizeof (uint32_t) != msg_len;
 
-    if (p - buf >= sizeof (uint32_t))
-        *recv_again = uo_ipcmsg_get_payload_len(buf) + sizeof (uint32_t) != p - buf;
+    uo_cb_invoke(cb, NULL);
 }
 
 static uo_ipcmsg uo_ipcs_buf_to_ipcmsg(
@@ -37,19 +34,19 @@ static uo_ipcmsg uo_ipcs_buf_to_ipcmsg(
 }
 
 void uo_ipcs_ipcmsg_to_buf(
-    void *state, 
-    uo_buf buf, 
-    uo_cb *send_response_cb)
+    uo_tcp_conn *tcp_conn, 
+    uo_cb *cb)
 {
-    uo_ipcs *ipcs = state;
+    uo_ipcs *ipcs = tcp_conn->state;
+    uo_buf buf = tcp_conn->buf;
 
     size_t payload_len = uo_ipcmsg_get_payload_len(buf);
     memmove(buf, uo_ipcmsg_get_payload(buf), payload_len);
     uo_buf_set_ptr_abs(buf, payload_len);
 
-    uo_cb_prepend(send_response_cb, (void *(*)(void *, uo_cb *))uo_ipcs_buf_to_ipcmsg);
+    uo_cb_prepend(cb, (void *(*)(void *, uo_cb *))uo_ipcs_buf_to_ipcmsg);
 
-    ipcs->prepare_response(buf, send_response_cb);
+    ipcs->prepare_response(buf, cb);
 }
 
 uo_ipcs *uo_ipcs_create(
@@ -58,18 +55,16 @@ uo_ipcs *uo_ipcs_create(
 {
     uo_ipcs *ipcs = malloc(sizeof *ipcs);
 
-    uo_tcp_server *tcp_server = uo_tcp_server_create(
-        servname,
-        ipcs,
-        NULL,
-        uo_ipcs_data_received,
-        uo_ipcs_ipcmsg_to_buf);
-
+    uo_tcp_server *tcp_server = uo_tcp_server_create(servname, ipcs);
     if (!tcp_server)
     {
         free(ipcs);
         return NULL;
     }
+
+    tcp_server->evt.after_recv_handler = uo_ipcs_after_recv;
+    tcp_server->evt.before_send_handler = uo_ipcs_ipcmsg_to_buf;
+    uo_tcp_server_start(tcp_server);
     
     ipcs->tcp_server = tcp_server;
     ipcs->prepare_response = prepare_response;	
