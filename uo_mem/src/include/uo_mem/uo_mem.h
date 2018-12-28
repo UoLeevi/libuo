@@ -11,6 +11,7 @@ extern "C" {
 #include <string.h>
 
 static _Thread_local size_t temp_size;
+static _Thread_local const void *temp_ptr;
 
 #define uo_mem_write(dst, src, len) \
 { \
@@ -24,9 +25,9 @@ static _Thread_local size_t temp_size;
              default: ((void *)((char *)memcpy((dst), (str_literal), UO_STRLEN(str_literal)) + UO_STRLEN(str_literal))))
 
 #define uo_mem_append_str(dst, str) _Generic((dst), \
-              char *: ((char *)memcpy((dst), (str), temp_size = strlen(str)) + temp_size), \
-     unsigned char *: ((unsigned char *)memcpy((dst), (str), temp_size = strlen(str)) + temp_size), \
-             default: ((void *)((char *)memcpy((dst), (str), temp_size = strlen(str)) + temp_size)))
+              char *: (temp_ptr = (str), (char *)memcpy((dst), temp_ptr, temp_size = strlen((const char *)temp_ptr)) + temp_size), \
+     unsigned char *: (temp_ptr = (str), (unsigned char *)memcpy((dst), temp_ptr, temp_size = strlen((const char *)temp_ptr)) + temp_size), \
+             default: (temp_ptr = (str), (void *)((char *)memcpy((dst), temp_ptr, temp_size = strlen((const char *)temp_ptr)) + temp_size)))
 
 #define uo_mem_using(p, size) \
     for (int UO_VAR(once) = 1; UO_VAR(once);) \
