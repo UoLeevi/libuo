@@ -14,6 +14,7 @@ const char *uo_http_header_content_type_for_path(
 
     switch (tolower(dot[1]))
     {
+        case 't': return UO_HTTP_HEADER_CONTENT_TYPE_TEXT;
         case 'h': return UO_HTTP_HEADER_CONTENT_TYPE_HTML;
         case 'c': return UO_HTTP_HEADER_CONTENT_TYPE_CSS;
         case 'j': return UO_HTTP_HEADER_CONTENT_TYPE_JS;

@@ -17,24 +17,15 @@
 
 #define UO_HTTP_RESPONSE_HEADER_SERVER_LIBUO            UO_HTTP_HEADER_SERVER "libuo http_server" "\r\n"
 #define UO_HTTP_RESPONSE_HEADER_CONNECTION_KEEP_ALIVE   UO_HTTP_HEADER_CONNECTION "Keep-Alive" "\r\n"
-#define UO_HTTP_RESPONSE_404_HTML \
-    "<html>" "\r\n" \
-    "<head>" "\r\n" \
-    "<title>404 Not Found</title>" "\r\n" \
-    "</head>" "\r\n" \
-    "<body>" "\r\n" \
-    "404 Not Found" "\r\n" \
-    "</body>" "\r\n" \
-    "</html>" "\r\n"
 
 #define UO_HTTP_RESPONSE_404 \
     "HTTP/1.1 404 Not Found" "\r\n" \
     UO_HTTP_RESPONSE_HEADER_SERVER_LIBUO \
     UO_HTTP_RESPONSE_HEADER_CONNECTION_KEEP_ALIVE \
-    UO_HTTP_HEADER_CONTENT_TYPE_HTML \
-    UO_HTTP_HEADER_CONTENT_LENGTH "96" "\r\n" \
+    UO_HTTP_HEADER_CONTENT_TYPE_TEXT \
+    UO_HTTP_HEADER_CONTENT_LENGTH "27" "\r\n" \
     "\r\n" \
-    UO_HTTP_RESPONSE_404_HTML
+    "404 Error: Page not found" "\r\n"
 
 #define UO_HTTP_RESPONSE_200_PARTIAL \
     "HTTP/1.1 200 OK" "\r\n" \
@@ -116,7 +107,11 @@ static void uo_http_server_before_send(
         size_t total_response_len = sb.st_size + p - buf;
 
         if (uo_buf_get_size(buf) < total_response_len)
+        {
+            uo_buf_set_ptr_abs(buf, p - buf);
             buf = tcp_conn->buf = uo_buf_realloc(buf, total_response_len);
+            p = uo_buf_get_ptr(buf);
+        }
 
         if (fread(p, sizeof *p, sb.st_size, fp) != sb.st_size || ferror(fp))
             goto error_404;
@@ -169,7 +164,7 @@ static void uo_http_server_after_close(
 }
 
 uo_http_server *uo_http_server_create(
-    char *port)
+    const char *port)
 {
     uo_http_server *http_server = calloc(1, sizeof *http_server);
     uo_tcp_server *tcp_server = uo_tcp_server_create(port, http_server);

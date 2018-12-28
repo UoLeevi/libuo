@@ -10,6 +10,7 @@ extern "C" {
 #define UO_HTTP_HEADER_CONTENT_LENGTH   "Content-Length: "
 #define UO_HTTP_HEADER_CONTENT_TYPE     "Content-Type: "
 
+#define UO_HTTP_HEADER_CONTENT_TYPE_TEXT    UO_HTTP_HEADER_CONTENT_TYPE "text/plain; charset=utf-8" "\r\n"
 #define UO_HTTP_HEADER_CONTENT_TYPE_HTML    UO_HTTP_HEADER_CONTENT_TYPE "text/html; charset=utf-8" "\r\n"
 #define UO_HTTP_HEADER_CONTENT_TYPE_CSS     UO_HTTP_HEADER_CONTENT_TYPE "text/css; charset=utf-8" "\r\n"
 #define UO_HTTP_HEADER_CONTENT_TYPE_JS      UO_HTTP_HEADER_CONTENT_TYPE "application/javascript; charset=utf-8" "\r\n"

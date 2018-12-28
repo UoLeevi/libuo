@@ -14,7 +14,7 @@ typedef struct uo_http_server
 } uo_http_server;
 
 uo_http_server *uo_http_server_create(
-    char *port);
+    const char *port);
 
 void uo_http_server_start(
     uo_http_server *);
