@@ -11,11 +11,33 @@
 #include <pthread.h>
 #include <unistd.h>
 
+static void *uo_tcp_server_after_close(
+    void *arg,
+    uo_cb *cb)
+{
+    uo_tcp_conn *tcp_conn = uo_cb_stack_pop(cb);
+    uo_tcp_conn_destroy(tcp_conn);
+    return NULL;
+}
+
+static void *uo_tcp_server_after_send(
+    void *arg,
+    uo_cb *cb)
+{
+    uo_tcp_conn *tcp_conn = uo_cb_stack_pop(cb);
+    uo_queue *tcp_conn_queue = uo_cb_stack_pop(cb);
+
+    uo_queue_enqueue(tcp_conn_queue, tcp_conn, true);
+
+    return NULL;
+}
+
 static void *uo_tcp_server_send(
     void *arg,
     uo_cb *cb)
 {
     uo_tcp_conn *tcp_conn = uo_cb_stack_pop(cb);
+    uo_tcp_server *tcp_server = uo_cb_stack_pop(cb);
 
     ssize_t wlen;
     unsigned char *p = tcp_conn->buf;
@@ -26,7 +48,17 @@ static void *uo_tcp_server_send(
     {
         if ((wlen = uo_io_write(wfd, p, len)) <= 0)
         {
-            uo_tcp_conn_destroy(tcp_conn);
+            if (tcp_server->evt.after_close_handler)
+            {
+                uo_cb *cb = uo_cb_create(UO_CB_OPT_DESTROY);
+                uo_cb_stack_push(cb, tcp_server);
+                uo_cb_stack_push(cb, tcp_conn);
+                uo_cb_append(cb, uo_tcp_server_after_close);
+                tcp_server->evt.after_close_handler(tcp_conn, cb);
+            }
+            else
+                uo_tcp_conn_destroy(tcp_conn);
+
             return NULL;
         }
         
@@ -34,8 +66,18 @@ static void *uo_tcp_server_send(
         p += wlen;
     }
 
-    uo_tcp_server *tcp_server = uo_cb_stack_pop(cb);
-    uo_queue_enqueue(tcp_server->conn_queue, tcp_conn, true);
+    if (tcp_server->evt.after_send_handler)
+    {
+        uo_cb *cb = uo_cb_create(UO_CB_OPT_DESTROY);
+        uo_cb_stack_push(cb, tcp_server->conn_queue);
+        uo_cb_stack_push(cb, tcp_conn);
+        uo_cb_append(cb, uo_tcp_server_after_send);
+        tcp_server->evt.after_send_handler(tcp_conn, cb);
+    }
+    else
+        uo_queue_enqueue(tcp_server->conn_queue, tcp_conn, true);
+
+    return NULL;
 }
 
 static void *uo_tcp_server_after_recv(
@@ -73,15 +115,25 @@ static void *uo_tcp_server_recv(
     uo_cb *tcp_recv_cb)
 {
     ssize_t len = (uintptr_t)recv_len;
+
     uo_tcp_conn *tcp_conn = uo_cb_stack_pop(tcp_recv_cb);
+    uo_tcp_server *tcp_server = uo_cb_stack_pop(tcp_recv_cb);
 
     if (len < 1)
     {
-        uo_tcp_conn_destroy(tcp_conn);
+        if (tcp_server->evt.after_close_handler)
+        {
+            uo_cb *cb = uo_cb_create(UO_CB_OPT_DESTROY);
+            uo_cb_stack_push(cb, tcp_server);
+            uo_cb_stack_push(cb, tcp_conn);
+            uo_cb_append(cb, uo_tcp_server_after_close);
+            tcp_server->evt.after_close_handler(tcp_conn, cb);
+        }
+        else
+            uo_tcp_conn_destroy(tcp_conn);
+
         return NULL;
     }
-
-    uo_tcp_server *tcp_server = uo_cb_stack_pop(tcp_recv_cb);
 
     tcp_conn->evt_data.recv_len = len;
     uo_buf_set_ptr_rel(tcp_conn->buf, len);
@@ -116,6 +168,8 @@ static void *uo_tcp_server_serve(
     while (!tcp_server->is_closing)
     {
         uo_tcp_conn *tcp_conn = uo_queue_dequeue(tcp_server->conn_queue, true);
+        if (!tcp_conn)
+            continue;
 
         uo_cb *tcp_recv_cb = uo_cb_create(UO_CB_OPT_DESTROY);
         uo_cb_stack_push(tcp_recv_cb, tcp_server);
@@ -150,8 +204,11 @@ static void *uo_tcp_server_accept(
     while (!tcp_server->is_closing) 
     {
         int sockfd;
-        while ((sockfd = accept(tcp_server->sockfd, NULL, NULL)) == -1)
+        if ((sockfd = accept(tcp_server->sockfd, NULL, NULL)) == -1)
+        {
             uo_err("Error while accepting connection.");
+            continue;
+        }
 
         uo_tcp_conn *tcp_conn = uo_tcp_conn_create(sockfd, tcp_server->state);
 
