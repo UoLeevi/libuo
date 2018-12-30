@@ -6,36 +6,44 @@ extern "C"
 {
 #endif
 
-#include "uo_cb.h"
 #include "uo_buf.h"
 
-#include <stddef.h>
-#include <stdbool.h>
+#include "stdbool.h"
+#include "stddef.h"
+
+typedef struct uo_tcp_conn_evt
+{
+    bool recv_again;
+    size_t last_recv_len;
+} uo_tcp_conn_evt;
 
 typedef struct uo_tcp_conn
 {
-    void *state;
-    uo_buf buf;
+    void *user_data;
+    uo_buf rbuf;
+    uo_buf wbuf;
+    uo_tcp_conn_evt evt;
     int sockfd;
-    union
-    {
-        size_t recv_len;
-        bool recv_again;
-    } evt_data;
 } uo_tcp_conn;
 
-typedef void (*uo_tcp_evt_handler)(uo_tcp_conn *, uo_cb *cb);
-
-void uo_tcp_conn_buf_resize(
-    uo_tcp_conn *tcp_conn,
-    size_t size);
-
 uo_tcp_conn *uo_tcp_conn_create(
-    int sockfd,
-    void *state);
+    int sockfd);
+
+void uo_tcp_conn_reset_evt(
+    uo_tcp_conn *);
+
+void *uo_tcp_conn_get_user_data(
+    uo_tcp_conn *);
+
+void uo_tcp_conn_set_user_data(
+    uo_tcp_conn *,
+    void *user_data);
+
+void uo_tcp_conn_recv_again(
+    uo_tcp_conn *);
 
 void uo_tcp_conn_destroy(
-    uo_tcp_conn *tcp_conn);
+    uo_tcp_conn *);
 
 #ifdef __cplusplus
 }

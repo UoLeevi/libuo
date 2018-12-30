@@ -20,6 +20,22 @@ static void *uo_tcp_server_after_close(
     return NULL;
 }
 
+static void uo_tcp_evt_after_close(
+    uo_tcp_server *tcp_server,
+    uo_tcp_conn *tcp_conn)
+{
+    if (tcp_server->evt.after_close_handler)
+    {
+        uo_cb *cb = uo_cb_create(UO_CB_OPT_DESTROY);
+        uo_cb_stack_push(cb, tcp_server);
+        uo_cb_stack_push(cb, tcp_conn);
+        uo_cb_append(cb, uo_tcp_server_after_close);
+        tcp_server->evt.after_close_handler(tcp_conn, cb);
+    }
+    else
+        uo_tcp_conn_destroy(tcp_conn);
+}
+
 static void *uo_tcp_server_after_send(
     void *arg,
     uo_cb *cb)
@@ -32,40 +48,10 @@ static void *uo_tcp_server_after_send(
     return NULL;
 }
 
-static void *uo_tcp_server_send(
-    void *arg,
-    uo_cb *cb)
+static void uo_tcp_evt_after_send(
+    uo_tcp_server *tcp_server,
+    uo_tcp_conn *tcp_conn)
 {
-    uo_tcp_conn *tcp_conn = uo_cb_stack_pop(cb);
-    uo_tcp_server *tcp_server = uo_cb_stack_pop(cb);
-
-    ssize_t wlen;
-    unsigned char *p = tcp_conn->buf;
-    size_t len = uo_buf_get_len_before_ptr(p);
-    int wfd = tcp_conn->sockfd;
-    
-    while (len)
-    {
-        if ((wlen = uo_io_write(wfd, p, len)) <= 0)
-        {
-            if (tcp_server->evt.after_close_handler)
-            {
-                uo_cb *cb = uo_cb_create(UO_CB_OPT_DESTROY);
-                uo_cb_stack_push(cb, tcp_server);
-                uo_cb_stack_push(cb, tcp_conn);
-                uo_cb_append(cb, uo_tcp_server_after_close);
-                tcp_server->evt.after_close_handler(tcp_conn, cb);
-            }
-            else
-                uo_tcp_conn_destroy(tcp_conn);
-
-            return NULL;
-        }
-        
-        len -= wlen;
-        p += wlen;
-    }
-
     if (tcp_server->evt.after_send_handler)
     {
         uo_cb *cb = uo_cb_create(UO_CB_OPT_DESTROY);
@@ -76,8 +62,50 @@ static void *uo_tcp_server_send(
     }
     else
         uo_queue_enqueue(tcp_server->conn_queue, tcp_conn, true);
+}
+
+static void *uo_tcp_server_send(
+    void *arg,
+    uo_cb *cb)
+{
+    uo_tcp_conn *tcp_conn = uo_cb_stack_pop(cb);
+    uo_tcp_server *tcp_server = uo_cb_stack_pop(cb);
+
+    ssize_t wlen;
+    unsigned char *p = tcp_conn->wbuf;
+    size_t len = uo_buf_get_len_before_ptr(p);
+    int wfd = tcp_conn->sockfd;
+    
+    while (len)
+    {
+        if ((wlen = uo_io_write(wfd, p, len)) <= 0)
+        {
+            uo_tcp_evt_after_close(tcp_server, tcp_conn);
+            return NULL;
+        }
+        
+        len -= wlen;
+        p += wlen;
+    }
+
+    uo_tcp_evt_after_send(tcp_server, tcp_conn);
 
     return NULL;
+}
+
+static void uo_tcp_evt_before_send(
+    uo_tcp_server *tcp_server,
+    uo_tcp_conn *tcp_conn)
+{
+    uo_cb *cb = uo_cb_create(UO_CB_OPT_DESTROY);
+    uo_cb_stack_push(cb, tcp_server);
+    uo_cb_stack_push(cb, tcp_conn);
+    uo_cb_append(cb, uo_tcp_server_send);
+
+    if (tcp_server->evt.before_send_handler)
+        tcp_server->evt.before_send_handler(tcp_conn, cb);
+    else
+        uo_cb_invoke(cb, NULL);
 }
 
 static void *uo_tcp_server_after_recv(
@@ -87,27 +115,34 @@ static void *uo_tcp_server_after_recv(
     uo_tcp_conn *tcp_conn = uo_cb_stack_pop(cb);
     uo_tcp_server *tcp_server = uo_cb_stack_pop(cb);
 
-    if (tcp_conn->evt_data.recv_again)
+    if (tcp_conn->evt.recv_again)
     {
-        if (!uo_buf_get_len_after_ptr(tcp_conn->buf))
-            tcp_conn->buf = uo_buf_realloc_2x(tcp_conn->buf);
+        if (!uo_buf_get_len_after_ptr(tcp_conn->rbuf))
+            tcp_conn->rbuf = uo_buf_realloc_2x(tcp_conn->rbuf);
 
+        uo_tcp_conn_reset_evt(tcp_conn);
         uo_queue_enqueue(tcp_server->conn_queue, tcp_conn, true);
     }
     else
+        uo_tcp_evt_before_send(tcp_server, tcp_conn);
+
+    return NULL;
+}
+
+static void uo_tcp_evt_after_recv(
+    uo_tcp_server *tcp_server,
+    uo_tcp_conn *tcp_conn)
+{
+    if (tcp_server->evt.after_recv_handler)
     {
         uo_cb *cb = uo_cb_create(UO_CB_OPT_DESTROY);
         uo_cb_stack_push(cb, tcp_server);
         uo_cb_stack_push(cb, tcp_conn);
-        uo_cb_append(cb, uo_tcp_server_send);
-
-        if (tcp_server->evt.before_send_handler)
-            tcp_server->evt.before_send_handler(tcp_conn, cb);
-        else
-            uo_cb_invoke(cb, NULL);
+        uo_cb_append(cb, uo_tcp_server_after_recv);
+        tcp_server->evt.after_recv_handler(tcp_conn, cb);
     }
-
-    return NULL;
+    else
+        uo_tcp_evt_before_send(tcp_server, tcp_conn);
 }
 
 static void *uo_tcp_server_recv(
@@ -121,43 +156,90 @@ static void *uo_tcp_server_recv(
 
     if (len < 1)
     {
-        if (tcp_server->evt.after_close_handler)
-        {
-            uo_cb *cb = uo_cb_create(UO_CB_OPT_DESTROY);
-            uo_cb_stack_push(cb, tcp_server);
-            uo_cb_stack_push(cb, tcp_conn);
-            uo_cb_append(cb, uo_tcp_server_after_close);
-            tcp_server->evt.after_close_handler(tcp_conn, cb);
-        }
-        else
-            uo_tcp_conn_destroy(tcp_conn);
-
+        uo_tcp_evt_after_close(tcp_server, tcp_conn);
         return NULL;
     }
 
-    tcp_conn->evt_data.recv_len = len;
-    uo_buf_set_ptr_rel(tcp_conn->buf, len);
+    tcp_conn->evt.last_recv_len = len;
+    uo_buf_set_ptr_rel(tcp_conn->rbuf, len);
 
-    uo_cb *cb = uo_cb_create(UO_CB_OPT_DESTROY);
-    uo_cb_stack_push(cb, tcp_server);
-    uo_cb_stack_push(cb, tcp_conn);
+    uo_tcp_evt_after_recv(tcp_server, tcp_conn);
 
-    if (tcp_server->evt.after_recv_handler)
+    return NULL;
+}
+
+static void *uo_tcp_server_before_recv(
+    void *arg,
+    uo_cb *cb)
+{
+    uo_tcp_conn *tcp_conn = uo_cb_stack_pop(cb);
+    uo_tcp_server *tcp_server = uo_cb_stack_pop(cb);
+    uo_cb *tcp_recv_cb = uo_cb_stack_pop(cb);
+
+    uo_buf rbuf = tcp_conn->rbuf;
+
+    uo_io_read_async(
+        tcp_conn->sockfd, 
+        uo_buf_get_ptr(rbuf), 
+        uo_buf_get_len_after_ptr(rbuf), 
+        tcp_recv_cb);
+
+    return NULL;
+}
+
+static void uo_tcp_evt_before_recv(
+    uo_tcp_server *tcp_server,
+    uo_tcp_conn *tcp_conn)
+{
+    uo_cb *tcp_recv_cb = uo_cb_create(UO_CB_OPT_DESTROY);
+    uo_cb_stack_push(tcp_recv_cb, tcp_server);
+    uo_cb_stack_push(tcp_recv_cb, tcp_conn);
+    uo_cb_append(tcp_recv_cb, uo_tcp_server_recv);
+
+    if (tcp_server->evt.before_recv_handler)
     {
-        uo_cb_append(cb, uo_tcp_server_after_recv);
-        tcp_server->evt.after_recv_handler(tcp_conn, cb);
+        uo_cb *cb = uo_cb_create(UO_CB_OPT_DESTROY);
+        uo_cb_stack_push(cb, tcp_recv_cb);
+        uo_cb_stack_push(cb, tcp_server);
+        uo_cb_stack_push(cb, tcp_conn);
+        uo_cb_append(cb, uo_tcp_server_before_recv);
+        tcp_server->evt.before_recv_handler(tcp_conn, cb);
     }
     else
     {
-        uo_cb_append(cb, uo_tcp_server_send);
-
-        if (tcp_server->evt.before_send_handler)
-            tcp_server->evt.before_send_handler(tcp_conn, cb);
-        else
-            uo_cb_invoke(cb, NULL);
+        uo_buf rbuf = tcp_conn->rbuf;
+        uo_io_read_async(
+            tcp_conn->sockfd, 
+            uo_buf_get_ptr(rbuf), 
+            uo_buf_get_len_after_ptr(rbuf), 
+            tcp_recv_cb);
     }
+}
 
+static void *uo_tcp_server_after_accept(
+    void *arg,
+    uo_cb *cb)
+{
+    uo_tcp_conn *tcp_conn = uo_cb_stack_pop(cb);
+    uo_queue *tcp_conn_queue = uo_cb_stack_pop(cb);
+    uo_queue_enqueue(tcp_conn_queue, tcp_conn, true);
     return NULL;
+}
+
+static void uo_tcp_evt_after_accept(
+    uo_tcp_server *tcp_server,
+    uo_tcp_conn *tcp_conn)
+{
+    if (tcp_server->evt.after_accept_handler)
+    {
+        uo_cb *cb = uo_cb_create(UO_CB_OPT_DESTROY);
+        uo_cb_stack_push(cb, tcp_server->conn_queue);
+        uo_cb_stack_push(cb, tcp_conn);
+        uo_cb_append(cb, uo_tcp_server_after_accept);
+        tcp_server->evt.after_accept_handler(tcp_conn, cb);
+    }
+    else
+        uo_queue_enqueue(tcp_server->conn_queue, tcp_conn, true);
 }
 
 static void *uo_tcp_server_serve(
@@ -168,31 +250,11 @@ static void *uo_tcp_server_serve(
     while (!tcp_server->is_closing)
     {
         uo_tcp_conn *tcp_conn = uo_queue_dequeue(tcp_server->conn_queue, true);
-        if (!tcp_conn)
-            continue;
 
-        uo_cb *tcp_recv_cb = uo_cb_create(UO_CB_OPT_DESTROY);
-        uo_cb_stack_push(tcp_recv_cb, tcp_server);
-        uo_cb_stack_push(tcp_recv_cb, tcp_conn);
-        uo_cb_append(tcp_recv_cb, uo_tcp_server_recv);
-
-        uo_io_read_async(
-            tcp_conn->sockfd, 
-            uo_buf_get_ptr(tcp_conn->buf), 
-            uo_buf_get_len_after_ptr(tcp_conn->buf), 
-            tcp_recv_cb);
+        if (tcp_conn)
+            uo_tcp_evt_before_recv(tcp_server, tcp_conn);
     }
     
-    return NULL;
-}
-
-static void *uo_tcp_server_after_accept(
-    void *arg,
-    uo_cb *cb)
-{
-    uo_tcp_conn *tcp_conn = uo_cb_stack_pop(cb);
-    uo_queue *tcp_conn_queue = uo_cb_stack_pop(cb);
-    uo_queue_enqueue(tcp_conn_queue, tcp_conn, true);
     return NULL;
 }
 
@@ -210,18 +272,10 @@ static void *uo_tcp_server_accept(
             continue;
         }
 
-        uo_tcp_conn *tcp_conn = uo_tcp_conn_create(sockfd, tcp_server->state);
+        uo_tcp_conn *tcp_conn = uo_tcp_conn_create(sockfd);
+        uo_tcp_conn_set_user_data(tcp_conn, tcp_server->conn_defaults.user_data);
 
-        if (tcp_server->evt.after_accept_handler)
-        {
-            uo_cb *cb = uo_cb_create(UO_CB_OPT_DESTROY);
-            uo_cb_stack_push(cb, tcp_server->conn_queue);
-            uo_cb_stack_push(cb, tcp_conn);
-            uo_cb_append(cb, uo_tcp_server_after_accept);
-            tcp_server->evt.after_accept_handler(tcp_conn, cb);
-        }
-        else
-            uo_queue_enqueue(tcp_server->conn_queue, tcp_conn, true);
+        uo_tcp_evt_after_accept(tcp_server, tcp_conn);
     }
 
     return NULL;
@@ -235,12 +289,9 @@ void uo_tcp_server_start(
 }
 
 uo_tcp_server *uo_tcp_server_create(
-    const char *port,
-    void *state)
+    const char *port)
 {
     uo_tcp_server *tcp_server = calloc(1, sizeof *tcp_server);
-
-    tcp_server->state = state;
 
     tcp_server->sockfd = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
 	if (tcp_server->sockfd != -1)
