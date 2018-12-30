@@ -1,6 +1,6 @@
 #include "uo_conf.h"
 #include "uo_err.h"
-#include "uo_hashtbl.h"
+#include "uo_strhashtbl.h"
 
 #include <string.h>
 #include <ctype.h>
@@ -10,30 +10,11 @@
 #include <sys/types.h>
 #include <errno.h>
 
-static uint64_t uo_conf_hash(
-    const void *key)
-{
-    const char *k = key;
-    uint64_t h = 0;
-
-    for (size_t i = 0; i < sizeof h && k[i]; ++i)
-        h ^= k[i] << i; 
-
-    return h;
-}
-
-static bool uo_conf_equals(
-    const void *key0,
-    const void *key1)
-{
-    return strcmp(key0, key1) == 0;
-}
-
 uo_conf *uo_conf_create(
 	char *filename)
 {
     uo_conf *conf = calloc(1, sizeof *conf);
-    uo_hashtbl *hashtbl = conf->hashtbl = uo_hashtbl_create(0x100, uo_conf_hash, uo_conf_equals);
+    uo_strhashtbl *hashtbl = conf->hashtbl = uo_strhashtbl_create(0x100);
 
     struct stat sb;
     if (stat(filename, &sb) == -1)
@@ -57,7 +38,7 @@ uo_conf *uo_conf_create(
     {
         char *value = strtok(NULL, "\r\n");
 
-        uo_hashtbl_insert(hashtbl, key, value);
+        uo_strhashtbl_insert(hashtbl, key, value);
         
         key = strtok(NULL, "\r\n\t ");
     }
@@ -78,9 +59,9 @@ err_free:
 
 char *uo_conf_get(
 	uo_conf *conf,
-	char *key)
+	const char *key)
 {
-    return uo_hashtbl_find(conf->hashtbl, key);
+    return uo_strhashtbl_find(conf->hashtbl, key);
 }
 
 void uo_conf_destroy(

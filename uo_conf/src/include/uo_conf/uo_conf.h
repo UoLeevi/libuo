@@ -17,7 +17,7 @@ uo_conf *uo_conf_create(
 
 char *uo_conf_get(
 	uo_conf *,
-	char *key);
+	const char *key);
 
 void uo_conf_destroy(
 	uo_conf *);
