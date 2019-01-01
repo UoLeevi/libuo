@@ -5,12 +5,16 @@ enable_testing()
 if(NOT TARGET uo::uo_http)
     find_package(uo_http CONFIG REQUIRED)
 endif()
+if(NOT TARGET uo::uo_macro)
+    find_package(uo_macro CONFIG REQUIRED)
+endif()
 
 add_executable(uo_http_test
     uo_http_test.c)
 
 target_link_libraries(uo_http_test
     PRIVATE
+        uo::uo_macro
         uo::uo_http)
 
 target_compile_features(uo_http_test

@@ -7,18 +7,33 @@ endif()
 if(NOT TARGET uo::uo_mem)
     find_package(uo_mem CONFIG REQUIRED)
 endif()
+if(NOT TARGET uo::uo_strhashtbl)
+    find_package(uo_strhashtbl CONFIG REQUIRED)
+endif()
+if(NOT TARGET uo::uo_buf)
+    find_package(uo_buf CONFIG REQUIRED)
+endif()
+if(NOT TARGET uo::uo_cb)
+    find_package(uo_cb CONFIG REQUIRED)
+endif()
 
 add_library(uo_http
-    uo_http_header.c
+    uo_http_conn.c
+    uo_http_method.c
     uo_http_request.c
     uo_http_response.c
     uo_http_server.c
+    uo_http_status.c
     uo_http.c)
 
 target_link_libraries(uo_http
+    PUBLIC
+        uo::uo_buf
+        uo::uo_cb
     PRIVATE
         uo::uo_tcp
-        uo::uo_mem)
+        uo::uo_mem
+        uo::uo_strhashtbl)
 
 target_compile_features(uo_http
     PUBLIC

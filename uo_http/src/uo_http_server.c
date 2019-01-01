@@ -1,9 +1,12 @@
 #include "uo_http_server.h"
-#include "uo_http_header.h"
+#include "uo_http_conn.h"
 #include "uo_http_request.h"
+#include "uo_http_response.h"
 #include "uo_tcp_server.h"
 #include "uo_tcp.h"
+#include "uo_strhashtbl.h"
 #include "uo_mem.h"
+#include "uo_buf.h"
 #include "uo_macro.h"
 
 #include <stdlib.h>
@@ -11,172 +14,317 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include <sys/types.h>
 #include <sys/stat.h>
-#include <unistd.h>
 
-#define UO_HTTP_RESPONSE_HEADER_SERVER_LIBUO            UO_HTTP_HEADER_SERVER "libuo http_server" "\r\n"
-#define UO_HTTP_RESPONSE_HEADER_CONNECTION_KEEP_ALIVE   UO_HTTP_HEADER_CONNECTION "Keep-Alive" "\r\n"
-
-#define UO_HTTP_RESPONSE_404 \
-    "HTTP/1.1 404 Not Found" "\r\n" \
-    UO_HTTP_RESPONSE_HEADER_SERVER_LIBUO \
-    UO_HTTP_RESPONSE_HEADER_CONNECTION_KEEP_ALIVE \
-    UO_HTTP_HEADER_CONTENT_TYPE_TEXT \
-    UO_HTTP_HEADER_CONTENT_LENGTH "27" "\r\n" \
-    "\r\n" \
-    "404 Error: Page not found" "\r\n"
-
-#define UO_HTTP_RESPONSE_200_PARTIAL \
-    "HTTP/1.1 200 OK" "\r\n" \
-    UO_HTTP_RESPONSE_HEADER_SERVER_LIBUO \
-    UO_HTTP_RESPONSE_HEADER_CONNECTION_KEEP_ALIVE \
-    UO_HTTP_HEADER_CONTENT_LENGTH
-
-typedef struct uo_http_sess
+typedef struct uo_http_tcp_conn_user_data
 {
-    uo_http_request *http_request;
+    uo_http_conn *http_conn;
     uo_http_server *http_server;
-} uo_http_sess;
+} uo_http_tcp_conn_user_data;
 
-static uo_http_sess *uo_http_sess_create(
-    uo_http_server *http_server)
+static void uo_http_server_serve_static_file(
+    uo_http_conn *http_conn,
+    const char *dirname)
 {
-    uo_http_sess *http_sess = malloc(sizeof *http_sess);
-    http_sess->http_server = http_server;
-    http_sess->http_request = NULL;
-    return http_sess;
-}
+    uo_http_request *http_request = http_conn->http_request;
+    uo_http_response *http_response = http_conn->http_response;
 
-static void uo_http_sess_destroy(
-    uo_http_sess *http_sess)
-{
-    uo_http_request_destroy(http_sess->http_request);
-    free(http_sess);
-}
+    uo_buf filename_buf = uo_buf_alloc(0x100);
+    char *target = uo_http_request_get_target(http_request);
 
-static void uo_http_server_after_send(
-    uo_tcp_conn *tcp_conn,
-    uo_cb *cb)
-{
-    uo_buf buf = tcp_conn->buf;
-    uo_http_sess *http_sess = tcp_conn->state;
+    if (strcmp(target, "/") == 0)
+        target = "/index.html";
 
-    uo_http_request_destroy(http_sess->http_request);
-    http_sess->http_request = NULL;
-    
-    uo_buf_set_ptr_abs(buf, 0);
+    uo_buf_printf_append(&filename_buf, "%s/%s", dirname, target);
 
-    uo_cb_invoke(cb, NULL);
-}
-
-static void uo_http_server_before_send(
-    uo_tcp_conn *tcp_conn,
-    uo_cb *cb)
-{
-    uo_buf buf = tcp_conn->buf;
-    if (uo_buf_get_size(buf) < 1000)
-        buf = tcp_conn->buf = uo_buf_realloc(buf, 1000);
-
-    uo_http_sess *http_sess = tcp_conn->state;
-
-    char *target = http_sess->http_request->start_line.target;
-    unsigned char *p = buf;
-
-    if (target && http_sess->http_server->root_dir)
+    if (uo_http_response_set_file(http_response, filename_buf))
+        uo_http_response_set_status(http_response, UO_HTTP_1_1_STATUS_200);
+    else
     {
-        uo_http_request_parse_path(
-            http_sess->http_request,
-            http_sess->http_server->root_dir);
+        uo_http_response_set_status(http_response, UO_HTTP_1_1_STATUS_404);
+        uo_http_response_set_content(http_response, "404 Not Found", "text/plain", UO_STRLEN("404 Not Found"));
+    }
 
-        struct stat sb;
-        if (stat(buf, &sb) == -1 || !S_ISREG(sb.st_mode))
-            goto error_404;
+    uo_buf_free(filename_buf);
+}
 
-        FILE *fp = fopen(buf, "rb");
-        if (!fp)
-            goto error_404;
+static void uo_http_server_prepare_response_buf(
+    uo_http_conn *http_conn)
+{
+    uo_http_request *http_request = http_conn->http_request;
+    uo_http_response *http_response = http_conn->http_response;
+    uo_tcp_conn *tcp_conn = http_conn->tcp_conn;
+    uo_buf *buf = &tcp_conn->wbuf;
 
-        const char *header_content_type = uo_http_header_content_type_for_path(buf);
+    if (!http_response->status)
+        uo_http_response_set_status(http_response, http_response->content_len
+            ? UO_HTTP_1_1_STATUS_500
+            : UO_HTTP_1_1_STATUS_204);
 
-        p = uo_mem_append_str_literal(buf, UO_HTTP_RESPONSE_200_PARTIAL);
-        p += sprintf(p, "%d" "\r\n", sb.st_size);
-        p = uo_mem_append_str(p, header_content_type);
-        p = uo_mem_append_str_literal(p, "\r\n");
+    uo_http_status_append_line(*buf, http_response->status);
 
-        size_t total_response_len = sb.st_size + p - buf;
+    uo_strhashtbl *headers = http_response->headers;
+    struct uo_strkvp *h = headers->items;
+    
+    for (size_t i = 0; i < headers->capacity; ++i)
+        if (h[i].key)
+            uo_buf_printf_append(buf, "%s: %s\r\n", h[i].key, h[i].value);
 
-        if (uo_buf_get_size(buf) < total_response_len)
-        {
-            uo_buf_set_ptr_abs(buf, p - buf);
-            buf = tcp_conn->buf = uo_buf_realloc(buf, total_response_len);
-            p = uo_buf_get_ptr(buf);
-        }
+    uo_buf_memcpy_append(buf, "\r\n", UO_STRLEN("\r\n"));
 
-        if (fread(p, sizeof *p, sb.st_size, fp) != sb.st_size || ferror(fp))
-            goto error_404;
+    if (http_response->content_len)
+        uo_buf_memcpy_append(buf, http_response->buf, http_response->content_len);
+}
 
-        fclose(fp);
 
-        p += sb.st_size;
+static void *uo_http_server_after_close(
+    void *arg,
+    uo_cb *cb)
+{
+    uo_http_conn *http_conn = uo_cb_stack_pop(cb);
+    uo_cb *tcp_cb = uo_cb_stack_pop(cb);
+    uo_http_conn_destroy(http_conn);
+    uo_cb_invoke(tcp_cb, NULL);
+    return NULL;
+}
+
+static void uo_http_evt_after_close(
+    uo_tcp_conn *tcp_conn,
+    uo_cb *tcp_cb)
+{
+    uo_http_tcp_conn_user_data *tcp_conn_user_data = uo_tcp_conn_get_user_data(tcp_conn);
+    uo_http_server *http_server = tcp_conn_user_data->http_server;
+    uo_http_conn *http_conn = tcp_conn_user_data->http_conn;
+    free(tcp_conn_user_data);
+    
+    if (http_server->evt.after_close_handler)
+    {
+        uo_cb *cb = uo_cb_create(UO_CB_OPT_DESTROY);
+        
+        uo_cb_stack_push(cb, tcp_cb);
+        uo_cb_stack_push(cb, http_conn);
+        uo_cb_append(cb, uo_http_server_after_close);
+        http_server->evt.after_close_handler(http_conn, cb);
     }
     else
     {
-error_404:
-        p = uo_mem_append_str_literal(buf, UO_HTTP_RESPONSE_404);
+        uo_http_conn_destroy(http_conn);
+        uo_cb_invoke(tcp_cb, NULL);
     }
-    
-    uo_buf_set_ptr_abs(buf, p - buf);
-
-    uo_cb_invoke(cb, NULL);
 }
 
-static void uo_http_server_after_recv(
-    uo_tcp_conn *tcp_conn,
+static void *uo_http_server_after_send(
+    void *arg,
     uo_cb *cb)
 {
-    uo_http_sess *http_sess = tcp_conn->state;
+    uo_http_conn *http_conn = uo_cb_stack_pop(cb);
+    uo_cb *tcp_cb = uo_cb_stack_pop(cb);
 
-    if (!http_sess->http_request)
+    uo_http_conn_reset_request(http_conn);
+    uo_http_conn_reset_response(http_conn);
+    uo_cb_invoke(tcp_cb, NULL);
+    return NULL;
+}
+
+static void uo_http_evt_after_send(
+    uo_tcp_conn *tcp_conn,
+    uo_cb *tcp_cb)
+{
+    uo_http_tcp_conn_user_data *tcp_conn_user_data = uo_tcp_conn_get_user_data(tcp_conn);
+    uo_http_server *http_server = tcp_conn_user_data->http_server;
+    uo_http_conn *http_conn = tcp_conn_user_data->http_conn;
+
+    if (http_server->evt.after_send_handler)
     {
-        http_sess->http_request = uo_http_request_create();
-        uo_http_request_parse_start_line(http_sess->http_request, tcp_conn->buf);
+        uo_cb *cb = uo_cb_create(UO_CB_OPT_DESTROY);
+        
+        uo_cb_stack_push(cb, tcp_cb);
+        uo_cb_stack_push(cb, http_conn);
+        uo_cb_append(cb, uo_http_server_after_send);
+        http_server->evt.after_send_handler(http_conn, cb);
     }
-
-    tcp_conn->evt_data.recv_again = false;
-    uo_cb_invoke(cb, NULL);
+    else
+    {
+        uo_http_conn_reset_request(http_conn);
+        uo_http_conn_reset_response(http_conn);
+        uo_cb_invoke(tcp_cb, NULL);
+    }
 }
 
-static void uo_http_server_after_accept(
-    uo_tcp_conn *tcp_conn,
+static void *uo_http_server_before_send(
+    void *arg,
     uo_cb *cb)
 {
-    tcp_conn->state = uo_http_sess_create(tcp_conn->state);
-    uo_cb_invoke(cb, NULL);
+    uo_http_conn *http_conn = uo_cb_stack_pop(cb);
+    uo_http_server *http_server = uo_cb_stack_pop(cb);
+    uo_cb *tcp_cb = uo_cb_stack_pop(cb);
+
+    if (!http_conn->http_response->status && http_server->opt.is_serving_static_files)
+        uo_http_server_serve_static_file(http_conn, http_server->opt.param.dirname);
+
+    uo_http_server_prepare_response_buf(http_conn);
+    uo_cb_invoke(tcp_cb, NULL);
+    return NULL;
 }
 
-static void uo_http_server_after_close(
+static void uo_http_evt_before_send(
     uo_tcp_conn *tcp_conn,
+    uo_cb *tcp_cb)
+{
+    uo_http_tcp_conn_user_data *tcp_conn_user_data = uo_tcp_conn_get_user_data(tcp_conn);
+    uo_http_server *http_server = tcp_conn_user_data->http_server;
+    uo_http_conn *http_conn = tcp_conn_user_data->http_conn;
+
+    if (http_server->evt.before_send_handler)
+    {
+        uo_cb *cb = uo_cb_create(UO_CB_OPT_DESTROY);
+        
+        uo_cb_stack_push(cb, tcp_cb);
+        uo_cb_stack_push(cb, http_server);
+        uo_cb_stack_push(cb, http_conn);
+        uo_cb_append(cb, uo_http_server_before_send);
+        http_server->evt.before_send_handler(http_conn, cb);
+    }
+    else
+    {
+        if (!http_conn->http_response->status && http_server->opt.is_serving_static_files)
+            uo_http_server_serve_static_file(http_conn, http_server->opt.param.dirname);
+
+        uo_http_server_prepare_response_buf(http_conn);
+        uo_cb_invoke(tcp_cb, NULL);
+    }
+}
+
+static void *uo_http_server_after_recv(
+    void *arg,
     uo_cb *cb)
 {
-    uo_http_sess_destroy(tcp_conn->state);
-    uo_cb_invoke(cb, NULL);
+    uo_cb *tcp_cb = uo_cb_stack_pop(cb);
+    
+    uo_cb_invoke(tcp_cb, NULL);
+    return NULL;
+}
+
+static void uo_http_evt_after_recv(
+    uo_tcp_conn *tcp_conn,
+    uo_cb *tcp_cb)
+{
+    uo_http_tcp_conn_user_data *tcp_conn_user_data = uo_tcp_conn_get_user_data(tcp_conn);
+    uo_http_server *http_server = tcp_conn_user_data->http_server;
+    uo_http_conn *http_conn = tcp_conn_user_data->http_conn;
+
+    uo_http_conn_parse_request(http_conn);
+
+    if (!http_conn->http_request->is_fully_parsed)
+    {
+        uo_tcp_conn_recv_again(tcp_conn);
+        uo_cb_invoke(tcp_cb, NULL);
+    }
+    else if (http_server->evt.after_recv_handler)
+    {
+        uo_cb *cb = uo_cb_create(UO_CB_OPT_DESTROY);
+        
+        uo_cb_stack_push(cb, tcp_cb);
+        uo_cb_append(cb, uo_http_server_after_recv);
+        http_server->evt.after_recv_handler(http_conn, cb);
+    }
+    else
+        uo_cb_invoke(tcp_cb, NULL);
+}
+
+static void *uo_http_server_before_recv(
+    void *arg,
+    uo_cb *cb)
+{
+    uo_cb *tcp_cb = uo_cb_stack_pop(cb);
+    
+    uo_cb_invoke(tcp_cb, NULL);
+    return NULL;
+}
+
+static void uo_http_evt_before_recv(
+    uo_tcp_conn *tcp_conn,
+    uo_cb *tcp_cb)
+{
+    uo_http_tcp_conn_user_data *tcp_conn_user_data = uo_tcp_conn_get_user_data(tcp_conn);
+    uo_http_server *http_server = tcp_conn_user_data->http_server;
+    uo_http_conn *http_conn = tcp_conn_user_data->http_conn;
+
+    if (http_server->evt.before_recv_handler)
+    {
+        uo_cb *cb = uo_cb_create(UO_CB_OPT_DESTROY);
+        
+        uo_cb_stack_push(cb, tcp_cb);
+        uo_cb_append(cb, uo_http_server_before_recv);
+        http_server->evt.before_recv_handler(http_conn, cb);
+    }
+    else
+        uo_cb_invoke(tcp_cb, NULL);
+}
+
+static void *uo_http_server_after_accept(
+    void *arg,
+    uo_cb *cb)
+{
+    uo_cb *tcp_cb = uo_cb_stack_pop(cb);
+    
+    uo_cb_invoke(tcp_cb, NULL);
+    return NULL;
+}
+
+static void uo_http_evt_after_accept(
+    uo_tcp_conn *tcp_conn,
+    uo_cb *tcp_cb)
+{
+    uo_http_server *http_server = uo_tcp_conn_get_user_data(tcp_conn);
+    uo_http_conn *http_conn = uo_http_conn_create(tcp_conn);
+    uo_http_tcp_conn_user_data *tcp_conn_user_data = malloc(sizeof *tcp_conn_user_data);
+    tcp_conn_user_data->http_conn = http_conn;
+    tcp_conn_user_data->http_server = http_server;
+    uo_tcp_conn_set_user_data(tcp_conn, tcp_conn_user_data);
+
+    if (http_server->evt.after_accept_handler)
+    {
+        uo_cb *cb = uo_cb_create(UO_CB_OPT_DESTROY);
+        
+        uo_cb_stack_push(cb, tcp_cb);
+        uo_cb_append(cb, uo_http_server_after_accept);
+        http_server->evt.after_accept_handler(http_conn, cb);
+    }
+    else
+        uo_cb_invoke(tcp_cb, NULL);
 }
 
 uo_http_server *uo_http_server_create(
     const char *port)
 {
     uo_http_server *http_server = calloc(1, sizeof *http_server);
-    uo_tcp_server *tcp_server = uo_tcp_server_create(port, http_server);
-    tcp_server->evt.after_recv_handler = uo_http_server_after_recv;
-    tcp_server->evt.before_send_handler = uo_http_server_before_send;
-    tcp_server->evt.after_send_handler = uo_http_server_after_send;
-    tcp_server->evt.after_accept_handler = uo_http_server_after_accept;
-    tcp_server->evt.after_close_handler = uo_http_server_after_close;
+    uo_tcp_server *tcp_server = uo_tcp_server_create(port);
+    tcp_server->conn_defaults.user_data = http_server;
+    tcp_server->evt.after_accept_handler = uo_http_evt_after_accept;
+    tcp_server->evt.before_recv_handler = uo_http_evt_before_recv;
+    tcp_server->evt.after_recv_handler = uo_http_evt_after_recv;
+    tcp_server->evt.before_send_handler = uo_http_evt_before_send;
+    tcp_server->evt.after_send_handler = uo_http_evt_after_send;
+    tcp_server->evt.after_close_handler = uo_http_evt_after_close;
 
     http_server->tcp_server = tcp_server;
 
     return http_server;
+}
+
+bool uo_http_server_set_opt_serve_static_files(
+    uo_http_server *http_server,
+    const char *dirname)
+{
+    struct stat sb;
+    if (stat(dirname, &sb) == -1 || !S_ISDIR(sb.st_mode))
+        return false;
+
+    http_server->opt.param.dirname = dirname;
+    http_server->opt.is_serving_static_files = true;
+
+    return true;
 }
 
 void uo_http_server_start(
@@ -185,25 +333,10 @@ void uo_http_server_start(
     uo_tcp_server_start(http_server->tcp_server);
 }
 
-bool uo_http_server_set_root_dir(
-    uo_http_server *http_server,
-    const char *root_dir)
-{
-    struct stat sb;
-
-    http_server->root_dir = strdup(root_dir);
-
-    return stat(http_server->root_dir, &sb) == 0
-        && S_ISDIR(sb.st_mode);
-}
-
 void uo_http_server_destroy(
     uo_http_server *http_server)
 {
     uo_tcp_server_destroy(http_server->tcp_server);
-
-    if (http_server->root_dir)
-        free(http_server->root_dir);
 
     free(http_server);
 }

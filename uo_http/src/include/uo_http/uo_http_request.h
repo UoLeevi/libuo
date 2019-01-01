@@ -5,31 +5,43 @@
 extern "C" {
 #endif
 
+#include "uo_http_method.h"
 #include "uo_buf.h"
 
 #include <stdbool.h>
+#include <stddef.h>
 
-typedef union uo_http_request
+// uo_http_request fields 'target' and 'body' are offsets from buffer start
+// storing pointers would be proplematic if buffer is reallocated
+
+typedef struct uo_http_request
 {
-    uo_buf buf;
-    struct
-    {
-        char *method;
-        char *target;
-        char *version;
-    } start_line;
-    char *path;
+    uo_buf *buf;
+    UO_HTTP_METHOD method;
+    size_t target;
+    void *headers;
+    size_t body;
+    size_t content_len;
+    bool is_fully_parsed;
 } uo_http_request;
 
-uo_http_request *uo_http_request_create(void);
+uo_http_request *uo_http_request_create(
+    uo_buf *buf);
 
 bool uo_http_request_parse_start_line(
-    uo_http_request *,
-    uo_buf);
+    uo_http_request *);
 
-bool uo_http_request_parse_path(
-    uo_http_request *,
-    const char *root_dir_path);
+bool uo_http_request_parse_headers(
+    uo_http_request *);
+
+bool uo_http_request_parse_body(
+    uo_http_request *);
+
+char *uo_http_request_get_target(
+    uo_http_request *);
+
+char *uo_http_request_get_body(
+    uo_http_request *);
 
 void uo_http_request_destroy(
     uo_http_request *);

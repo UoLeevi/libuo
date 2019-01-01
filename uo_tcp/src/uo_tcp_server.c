@@ -43,6 +43,9 @@ static void *uo_tcp_server_after_send(
     uo_tcp_conn *tcp_conn = uo_cb_stack_pop(cb);
     uo_queue *tcp_conn_queue = uo_cb_stack_pop(cb);
 
+    uo_buf_set_ptr_abs(tcp_conn->rbuf, 0);
+    uo_buf_set_ptr_abs(tcp_conn->wbuf, 0);
+
     uo_queue_enqueue(tcp_conn_queue, tcp_conn, true);
 
     return NULL;
@@ -61,7 +64,12 @@ static void uo_tcp_evt_after_send(
         tcp_server->evt.after_send_handler(tcp_conn, cb);
     }
     else
+    {
+        uo_buf_set_ptr_abs(tcp_conn->rbuf, 0);
+        uo_buf_set_ptr_abs(tcp_conn->wbuf, 0);
+
         uo_queue_enqueue(tcp_server->conn_queue, tcp_conn, true);
+    }
 }
 
 static void *uo_tcp_server_send(
