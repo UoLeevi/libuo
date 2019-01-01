@@ -29,6 +29,9 @@ static _Thread_local const void *temp_ptr;
      unsigned char *: (temp_ptr = (str), (unsigned char *)memcpy((dst), temp_ptr, temp_size = strlen((const char *)temp_ptr)) + temp_size), \
              default: (temp_ptr = (str), (void *)((char *)memcpy((dst), temp_ptr, temp_size = strlen((const char *)temp_ptr)) + temp_size)))
 
+#define uo_mem_cmp_str_literal(str, str_literal) \
+    memcmp((str), (str_literal), UO_STRLEN(str_literal))
+
 #define uo_mem_using(p, size) \
     for (int UO_VAR(once) = 1; UO_VAR(once);) \
         for (void *(p) = malloc(size); UO_VAR(once); free(p), UO_VAR(once) = 0)
