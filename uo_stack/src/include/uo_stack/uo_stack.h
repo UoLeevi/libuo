@@ -5,32 +5,32 @@
 extern "C" {
 #endif
 
-#include <pthread.h>
-#include <semaphore.h>
+#include <stddef.h>
 #include <stdbool.h>
 
-typedef struct uo_stack {
-	size_t top;
-	sem_t push_sem;
-	sem_t pop_sem;
-	pthread_mutex_t mtx;
-	void **items;
+typedef struct uo_stack 
+{
+    void **items;
+    size_t top;
+    void *push_sem;
+    void *pop_sem;
+    void *mtx;
 } uo_stack;
 
 uo_stack *uo_stack_create(
-	size_t capasity);
+    size_t capasity);
 
 void uo_stack_destroy(
-	uo_stack *);
+    uo_stack *);
 
 bool uo_stack_push(
-	uo_stack *, 
-	void *item, 
-	const int blocking);
+    uo_stack *,
+    void *item,
+    bool should_block);
 
 void *uo_stack_pop(
-	uo_stack *, 
-	const int blocking);
+    uo_stack *, 
+    bool should_block);
 
 #ifdef __cplusplus
 }

@@ -9,7 +9,8 @@ extern "C" {
 #include <stddef.h>
 #include <stdbool.h>
 
-typedef struct uo_queue {
+typedef struct uo_queue 
+{
     void **items;
     atomic_size_t head;
     atomic_size_t tail;
@@ -25,12 +26,12 @@ void uo_queue_destroy(
     uo_queue *);
 
 bool uo_queue_enqueue(
-    uo_queue *, 
-    void *item, 
+    uo_queue *,
+    void *item,
     bool should_block);
 
 void *uo_queue_dequeue(
-    uo_queue *, 
+    uo_queue *,
     bool should_block);
 
 #ifdef __cplusplus

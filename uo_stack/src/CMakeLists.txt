@@ -8,7 +8,7 @@ add_library(uo_stack
     uo_stack.c)
 
 target_link_libraries(uo_stack
-    PUBLIC
+    PRIVATE
         Threads::Threads)
 
 target_compile_features(uo_stack
