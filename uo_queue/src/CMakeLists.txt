@@ -8,7 +8,7 @@ add_library(uo_queue
     uo_queue.c)
 
 target_link_libraries(uo_queue
-    PUBLIC
+    PRIVATE
         Threads::Threads)
 
 target_compile_features(uo_queue
