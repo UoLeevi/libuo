@@ -5,59 +5,83 @@
 extern "C" {
 #endif
 
+#include "uo_cb_stack.h"
+
 #include <stddef.h>
 #include <stdbool.h>
+#include <stdalign.h>
 
 #include <semaphore.h>
 
-typedef enum UO_CB_OPT
-{
-	UO_CB_OPT_DESTROY = 	1 << 0
-} UO_CB_OPT;
+#define UO_CB_F_MIN_ALLOC 2
 
 typedef struct uo_cb 
 {
-	size_t count;
-	void *(**f)(void *arg, struct uo_cb *);
-	size_t stack_top;
-	void **stack;
-	UO_CB_OPT opt;
+    void (**f)(uo_cb_stack *);
+    size_t count;
+    uo_cb_stack stack;
 } uo_cb;
 
 bool uo_cb_init(void);
 
-uo_cb *uo_cb_create(
-	UO_CB_OPT);
+uo_cb *uo_cb_create(void);
+
+uo_cb *uo_cb_clone(
+    const uo_cb *);
 
 void uo_cb_destroy(
-	uo_cb *);
+    uo_cb *);
 
-void uo_cb_append(
-	uo_cb *,
-	void *(*)(void *arg, uo_cb *));
+void uo_cb_append_f(
+    uo_cb *,
+    void (*)(uo_cb_stack *));
 
-void uo_cb_prepend(
-	uo_cb *,
-	void *(*)(void *arg, uo_cb *));
+void uo_cb_append_cb(
+    uo_cb *,
+    uo_cb *);
 
-void *uo_cb_invoke(
-	uo_cb *cb,
-	void *arg);
+#define uo_cb_append(cb, after) _Generic((after), \
+    void (*)(uo_cb_stack *): uo_cb_append_f, \
+                    uo_cb *: uo_cb_append_cb)(cb, after)
+
+void uo_cb_prepend_f(
+    uo_cb *,
+    void (*)(uo_cb_stack *));
+
+void uo_cb_prepend_cb(
+    uo_cb *,
+    uo_cb *);
+
+#define uo_cb_prepend(cb, before) _Generic((before), \
+    void (*)(uo_cb_stack *): uo_cb_prepend_f, \
+                    uo_cb *: uo_cb_prepend_cb)(cb, before)
+
+void uo_cb_invoke(
+    uo_cb *);
 
 void uo_cb_invoke_async(
-	uo_cb *cb,
-	void *arg,
-	sem_t *sem);
+    uo_cb *,
+    sem_t *);
 
-void uo_cb_stack_push(
-	uo_cb *, 
-	void *);
+#define uo_cb_stack_push(cb_stack, ptr) \
+    uo_cb_stack_push_stack(_Generic((cb_stack), \
+        uo_cb_stack *: cb_stack, \
+              uo_cb *: (uo_cb_stack *)((char *)(cb_stack) + offsetof(uo_cb, stack))), ptr)
 
-void *uo_cb_stack_pop(
-	uo_cb *);
+#define uo_cb_stack_pop(cb_stack) \
+    uo_cb_stack_pop_stack(_Generic((cb_stack), \
+        uo_cb_stack *: cb_stack, \
+              uo_cb *: (uo_cb_stack *)((char *)(cb_stack) + offsetof(uo_cb, stack))))
 
-void *uo_cb_stack_peek(
-	uo_cb *);
+#define uo_cb_stack_peek(cb_stack) \
+    uo_cb_stack_peek_stack(_Generic((cb_stack), \
+        uo_cb_stack *: cb_stack, \
+              uo_cb *: (uo_cb_stack *)((char *)(cb_stack) + offsetof(uo_cb, stack))))
+
+#define uo_cb_stack_index(cb_stack, index) \
+    uo_cb_stack_index_stack(_Generic((cb_stack), \
+        uo_cb_stack *: cb_stack, \
+              uo_cb *: (uo_cb_stack *)((char *)(cb_stack) + offsetof(uo_cb, stack))), index)
 
 #ifdef __cplusplus
 }
