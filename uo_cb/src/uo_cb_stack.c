@@ -39,5 +39,5 @@ void *uo_cb_stack_index_stack(
     uo_cb_stack *stack,
     int index)
 {
-    return stack->items[stack->top - 1 - index];
+    return stack->items[index >= 0 ? index : (stack->top + index - 1)];
 }
