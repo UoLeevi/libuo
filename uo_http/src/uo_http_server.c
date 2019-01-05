@@ -209,7 +209,7 @@ static void uo_http_evt_after_recv(
 
     if (!http_conn->http_request->is_fully_parsed)
     {
-        uo_tcp_conn_recv_again(tcp_conn);
+        uo_tcp_conn_recv(tcp_conn);
         uo_cb_invoke(tcp_cb);
     }
     else if (http_server->evt.after_recv_handler)
