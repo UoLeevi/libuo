@@ -25,9 +25,10 @@ uo_queue *uo_queue_create(
 void uo_queue_destroy(
     uo_queue *queue)
 {
-    free(queue->items);
     sem_destroy(&queue->enqueue_sem);
     sem_destroy(&queue->dequeue_sem);
+
+    free(queue->items);
     free(queue);
 }
 
