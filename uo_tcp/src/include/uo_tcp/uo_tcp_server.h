@@ -7,13 +7,9 @@ extern "C"
 #endif
 
 #include "uo_tcp_conn.h"
-#include "uo_cb.h"
 
 #include <stddef.h>
 #include <stdbool.h>
-#include <stdint.h>
-
-typedef void (*uo_tcp_evt_handler)(uo_tcp_conn *, uo_cb *);
 
 typedef struct uo_tcp_server
 {

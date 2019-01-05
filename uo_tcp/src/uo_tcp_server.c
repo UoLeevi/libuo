@@ -114,7 +114,7 @@ static void uo_tcp_server_after_recv(
     uo_tcp_conn *tcp_conn = uo_cb_stack_pop(stack);
     uo_tcp_server *tcp_server = uo_cb_stack_pop(stack);
 
-    if (tcp_conn->evt.recv_again)
+    if (tcp_conn->evt.next_op == UO_TCP_RECV)
     {
         if (!uo_buf_get_len_after_ptr(tcp_conn->rbuf))
             tcp_conn->rbuf = uo_buf_realloc_2x(tcp_conn->rbuf);
@@ -172,9 +172,9 @@ static void uo_tcp_server_before_recv(
     uo_buf rbuf = tcp_conn->rbuf;
 
     uo_io_read_async(
-        tcp_conn->sockfd, 
-        uo_buf_get_ptr(rbuf), 
-        uo_buf_get_len_after_ptr(rbuf), 
+        tcp_conn->sockfd,
+        uo_buf_get_ptr(rbuf),
+        uo_buf_get_len_after_ptr(rbuf),
         tcp_recv_cb);
 }
 
@@ -200,9 +200,9 @@ static void uo_tcp_evt_before_recv(
     {
         uo_buf rbuf = tcp_conn->rbuf;
         uo_io_read_async(
-            tcp_conn->sockfd, 
-            uo_buf_get_ptr(rbuf), 
-            uo_buf_get_len_after_ptr(rbuf), 
+            tcp_conn->sockfd,
+            uo_buf_get_ptr(rbuf),
+            uo_buf_get_len_after_ptr(rbuf),
             tcp_recv_cb);
     }
 }
@@ -211,8 +211,8 @@ static void uo_tcp_server_after_accept(
     uo_cb_stack *stack)
 {
     uo_tcp_conn *tcp_conn = uo_cb_stack_pop(stack);
-    uo_queue *tcp_conn_queue = uo_cb_stack_pop(stack);
-    uo_queue_enqueue(tcp_conn_queue, tcp_conn, true);
+    uo_tcp_server *tcp_server = uo_cb_stack_pop(stack);
+    uo_queue_enqueue(tcp_server->conn_queue, tcp_conn, true);
 }
 
 static void uo_tcp_evt_after_accept(
@@ -222,7 +222,7 @@ static void uo_tcp_evt_after_accept(
     if (tcp_server->evt.after_accept_handler)
     {
         uo_cb *cb = uo_cb_create();
-        uo_cb_stack_push(cb, tcp_server->conn_queue);
+        uo_cb_stack_push(cb, tcp_server);
         uo_cb_stack_push(cb, tcp_conn);
         uo_cb_append(cb, uo_tcp_server_after_accept);
         tcp_server->evt.after_accept_handler(tcp_conn, cb);
@@ -283,13 +283,13 @@ uo_tcp_server *uo_tcp_server_create(
     uo_tcp_server *tcp_server = calloc(1, sizeof *tcp_server);
 
     tcp_server->sockfd = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
-	if (tcp_server->sockfd != -1)
-	{
-		int opt_IPV6_V6ONLY = false;
-		uo_setsockopt(tcp_server->sockfd, IPPROTO_IPV6, IPV6_V6ONLY, &opt_IPV6_V6ONLY, sizeof opt_IPV6_V6ONLY);
+    if (tcp_server->sockfd != -1)
+    {
+        int opt_IPV6_V6ONLY = false;
+        uo_setsockopt(tcp_server->sockfd, IPPROTO_IPV6, IPV6_V6ONLY, &opt_IPV6_V6ONLY, sizeof opt_IPV6_V6ONLY);
 
-		int opt_TCP_NODELAY = true;
-		uo_setsockopt(tcp_server->sockfd, IPPROTO_TCP, TCP_NODELAY, &opt_TCP_NODELAY, sizeof opt_TCP_NODELAY);
+        int opt_TCP_NODELAY = true;
+        uo_setsockopt(tcp_server->sockfd, IPPROTO_TCP, TCP_NODELAY, &opt_TCP_NODELAY, sizeof opt_TCP_NODELAY);
     }
     else
         uo_err_goto(err_free, "Unable to create socket");

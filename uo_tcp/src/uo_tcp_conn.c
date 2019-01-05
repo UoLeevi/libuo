@@ -38,10 +38,22 @@ void uo_tcp_conn_set_user_data(
     tcp_conn->user_data = user_data;
 }
 
-void uo_tcp_conn_recv_again(
+void uo_tcp_conn_recv(
     uo_tcp_conn *tcp_conn)
 {
-    tcp_conn->evt.recv_again = true;
+    tcp_conn->evt.next_op = UO_TCP_RECV;
+}
+
+void uo_tcp_conn_send(
+    uo_tcp_conn *tcp_conn)
+{
+    tcp_conn->evt.next_op = UO_TCP_SEND;
+}
+
+void uo_tcp_conn_close(
+    uo_tcp_conn *tcp_conn)
+{
+    tcp_conn->evt.next_op = UO_TCP_CLOSE;
 }
 
 void uo_tcp_conn_destroy(

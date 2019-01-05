@@ -27,6 +27,7 @@ if(NOT TARGET uo::uo_sock)
 endif()
 
 add_library(uo_tcp
+    uo_tcp_client.c
     uo_tcp_conn.c
     uo_tcp_server.c
     uo_tcp.c)
