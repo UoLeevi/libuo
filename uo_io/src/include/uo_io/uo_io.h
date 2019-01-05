@@ -14,21 +14,21 @@ extern "C" {
 bool uo_io_init(void);
 
 ssize_t uo_io_write(
-	int wfd,
-	const void *buf, 
-	size_t len);
+    int wfd,
+    const void *buf,
+    size_t len);
 
 bool uo_io_read_async(
-	int rfd,
-	void *buf, 
-	size_t len,
-	uo_cb *);
+    int rfd,
+    void *buf,
+    size_t len,
+    uo_cb *);
 
 bool uo_io_write_async(
-	int wfd,
-	void *buf, 
-	size_t len,
-	uo_cb *);
+    int wfd,
+    void *buf,
+    size_t len,
+    uo_cb *);
 
 #ifdef __cplusplus
 }
