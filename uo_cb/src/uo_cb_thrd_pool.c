@@ -92,7 +92,7 @@ static void *uo_cb_execute(
         {
             uo_cb_thrd_pool_notify_before_invoke();
 
-            sem_t *sem = uo_cb_stack_pop(&cb->stack);
+            sem_t *sem = uo_cb_stack_pop(cb);
             
             uo_cb_invoke(cb);
 

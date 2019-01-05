@@ -12,42 +12,42 @@ static void after_close(
     uo_http_conn *http_conn,
     uo_cb *cb)
 {
-    uo_cb_invoke(cb, NULL);
+    uo_cb_invoke(cb);
 }
 
 static void after_send(
     uo_http_conn *http_conn,
     uo_cb *cb)
 {
-    uo_cb_invoke(cb, NULL);
+    uo_cb_invoke(cb);
 }
 
 static void before_send(
     uo_http_conn *http_conn,
     uo_cb *cb)
 {
-    uo_cb_invoke(cb, NULL);
+    uo_cb_invoke(cb);
 }
 
 static void after_recv(
     uo_http_conn *http_conn,
     uo_cb *cb)
 {
-    uo_cb_invoke(cb, NULL);
+    uo_cb_invoke(cb);
 }
 
 static void before_recv(
     uo_http_conn *http_conn,
     uo_cb *cb)
 {
-    uo_cb_invoke(cb, NULL);
+    uo_cb_invoke(cb);
 }
 
 static void after_accept(
     uo_http_conn *http_conn,
     uo_cb *cb)
 {
-    uo_cb_invoke(cb, NULL);
+    uo_cb_invoke(cb);
 }
 
 int main(

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.7)
-project(uo_http VERSION 0.1.0)
+project(uo_http VERSION 0.2.0)
 
 if(NOT TARGET uo::uo_tcp)
     find_package(uo_tcp CONFIG REQUIRED)
