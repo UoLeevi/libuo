@@ -66,7 +66,7 @@ void uo_cb_invoke_async(
 #define uo_cb_stack_push(cb_stack, ptr) \
     uo_cb_stack_push_stack(_Generic((cb_stack), \
         uo_cb_stack *: cb_stack, \
-              uo_cb *: (uo_cb_stack *)((char *)(cb_stack) + offsetof(uo_cb, stack))), ptr)
+              uo_cb *: (uo_cb_stack *)((char *)(cb_stack) + offsetof(uo_cb, stack))), (void *)(uintptr_t)(ptr))
 
 #define uo_cb_stack_pop(cb_stack) \
     uo_cb_stack_pop_stack(_Generic((cb_stack), \
