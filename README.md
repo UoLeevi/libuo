@@ -36,7 +36,7 @@ cmake --build . --target install
 
 ## Usage example with CMake
 
-#### in your `CMakeLists.txt` file
+#### `CMakeLists.txt` file
 
 ```cmake
 set(CMAKE_PREFIX_PATH "/usr/local/libuo")
@@ -53,7 +53,7 @@ target_link_libraries(my-web-app
         uo::uo_http)
 ```
 
-#### in your C source code
+#### `main.c` file
 
 ```c
 #include "uo_conf.h"
@@ -83,7 +83,7 @@ int main(
     uo_http_init();
 
     // read and parse configuration file
-    uo_conf *conf = uo_conf_create("fina-web.conf");
+    uo_conf *conf = uo_conf_create("my-web-app.conf");
 
     // get string values from configuration
     const char *port = uo_conf_get(conf, "http_server.port");
