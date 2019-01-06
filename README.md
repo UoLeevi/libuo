@@ -1,6 +1,6 @@
 # libuo
 
-Simple C library providing functionally for asynchronous I/O and networking.
+C library for concurrency, asynchronous I/O, networking, etc.
 
 ## Supported architectures and compilers
 
