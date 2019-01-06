@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.12)
 project(uo_cb VERSION 0.2)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
