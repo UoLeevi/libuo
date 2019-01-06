@@ -17,9 +17,9 @@ add_library(uo_io
 target_link_libraries(uo_io
     PUBLIC
         uo::uo_cb
-        Threads::Threads
     PRIVATE
-        uo::uo_err)
+        uo::uo_err
+        Threads::Threads)
 
 target_compile_features(uo_io
     PUBLIC
