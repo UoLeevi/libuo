@@ -10,6 +10,9 @@
 #include <string.h>
 #include <stdint.h>
 
+#define UO_CB_FUNC_LIST_MIN_ALLOC 2
+#define UO_CB_STACK_MIN_ALLOC 2
+
 static bool is_init;
 
 static inline uint64_t next_power_of_two(
@@ -43,7 +46,7 @@ bool uo_cb_init()
 uo_cb *uo_cb_create()
 {
     uo_cb *cb = calloc(1, sizeof *cb);
-    cb->f = malloc(sizeof *cb->f * UO_CB_F_MIN_ALLOC);
+    cb->func_list.items = malloc(sizeof *cb->func_list.items * UO_CB_FUNC_LIST_MIN_ALLOC);
     return cb;
 }
 
@@ -52,11 +55,11 @@ uo_cb *uo_cb_clone(
 {
     uo_cb *cb_clone = calloc(1, sizeof *cb);
 
-    size_t count = cb_clone->count = cb->count;
-    size_t f_size = next_power_of_two(count);
-    f_size = f_size > UO_CB_F_MIN_ALLOC ? f_size : UO_CB_F_MIN_ALLOC;
-    cb_clone->f = malloc(sizeof *cb_clone->f * f_size);
-    memcpy(cb_clone->f, cb->f, sizeof *cb->f * count);
+    size_t count = cb_clone->func_list.count = cb->func_list.count;
+    size_t func_list_size = next_power_of_two(count);
+    func_list_size = func_list_size > UO_CB_FUNC_LIST_MIN_ALLOC ? func_list_size : UO_CB_FUNC_LIST_MIN_ALLOC;
+    cb_clone->func_list.items = malloc(sizeof *cb_clone->func_list.items * func_list_size);
+    memcpy(cb_clone->func_list.items, cb->func_list.items, sizeof *cb->func_list.items * count);
 
     if (cb->stack.items)
     {
@@ -73,76 +76,37 @@ uo_cb *uo_cb_clone(
 void uo_cb_destroy(
     uo_cb *cb)
 {
-    free(cb->f);
+    free(cb->func_list.items);
     free(cb->stack.items);
     free(cb);
 }
 
-void uo_cb_append_f(
+void uo_cb_prepend_func(
     uo_cb *cb,
-    void (*f)(uo_cb_stack *))
+    uo_cb_func *cb_func)
 {
-    size_t count = cb->count++;
+    size_t count = cb->func_list.count++;
 
-    if (count >= UO_CB_F_MIN_ALLOC && !(count & (count - 1)))
-        cb->f = realloc(cb->f, sizeof *cb->f * count << 1);
+    if (count >= UO_CB_FUNC_LIST_MIN_ALLOC && !(count & (count - 1)))
+        cb->func_list.items = realloc(cb->func_list.items, sizeof *cb->func_list.items * count << 1);
 
-    cb->f[count] = f;
-}
-
-void uo_cb_append_cb(
-    uo_cb *cb,
-    uo_cb *cb_after)
-{
-    size_t count = cb->count + cb_after->count;
-    size_t stack_top = cb->stack.top + cb_after->stack.top;
-
-    size_t f_size = UO_CB_F_MIN_ALLOC;
-    while (f_size < count)
-        f_size <<= 1;
-
-    cb->f = realloc(cb->f, sizeof *cb->f * f_size);
-
-    memcpy(cb->f + cb->count, cb_after->f, cb_after->count);
-
-    size_t stack_size = UO_CB_STACK_MIN_ALLOC;
-    while (stack_size < stack_top)
-        stack_size <<= 1;
-
-    cb->stack.items = realloc(cb->stack.items, sizeof *cb->stack.items * stack_size);
-
-    memmove(cb->stack.items + cb_after->stack.top, cb->stack.items, sizeof *cb->stack.items * cb->stack.top);
-    memcpy(cb->stack.items, cb_after->stack.items, cb_after->stack.top);
-}
-
-void uo_cb_prepend_f(
-    uo_cb *cb,
-    void (*f)(uo_cb_stack *))
-{
-    size_t count = cb->count++;
-
-    if (count >= UO_CB_F_MIN_ALLOC && !(count & (count - 1)))
-        cb->f = realloc(cb->f, sizeof *cb->f * count << 1);
-    
-    memmove(cb->f + 1, cb->f, sizeof *cb->f * count);
-    *cb->f = f;
+    cb->func_list.items[count] = cb_func;
 }
 
 void uo_cb_prepend_cb(
     uo_cb *cb,
     uo_cb *cb_before)
 {
-    size_t count = cb->count + cb_before->count;
+    size_t count = cb->func_list.count + cb_before->func_list.count;
     size_t stack_top = cb->stack.top + cb_before->stack.top;
 
-    size_t f_size = UO_CB_F_MIN_ALLOC;
-    while (f_size < count)
-        f_size <<= 1;
+    size_t func_list_size = UO_CB_FUNC_LIST_MIN_ALLOC;
+    while (func_list_size < count)
+        func_list_size <<= 1;
 
-    cb->f = realloc(cb->f, sizeof *cb->f * f_size);
+    cb->func_list.items = realloc(cb->func_list.items, sizeof *cb->func_list.items * func_list_size);
 
-    memmove(cb->f + cb_before->count, cb->f, sizeof *cb->f * cb->count);
-    memcpy(cb->f, cb_before->f, cb_before->count);
+    memcpy(cb->func_list.items + cb->func_list.count, cb_before->func_list.items, cb_before->func_list.count);
 
     size_t stack_size = UO_CB_STACK_MIN_ALLOC;
     while (stack_size < stack_top)
@@ -150,16 +114,57 @@ void uo_cb_prepend_cb(
 
     cb->stack.items = realloc(cb->stack.items, sizeof *cb->stack.items * stack_size);
 
-    memcpy(cb->stack.items + cb->stack.top, cb_before->stack.items, cb_before->stack.top);
+    memmove(cb->stack.items + cb_before->stack.top, cb->stack.items, sizeof *cb->stack.items * cb->stack.top);
+    memcpy(cb->stack.items, cb_before->stack.items, cb_before->stack.top);
+}
+
+void uo_cb_append_func(
+    uo_cb *cb,
+    uo_cb_func *cb_func)
+{
+    size_t count = cb->func_list.count++;
+
+    if (count >= UO_CB_FUNC_LIST_MIN_ALLOC && !(count & (count - 1)))
+        cb->func_list.items = realloc(cb->func_list.items, sizeof *cb->func_list.items * count << 1);
+    
+    memmove(cb->func_list.items + 1, cb->func_list.items, sizeof *cb->func_list.items * count);
+    *cb->func_list.items = cb_func;
+}
+
+void uo_cb_append_cb(
+    uo_cb *cb,
+    uo_cb *cb_after)
+{
+    size_t count = cb->func_list.count + cb_after->func_list.count;
+    size_t stack_top = cb->stack.top + cb_after->stack.top;
+
+    size_t func_list_size = UO_CB_FUNC_LIST_MIN_ALLOC;
+    while (func_list_size < count)
+        func_list_size <<= 1;
+
+    cb->func_list.items = realloc(cb->func_list.items, sizeof *cb->func_list.items * func_list_size);
+
+    memmove(cb->func_list.items + cb_after->func_list.count, cb->func_list.items, sizeof *cb->func_list.items * cb->func_list.count);
+    memcpy(cb->func_list.items, cb_after->func_list.items, cb_after->func_list.count);
+
+    size_t stack_size = UO_CB_STACK_MIN_ALLOC;
+    while (stack_size < stack_top)
+        stack_size <<= 1;
+
+    cb->stack.items = realloc(cb->stack.items, sizeof *cb->stack.items * stack_size);
+
+    memcpy(cb->stack.items + cb->stack.top, cb_after->stack.items, cb_after->stack.top);
 }
 
 void uo_cb_invoke(
     uo_cb *cb)
 {
-    for (size_t i = 0; i < cb->count; ++i)
-        cb->f[i](&cb->stack);
+    size_t count = cb->func_list.count--;
 
-    uo_cb_destroy(cb);
+    if (count)
+        cb->func_list.items[count - 1](cb);
+    else
+        uo_cb_destroy(cb);
 }
 
 void uo_cb_invoke_async(
@@ -168,8 +173,48 @@ void uo_cb_invoke_async(
 {
     if (sem) 
         sem_init(sem, 0, 0);
-    
+
     uo_cb_stack_push(cb, sem);
 
     uo_cb_queue_enqueue(cb);
+}
+
+void uo_cb_stack_push(
+    uo_cb *cb,
+    void *ptr)
+{
+    size_t stack_top = cb->stack.top++;
+
+    if (stack_top >= UO_CB_STACK_MIN_ALLOC && !(stack_top & (stack_top - 1)))
+        cb->stack.items = realloc(cb->stack.items, sizeof *cb->stack.items * stack_top << 1);
+    else if (!cb->stack.items)
+        cb->stack.items = malloc(sizeof *cb->stack.items * UO_CB_STACK_MIN_ALLOC);
+
+    cb->stack.items[stack_top] = ptr;
+}
+
+void *uo_cb_stack_pop(
+    uo_cb *cb)
+{
+    size_t stack_top = --cb->stack.top;
+
+    void *ptr = cb->stack.items[stack_top];
+
+    if (stack_top >= UO_CB_STACK_MIN_ALLOC && !(stack_top & (stack_top - 1)))
+        cb->stack.items = realloc(cb->stack.items, sizeof *cb->stack.items * stack_top);
+
+    return ptr;
+}
+
+void *uo_cb_stack_peek(
+    uo_cb *cb)
+{
+    return cb->stack.items[cb->stack.top - 1];
+}
+
+void *uo_cb_stack_index(
+    uo_cb *cb,
+    int index)
+{
+    return cb->stack.items[index >= 0 ? index : (cb->stack.top + index)];
 }

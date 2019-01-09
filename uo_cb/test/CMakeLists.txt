@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(uo_cb_test VERSION 0.2)
+project(uo_cb_test VERSION 0.3)
 
 enable_testing()
 

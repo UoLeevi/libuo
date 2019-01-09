@@ -14,21 +14,25 @@
 atomic_uint counter;
 
 void first(
-    uo_cb_stack *stack)
+    uo_cb *cb)
 {
     for (int i = 0; i < 0x8; ++i)
-        atomic_fetch_add(&counter, (uintptr_t)uo_cb_stack_pop(stack));
+        atomic_fetch_add(&counter, (uintptr_t)uo_cb_stack_pop(cb));
 
-    assert(stack->top == 0x0 || stack->top == 0x8);
+    assert(cb->stack.top == 0x0 || cb->stack.top == 0x8);
+
+    uo_cb_invoke(cb);
 }
 
 void second(
-    uo_cb_stack *stack)
+    uo_cb *cb)
 {
     for (int i = 0; i < 0x8; ++i)
-        atomic_fetch_add(&counter, (uintptr_t)uo_cb_stack_pop(stack));
+        atomic_fetch_add(&counter, (uintptr_t)uo_cb_stack_pop(cb));
 
-    assert(stack->top == 0x0);
+    assert(cb->stack.top == 0x0);
+
+    uo_cb_invoke(cb);
 }
 
 int main(

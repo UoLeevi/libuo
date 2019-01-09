@@ -5,83 +5,165 @@
 extern "C" {
 #endif
 
-#include "uo_cb_stack.h"
-
 #include <stddef.h>
 #include <stdbool.h>
-#include <stdalign.h>
 
 #include <semaphore.h>
 
-#define UO_CB_F_MIN_ALLOC 2
+typedef struct uo_cb uo_cb;
+
+typedef void uo_cb_func(uo_cb *);
 
 typedef struct uo_cb 
 {
-    void (**f)(uo_cb_stack *);
-    size_t count;
-    uo_cb_stack stack;
+    struct
+    {
+        uo_cb_func **items;
+        size_t count;
+    } func_list;
+    struct
+    {
+        void **items;
+        size_t top;
+    } stack;
 } uo_cb;
 
+
+/**
+ * @brief Initialization of uo_cb library
+ * 
+ * This function is required to be called before using other functions in this library.
+ * After a successful call to this function, the following calls are ignored and return true.
+ * 
+ * @return true     on success
+ * @return false    on error
+ */
 bool uo_cb_init(void);
 
+/**
+ * @brief Create a callback
+ * 
+ * Callback is a object that contains an ordered list of functions to execute and a stack 
+ * containing pointers to data.
+ * 
+ * @return  uo_cb *  new callback instance
+ */
 uo_cb *uo_cb_create(void);
 
+/**
+ * @brief Create a clone of a callback
+ * 
+ * @return uo_cb *  new callback instance with identical stack and function list
+ */
 uo_cb *uo_cb_clone(
     const uo_cb *);
 
+
+/**
+ * @brief Free up the resources used owned by the callback instance
+ * 
+ * This function is automatically called after the last function in the function list
+ * is called.
+ */
 void uo_cb_destroy(
     uo_cb *);
 
-void uo_cb_append_f(
-    uo_cb *,
-    void (*)(uo_cb_stack *));
-
-void uo_cb_append_cb(
-    uo_cb *,
-    uo_cb *);
-
-#define uo_cb_append(cb, after) _Generic((after), \
-    void (*)(uo_cb_stack *): uo_cb_append_f, \
-                    uo_cb *: uo_cb_append_cb)(cb, after)
-
-void uo_cb_prepend_f(
-    uo_cb *,
-    void (*)(uo_cb_stack *));
-
-void uo_cb_prepend_cb(
-    uo_cb *,
-    uo_cb *);
-
-#define uo_cb_prepend(cb, before) _Generic((before), \
-    void (*)(uo_cb_stack *): uo_cb_prepend_f, \
-                    uo_cb *: uo_cb_prepend_cb)(cb, before)
-
+/**
+ * @brief Call the next function in the function list or free owned resources if the function list is empty
+ * 
+ */
 void uo_cb_invoke(
     uo_cb *);
 
+/**
+ * @brief Asynchronously call the next function in the function list or free owned resources if the function list is empty
+ * 
+ * @param sem   NULL or a pointer to uninitialized semaphore if the completion needs to be awaited
+ */
 void uo_cb_invoke_async(
     uo_cb *,
-    sem_t *);
+    sem_t *sem);
 
-#define uo_cb_stack_push(cb_stack, ptr) \
-    uo_cb_stack_push_stack(_Generic((cb_stack), \
-        uo_cb_stack *: cb_stack, \
-              uo_cb *: (uo_cb_stack *)((char *)(cb_stack) + offsetof(uo_cb, stack))), (void *)(uintptr_t)(ptr))
+/**
+ * @brief Depending on the type of the second argument call either uo_cb_prepend_func or uo_cb_prepend_cb
+ * 
+ */
+#define uo_cb_prepend(cb, before) _Generic((before), \
+    uo_cb_func *: uo_cb_prepend_func, \
+         uo_cb *: uo_cb_prepend_cb)(cb, before)
 
-#define uo_cb_stack_pop(cb_stack) \
-    uo_cb_stack_pop_stack(_Generic((cb_stack), \
-        uo_cb_stack *: cb_stack, \
-              uo_cb *: (uo_cb_stack *)((char *)(cb_stack) + offsetof(uo_cb, stack))))
+/**
+ * @brief Add function to the beginning of the function list
+ * 
+ */
+void uo_cb_prepend_func(
+    uo_cb *,
+    uo_cb_func *);
 
-#define uo_cb_stack_peek(cb_stack) \
-    uo_cb_stack_peek_stack(_Generic((cb_stack), \
-        uo_cb_stack *: cb_stack, \
-              uo_cb *: (uo_cb_stack *)((char *)(cb_stack) + offsetof(uo_cb, stack))))
+/**
+ * @brief Add functions of a another callback to the beginning of the function list and also combine the stacks
+ * 
+ * @param cb_before     a callback instance to prepend
+ */
+void uo_cb_prepend_cb(
+    uo_cb *,
+    uo_cb *cb_before);
 
-#define uo_cb_stack_index(cb_stack, index) \
-    uo_cb_stack_index_stack(_Generic((cb_stack), \
-        uo_cb_stack *: cb_stack, \
-              uo_cb *: (uo_cb_stack *)((char *)(cb_stack) + offsetof(uo_cb, stack))), index)
+/**
+ * @brief Depending on the type of the second argument call either uo_cb_append_func or uo_cb_append_cb
+ * 
+ */
+#define uo_cb_append(cb, after) _Generic((after), \
+    uo_cb_func *: uo_cb_append_func, \
+         uo_cb *: uo_cb_append_cb)(cb, after)
+
+/**
+ * @brief Add function to the end of the function list
+ * 
+ */
+void uo_cb_append_func(
+    uo_cb *,
+    uo_cb_func *);
+
+/**
+ * @brief Add functions of a another callback to the end of the function list and also combine the stacks
+ * 
+ * @param cb_after     a callback instance to append
+ */
+void uo_cb_append_cb(
+    uo_cb *,
+    uo_cb *cb_after);
+
+/**
+ * @brief Push a pointer to the top of the stack of the callback
+ * 
+ */
+void uo_cb_stack_push(
+    uo_cb *,
+    void *);
+
+/**
+ * @brief Pop a pointer from the top of the stack of the callback
+ * 
+ */
+void *uo_cb_stack_pop(
+    uo_cb *);
+
+/**
+ * @brief Get a pointer from the top of the stack of the callback
+ * 
+ */
+void *uo_cb_stack_peek(
+    uo_cb *);
+
+/**
+ * @brief Get a pointer from the the stack of the callback by index
+ * 
+ * @param index     use negative index to index starting from the last item of the stack
+ */
+void *uo_cb_stack_index(
+    uo_cb *,
+    int index);
 
 #ifdef __cplusplus
 }

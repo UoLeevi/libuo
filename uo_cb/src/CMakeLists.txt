@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(uo_cb VERSION 0.2)
+project(uo_cb VERSION 0.3)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
@@ -7,7 +7,6 @@ find_package(Threads REQUIRED)
 add_library(uo_cb
     uo_cb.c
     uo_cb_queue.c
-    uo_cb_stack.c
     uo_cb_thrd_pool.c)
 
 target_link_libraries(uo_cb
