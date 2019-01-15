@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(uo_io VERSION 0.2.0)
+project(uo_io VERSION 0.3.0)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)

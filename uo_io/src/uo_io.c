@@ -57,10 +57,10 @@ typedef struct uo_ioop
         if (!dwNumberOfBytesTransfered)
         {
             // TODO: specify what error occurred
-            uo_cb_stack_push(cb, UO_IO_ERR_UNKNOWN);
+            uo_cb_stack_push(cb, (void *)(uintptr_t)UO_IO_ERR_UNKNOWN);
         }
         
-        uo_cb_stack_push(cb, dwNumberOfBytesTransfered);
+        uo_cb_stack_push(cb, (void *)(uintptr_t)dwNumberOfBytesTransfered);
         uo_cb_invoke_async(cb, NULL);
     }
 
@@ -95,9 +95,9 @@ typedef struct uo_ioop
 #else
 
     static void uo_io_execute_io(
-        uo_cb_stack *stack)
+        uo_cb *cb)
     {
-        struct epoll_event *epevt = uo_cb_stack_pop(stack);
+        struct epoll_event *epevt = uo_cb_stack_pop(cb);
         uo_ioop *ioop = epevt->data.ptr;
         uint32_t events = epevt->events;
         free(epevt);
@@ -114,15 +114,15 @@ typedef struct uo_ioop
             {
                 case -1:
                     // TODO: specify what error occurred
-                    uo_cb_stack_push(stack, UO_IO_ERR_UNKNOWN);
-                    uo_cb_stack_push(stack, 0);
+                    uo_cb_stack_push(cb, UO_IO_ERR_UNKNOWN);
+                    uo_cb_stack_push(cb, 0);
                     break;
 
                 case 0:
-                    uo_cb_stack_push(stack, UO_IO_ERR_NONE);
+                    uo_cb_stack_push(cb, UO_IO_ERR_NONE);
                     /* fall through */
                 default:
-                    uo_cb_stack_push(stack, rlen);
+                    uo_cb_stack_push(cb, rlen);
                     break;
             }
         }
@@ -133,29 +133,31 @@ typedef struct uo_ioop
             {
                 case -1:
                     // TODO: specify what error occurred
-                    uo_cb_stack_push(stack, UO_IO_ERR_UNKNOWN);
-                    uo_cb_stack_push(stack, 0);
+                    uo_cb_stack_push(cb, UO_IO_ERR_UNKNOWN);
+                    uo_cb_stack_push(cb, 0);
                     break;
 
                 case 0:
-                    uo_cb_stack_push(stack, UO_IO_ERR_NONE);
+                    uo_cb_stack_push(cb, UO_IO_ERR_NONE);
                     /* fall through */
                 default:
-                    uo_cb_stack_push(stack, wlen);
+                    uo_cb_stack_push(cb, wlen);
                     break;
             }
         }
         else if (events & EPOLLHUP)
         {
-            uo_cb_stack_push(stack, UO_IO_ERR_NONE);
-            uo_cb_stack_push(stack, 0);
+            uo_cb_stack_push(cb, UO_IO_ERR_NONE);
+            uo_cb_stack_push(cb, 0);
         }
         else
         {
             // TODO: specify what error occurred
-            uo_cb_stack_push(stack, UO_IO_ERR_UNKNOWN);
-            uo_cb_stack_push(stack, 0);
+            uo_cb_stack_push(cb, UO_IO_ERR_UNKNOWN);
+            uo_cb_stack_push(cb, 0);
         }
+
+        uo_cb_invoke(cb);
     }
 
     static void *uo_io_accept_async_io(
