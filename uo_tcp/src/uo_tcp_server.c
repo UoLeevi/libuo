@@ -11,6 +11,13 @@
 #include <pthread.h>
 #include <unistd.h>
 
+static void uo_tcp_server_raise_evt_after_accept(uo_tcp_server *, uo_tcp_conn *);
+static void uo_tcp_server_raise_evt_before_recv(uo_tcp_server *, uo_tcp_conn *);
+static void uo_tcp_server_raise_evt_after_recv(uo_tcp_server *, uo_tcp_conn *);
+static void uo_tcp_server_raise_evt_before_send(uo_tcp_server *, uo_tcp_conn *);
+static void uo_tcp_server_raise_evt_after_send(uo_tcp_server *, uo_tcp_conn *);
+static void uo_tcp_server_raise_evt_after_close(uo_tcp_server *, uo_tcp_conn *);
+
 static void uo_tcp_server_after_close(
     uo_cb *cb)
 {
@@ -62,7 +69,7 @@ static void uo_tcp_server_send(
     uo_tcp_server *tcp_server = uo_cb_stack_index(cb, 0);
     uo_tcp_conn *tcp_conn     = uo_cb_stack_index(cb, 1);
 
-    ssize_t wlen;
+    size_t wlen;
     unsigned char *p = tcp_conn->wbuf;
     size_t len = uo_buf_get_len_before_ptr(p);
     int wfd = tcp_conn->sockfd;
