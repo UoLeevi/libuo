@@ -60,7 +60,7 @@ uo_cb *uo_cb_clone(
 
 
 /**
- * @brief Free up the resources used owned by the callback instance
+ * @brief Free up the resources owned by the callback instance
  * 
  * This function is automatically called after the last function in the function list
  * is called.
