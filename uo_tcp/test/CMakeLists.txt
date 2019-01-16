@@ -3,6 +3,9 @@ project(uo_tcp_test VERSION 0.3)
 
 enable_testing()
 
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
 if(NOT TARGET uo::uo_tcp)
     find_package(uo_tcp CONFIG REQUIRED)
 endif()
@@ -12,7 +15,8 @@ add_executable(uo_tcp_test
 
 target_link_libraries(uo_tcp_test
     PRIVATE
-        uo::uo_tcp)
+        uo::uo_tcp
+        Threads::Threads)
 
 add_test(NAME uo_tcp.unit_tests
     COMMAND uo_tcp_test)

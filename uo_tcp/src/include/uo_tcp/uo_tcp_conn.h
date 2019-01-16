@@ -50,12 +50,24 @@ void uo_tcp_conn_set_user_data(
     uo_tcp_conn *,
     void *user_data);
 
+/**
+ * @brief Instruct the TCP connection to read data from the socket and append it to rbuf
+ * 
+ */
 void uo_tcp_conn_recv(
     uo_tcp_conn *);
 
+/**
+ * @brief Instruct the TCP connection to write the data in the wbuf to the socket
+ * 
+ */
 void uo_tcp_conn_send(
     uo_tcp_conn *);
 
+/**
+ * @brief Instruct the TCP connection to close the socket
+ * 
+ */
 void uo_tcp_conn_close(
     uo_tcp_conn *);
 

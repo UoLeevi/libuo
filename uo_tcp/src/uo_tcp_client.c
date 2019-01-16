@@ -255,6 +255,8 @@ void uo_tcp_client_connect(
 
     uo_tcp_client_raise_evt_after_connect(tcp_client, tcp_conn);
 
+    return;
+
 err_close:
     close(sockfd);
 
