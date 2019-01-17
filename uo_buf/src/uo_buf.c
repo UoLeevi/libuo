@@ -85,7 +85,7 @@ unsigned char *uo_buf_get_ptr(
 
 void uo_buf_set_ptr_rel(
     uo_buf buf,
-    ssize_t rel_offset)
+    ptrdiff_t rel_offset)
 {
     ((size_t *)buf)[-1] += rel_offset;
 }

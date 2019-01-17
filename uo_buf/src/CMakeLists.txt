@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(uo_buf VERSION 0.1.0)
+project(uo_buf VERSION 0.2.0)
 
 add_library(uo_buf
     uo_buf.c)
