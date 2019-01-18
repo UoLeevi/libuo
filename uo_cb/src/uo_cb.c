@@ -106,7 +106,7 @@ void uo_cb_prepend_cb(
 
     cb->func_list.items = realloc(cb->func_list.items, sizeof *cb->func_list.items * func_list_size);
 
-    memcpy(cb->func_list.items + cb->func_list.count, cb_before->func_list.items, cb_before->func_list.count);
+    memcpy(cb->func_list.items + cb->func_list.count, cb_before->func_list.items, sizeof *cb->func_list.items * cb_before->func_list.count);
 
     size_t stack_size = UO_CB_STACK_MIN_ALLOC;
     while (stack_size < stack_top)
@@ -114,8 +114,10 @@ void uo_cb_prepend_cb(
 
     cb->stack.items = realloc(cb->stack.items, sizeof *cb->stack.items * stack_size);
 
-    memmove(cb->stack.items + cb_before->stack.top, cb->stack.items, sizeof *cb->stack.items * cb->stack.top);
-    memcpy(cb->stack.items, cb_before->stack.items, cb_before->stack.top);
+    memcpy(cb->stack.items + cb->stack.top, cb_before->stack.items, sizeof *cb->stack.items * cb_before->stack.top);
+
+    cb->func_list.count = count;
+    cb->stack.top = stack_top;
 }
 
 void uo_cb_append_func(
@@ -145,7 +147,7 @@ void uo_cb_append_cb(
     cb->func_list.items = realloc(cb->func_list.items, sizeof *cb->func_list.items * func_list_size);
 
     memmove(cb->func_list.items + cb_after->func_list.count, cb->func_list.items, sizeof *cb->func_list.items * cb->func_list.count);
-    memcpy(cb->func_list.items, cb_after->func_list.items, cb_after->func_list.count);
+    memcpy(cb->func_list.items, cb_after->func_list.items, sizeof *cb->func_list.items * cb_after->func_list.count);
 
     size_t stack_size = UO_CB_STACK_MIN_ALLOC;
     while (stack_size < stack_top)
@@ -153,7 +155,11 @@ void uo_cb_append_cb(
 
     cb->stack.items = realloc(cb->stack.items, sizeof *cb->stack.items * stack_size);
 
-    memcpy(cb->stack.items + cb->stack.top, cb_after->stack.items, cb_after->stack.top);
+    memmove(cb->stack.items + cb_after->stack.top, cb->stack.items, sizeof *cb->stack.items * cb->stack.top);
+    memcpy(cb->stack.items, cb_after->stack.items, sizeof *cb->stack.items * cb_after->stack.top);
+
+    cb->func_list.count = count;
+    cb->stack.top = stack_top;
 }
 
 void uo_cb_invoke(
