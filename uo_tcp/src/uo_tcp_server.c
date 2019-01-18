@@ -168,6 +168,8 @@ static void uo_tcp_server_before_recv(
 
     uo_buf rbuf = tcp_conn->rbuf;
 
+    uo_cb_prepend(cb, uo_tcp_server_recv);
+
     uo_io_read_async(
         tcp_conn->sockfd,
         uo_buf_get_ptr(rbuf),
@@ -183,7 +185,6 @@ static void uo_tcp_server_raise_evt_before_recv(
     uo_cb_stack_push(cb, tcp_conn);
 
     uo_cb_append(cb, uo_tcp_server_before_recv);
-    uo_cb_append(cb, uo_tcp_server_recv);
     uo_cb_invoke(cb);
 }
 

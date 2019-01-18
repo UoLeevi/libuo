@@ -21,7 +21,7 @@ typedef struct uo_tcp_server
      * a pointer to the TCP server instance and a pointer to the TCP connection instance.
      * These pointers can be accessed from within the event handler function like this:
      * 
-     *  void uo_tcp_server_evt_handler(
+     *  void tcp_server_evt_handler(
      *      uo_cb *cb)
      *  {
      *      uo_tcp_server *tcp_server = uo_cb_stack_index(cb, 0);
@@ -53,23 +53,23 @@ typedef struct uo_tcp_server
 } uo_tcp_server;
 
 /**
- * @brief Create a TCP server
+ * @brief create a TCP server
  * 
- * @param port              port to listen to for incoming connection
- * @return uo_tcp_server*   new TCP server instance
+ * @param port              port to listen to for incoming connections
+ * @return uo_tcp_server*   pointer to a new TCP server instance
  */
 uo_tcp_server *uo_tcp_server_create(
     const char *port);
 
 /**
- * @brief Start a TCP server
+ * @brief start a TCP server
  * 
  */
 void uo_tcp_server_start(
     uo_tcp_server *);
 
 /**
- * @brief Free up the resources owned by the TCP server instance
+ * @brief free up the resources owned by the TCP server instance
  * 
  */
 void uo_tcp_server_destroy(
