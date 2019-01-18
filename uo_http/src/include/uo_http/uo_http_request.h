@@ -23,6 +23,7 @@ typedef struct uo_http_request
     size_t body;
     size_t content_len;
     bool is_fully_parsed;
+    bool is_recv_headers_evt_raised;
 } uo_http_request;
 
 uo_http_request *uo_http_request_create(

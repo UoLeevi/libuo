@@ -9,42 +9,36 @@
 #include <stdio.h>
 
 static void after_close(
-    uo_http_conn *http_conn,
     uo_cb *cb)
 {
     uo_cb_invoke(cb);
 }
 
-static void after_send(
-    uo_http_conn *http_conn,
+static void after_send_response(
     uo_cb *cb)
 {
     uo_cb_invoke(cb);
 }
 
-static void before_send(
-    uo_http_conn *http_conn,
+static void before_send_response(
     uo_cb *cb)
 {
     uo_cb_invoke(cb);
 }
 
-static void after_recv(
-    uo_http_conn *http_conn,
+static void after_recv_request(
     uo_cb *cb)
 {
     uo_cb_invoke(cb);
 }
 
-static void before_recv(
-    uo_http_conn *http_conn,
+static void after_recv_headers(
     uo_cb *cb)
 {
     uo_cb_invoke(cb);
 }
 
 static void after_accept(
-    uo_http_conn *http_conn,
     uo_cb *cb)
 {
     uo_cb_invoke(cb);
@@ -59,12 +53,14 @@ int main(
     passed &= uo_http_init();
     uo_http_server *http_server = uo_http_server_create("80");
     uo_http_server_set_opt_serve_static_files(http_server, "test_content");
-    http_server->evt.after_accept_handler = after_accept;
-    http_server->evt.before_recv_handler = before_recv;
-    http_server->evt.after_recv_handler = after_recv;
-    http_server->evt.before_send_handler = before_send;
-    http_server->evt.after_send_handler = after_send;
-    http_server->evt.after_close_handler = after_close;
+
+    uo_cb_append(http_server->evt_handlers.after_accept, after_accept);
+    uo_cb_append(http_server->evt_handlers.after_recv_headers, after_recv_headers);
+    uo_cb_append(http_server->evt_handlers.after_recv_request, after_recv_request);
+    uo_cb_append(http_server->evt_handlers.before_send_response, before_send_response);
+    uo_cb_append(http_server->evt_handlers.after_send_response, after_send_response);
+    uo_cb_append(http_server->evt_handlers.after_close, after_close);
+
     uo_http_server_start(http_server);
 
     printf("Press 'q' to quit...\n");
