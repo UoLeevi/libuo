@@ -61,7 +61,7 @@ typedef struct uo_ioop
         }
         
         uo_cb_stack_push(cb, (void *)(uintptr_t)dwNumberOfBytesTransfered);
-        uo_cb_invoke_async(cb, NULL);
+        uo_cb_invoke_async(cb);
     }
 
     static void uo_io_noop(
@@ -175,7 +175,7 @@ typedef struct uo_ioop
             {
                 uo_ioop *ioop = epevts[i].data.ptr;
                 uo_cb_prepend(ioop->cb, (void *(*)(void *, uo_cb *))uo_io_execute_io);
-                uo_cb_invoke_async(ioop->cb, NULL);
+                uo_cb_invoke_async(ioop->cb);
             }
         }
     }
@@ -274,7 +274,7 @@ bool uo_io_read_async(
     {
         uo_cb_stack_push(cb, UO_IO_ERR_NONE);
         uo_cb_stack_push(cb, 0);
-        uo_cb_invoke_async(cb, NULL);
+        uo_cb_invoke_async(cb);
         return true;
     }
 
@@ -312,7 +312,7 @@ bool uo_io_write_async(
     {
         uo_cb_stack_push(cb, UO_IO_ERR_NONE);
         uo_cb_stack_push(cb, 0);
-        uo_cb_invoke_async(cb, NULL);
+        uo_cb_invoke_async(cb);
         return true;
     }
 
