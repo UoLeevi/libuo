@@ -64,11 +64,11 @@ static void uo_http_server_prepare_response_buf(
     uo_http_status_append_line(*buf, http_response->status);
 
     uo_strhashtbl *headers = http_response->headers;
-    struct uo_strkvp *h = headers->items;
+    struct uo_strkvp *header_kvps = headers->items;
     
     for (size_t i = 0; i < headers->capacity; ++i)
-        if (h[i].key)
-            uo_buf_printf_append(buf, "%s: %s\r\n", h[i].key, h[i].value);
+        if ((header_kvps + i)->key)
+            uo_buf_printf_append(buf, "%s: %s\r\n", (header_kvps + i)->key, (header_kvps + i)->value);
 
     uo_buf_memcpy_append(buf, "\r\n", UO_STRLEN("\r\n"));
 

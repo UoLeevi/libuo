@@ -7,14 +7,16 @@ extern "C" {
 
 #include <stddef.h>
 
+struct uo_strkvp
+{
+    const char *key;
+    void *value;
+};
+
 typedef struct uo_strhashtbl 
 {
     size_t capacity;
-    struct uo_strkvp
-    {
-        const char *key;
-        void *value;
-    } *items;
+    struct uo_strkvp *items;
 } uo_strhashtbl;
 
 uo_strhashtbl *uo_strhashtbl_create(
