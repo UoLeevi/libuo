@@ -1,5 +1,7 @@
 #include "uo_cb_queue.h"
 
+#include <semaphore.h>
+
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stdlib.h>

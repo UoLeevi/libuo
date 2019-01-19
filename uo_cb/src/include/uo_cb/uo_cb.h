@@ -8,8 +8,6 @@ extern "C" {
 #include <stddef.h>
 #include <stdbool.h>
 
-#include <semaphore.h>
-
 typedef struct uo_cb uo_cb;
 
 typedef void uo_cb_func(uo_cb *);
@@ -27,7 +25,6 @@ struct uo_cb
         size_t top;
     } stack;
 };
-
 
 /**
  * @brief initialization of uo_cb library
@@ -58,7 +55,6 @@ uo_cb *uo_cb_create(void);
 uo_cb *uo_cb_clone(
     const uo_cb *);
 
-
 /**
  * @brief free up the resources owned by the callback instance
  * 
@@ -78,11 +74,9 @@ void uo_cb_invoke(
 /**
  * @brief asynchronously call the next function in the function list or free owned resources if the function list is empty
  * 
- * @param sem   NULL or a pointer to uninitialized semaphore if the completion needs to be awaited
  */
 void uo_cb_invoke_async(
-    uo_cb *,
-    sem_t *sem);
+    uo_cb *);
 
 /**
  * @brief depending on the type of the second argument call either uo_cb_prepend_func or uo_cb_prepend_cb

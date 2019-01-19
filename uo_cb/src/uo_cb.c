@@ -174,14 +174,8 @@ void uo_cb_invoke(
 }
 
 void uo_cb_invoke_async(
-    uo_cb *cb,
-    sem_t *sem)
+    uo_cb *cb)
 {
-    if (sem) 
-        sem_init(sem, 0, 0);
-
-    uo_cb_stack_push(cb, sem);
-
     uo_cb_queue_enqueue(cb);
 }
 

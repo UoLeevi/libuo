@@ -10,9 +10,8 @@ add_library(uo_cb
     uo_cb_thrd_pool.c)
 
 target_link_libraries(uo_cb
-    PUBLIC
-        Threads::Threads
     PRIVATE
+        Threads::Threads
         m)
 
 target_compile_features(uo_cb

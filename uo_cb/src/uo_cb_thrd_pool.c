@@ -2,6 +2,7 @@
 #include "uo_cb_queue.h"
 
 #include <pthread.h>
+#include <semaphore.h>
 #include <unistd.h>
 
 #include <stdbool.h>
@@ -87,24 +88,18 @@ static void *uo_cb_execute(
 {
     while (!is_quitting)
     {
-        uo_cb *cb;
-        if (cb = uo_cb_queue_try_dequeue())
+        uo_cb *cb = uo_cb_queue_try_dequeue();
+
+        if (cb)
         {
             uo_cb_thrd_pool_notify_before_invoke();
-
-            sem_t *sem = uo_cb_stack_pop(cb);
-            
             uo_cb_invoke(cb);
-
-            if (sem)
-                sem_post(sem);
-
             uo_cb_thrd_pool_notify_after_invoke();
         }
-    
+
         size_t count = atomic_load(&thrd_pool.thrd_count);
         size_t count_target = thrd_pool.thrd_count_target;
-        
+
         if (count > count_target && atomic_compare_exchange_strong(&thrd_pool.thrd_count, &count, count - 1))
             break;
     }
@@ -222,7 +217,7 @@ static void uo_cb_thrd_pool_quit(void)
     pthread_join(thrd_pool.manager_thrd, NULL);
     
     for (size_t i = 0; i < thrd_pool.thrd_count; ++i)
-        uo_cb_invoke_async(uo_cb_create(), NULL);
+        uo_cb_invoke_async(uo_cb_create());
 
     for (size_t i = 0; i < UO_CB_THRD_COUNT_MAX; ++i)
         if (thrd_pool.cb_thrds[i].state)

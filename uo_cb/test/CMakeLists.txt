@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.12)
 project(uo_cb_test VERSION 0.3)
 
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
 enable_testing()
 
 if(NOT TARGET uo::uo_cb)
@@ -12,7 +15,8 @@ add_executable(uo_cb_test
 
 target_link_libraries(uo_cb_test
     PRIVATE
-        uo::uo_cb)
+        uo::uo_cb
+        Threads::Threads)
 
 add_test(NAME uo_cb.unit_tests
     COMMAND uo_cb_test)
