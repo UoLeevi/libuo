@@ -18,6 +18,7 @@ if(NOT TARGET uo::uo_cb)
 endif()
 
 add_library(uo_http
+    uo_http_client.c
     uo_http_conn.c
     uo_http_method.c
     uo_http_request.c

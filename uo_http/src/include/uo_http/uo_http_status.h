@@ -61,6 +61,9 @@ bool uo_http_status_append_line(
 size_t uo_http_status_get_line_len(
     UO_HTTP_STATUS);
 
+UO_HTTP_STATUS uo_http_status_parse(
+    uo_buf);
+
 #ifdef __cplusplus
 }
 #endif

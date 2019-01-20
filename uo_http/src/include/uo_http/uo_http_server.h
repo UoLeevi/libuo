@@ -25,8 +25,8 @@ typedef struct uo_http_server
      *  void http_server_evt_handler(
      *      uo_cb *cb)
      *  {
-     *      uo_http_server *http_server = uo_cb_stack_index(cb, 2);
-     *      uo_http_conn *http_conn     = uo_cb_stack_index(cb, 3);
+     *      uo_http_server *http_server = uo_cb_stack_index(cb, 1);
+     *      uo_http_conn *http_conn     = uo_cb_stack_index(cb, 2);
      * 
      *      // do stuff...
      * 

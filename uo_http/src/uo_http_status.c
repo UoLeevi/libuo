@@ -148,3 +148,105 @@ size_t uo_http_status_get_line_len(
         default: return 0;
     }
 }
+
+UO_HTTP_STATUS uo_http_status_parse(
+    uo_buf buf)
+{
+    if (uo_mem_cmp_str_literal(buf, "HTTP/1.1 ") != 0)
+        return UO_HTTP_STATUS_INVALID;
+
+    switch (buf[10])
+    {
+        case '1': return uo_mem_cmp_str_literal(buf, "100 ")
+            ? uo_mem_cmp_str_literal(buf, "101 ")
+                ? UO_HTTP_STATUS_INVALID
+                : UO_HTTP_1_1_STATUS_101
+            : UO_HTTP_1_1_STATUS_100;
+
+        case '2': return uo_mem_cmp_str_literal(buf, "200 ")
+            ? uo_mem_cmp_str_literal(buf, "201 ")
+                ? uo_mem_cmp_str_literal(buf, "202 ")
+                    ? uo_mem_cmp_str_literal(buf, "203 ")
+                        ? uo_mem_cmp_str_literal(buf, "204 ")
+                            ? uo_mem_cmp_str_literal(buf, "205 ")
+                                ? uo_mem_cmp_str_literal(buf, "206 ")
+                                    ? UO_HTTP_STATUS_INVALID
+                                    : UO_HTTP_1_1_STATUS_206
+                                : UO_HTTP_1_1_STATUS_205
+                            : UO_HTTP_1_1_STATUS_204
+                        : UO_HTTP_1_1_STATUS_203
+                    : UO_HTTP_1_1_STATUS_202
+                : UO_HTTP_1_1_STATUS_201
+            : UO_HTTP_1_1_STATUS_200;
+
+        case '3': return uo_mem_cmp_str_literal(buf, "300 ")
+            ? uo_mem_cmp_str_literal(buf, "301 ")
+                ? uo_mem_cmp_str_literal(buf, "302 ")
+                    ? uo_mem_cmp_str_literal(buf, "303 ")
+                        ? uo_mem_cmp_str_literal(buf, "304 ")
+                            ? uo_mem_cmp_str_literal(buf, "305 ")
+                                ? uo_mem_cmp_str_literal(buf, "307 ")
+                                    ? UO_HTTP_STATUS_INVALID
+                                    : UO_HTTP_1_1_STATUS_307
+                                : UO_HTTP_1_1_STATUS_305
+                            : UO_HTTP_1_1_STATUS_304
+                        : UO_HTTP_1_1_STATUS_303
+                    : UO_HTTP_1_1_STATUS_302
+                : UO_HTTP_1_1_STATUS_301
+            : UO_HTTP_1_1_STATUS_300;
+
+        case '4': return uo_mem_cmp_str_literal(buf, "400 ")
+            ? uo_mem_cmp_str_literal(buf, "401 ")
+                ? uo_mem_cmp_str_literal(buf, "402 ")
+                    ? uo_mem_cmp_str_literal(buf, "403 ")
+                        ? uo_mem_cmp_str_literal(buf, "404 ")
+                            ? uo_mem_cmp_str_literal(buf, "405 ")
+                                ? uo_mem_cmp_str_literal(buf, "406 ")
+                                    ? uo_mem_cmp_str_literal(buf, "407 ")
+                                        ? uo_mem_cmp_str_literal(buf, "408 ")
+                                            ? uo_mem_cmp_str_literal(buf, "409 ")
+                                                ? uo_mem_cmp_str_literal(buf, "410 ")
+                                                    ? uo_mem_cmp_str_literal(buf, "411 ")
+                                                        ? uo_mem_cmp_str_literal(buf, "412 ")
+                                                            ? uo_mem_cmp_str_literal(buf, "413 ")
+                                                                ? uo_mem_cmp_str_literal(buf, "414 ")
+                                                                    ? uo_mem_cmp_str_literal(buf, "415 ")
+                                                                        ? uo_mem_cmp_str_literal(buf, "416 ")
+                                                                            ? uo_mem_cmp_str_literal(buf, "417 ")
+                                                                                ? UO_HTTP_STATUS_INVALID
+                                                                                : UO_HTTP_1_1_STATUS_417
+                                                                            : UO_HTTP_1_1_STATUS_416
+                                                                        : UO_HTTP_1_1_STATUS_415
+                                                                    : UO_HTTP_1_1_STATUS_414
+                                                                : UO_HTTP_1_1_STATUS_413
+                                                            : UO_HTTP_1_1_STATUS_412
+                                                        : UO_HTTP_1_1_STATUS_411
+                                                    : UO_HTTP_1_1_STATUS_410
+                                                : UO_HTTP_1_1_STATUS_409
+                                            : UO_HTTP_1_1_STATUS_408
+                                        : UO_HTTP_1_1_STATUS_407
+                                    : UO_HTTP_1_1_STATUS_406
+                                : UO_HTTP_1_1_STATUS_405
+                            : UO_HTTP_1_1_STATUS_404
+                        : UO_HTTP_1_1_STATUS_403
+                    : UO_HTTP_1_1_STATUS_402
+                : UO_HTTP_1_1_STATUS_401
+            : UO_HTTP_1_1_STATUS_400;
+        
+        case '5': return uo_mem_cmp_str_literal(buf, "500 ")
+            ? uo_mem_cmp_str_literal(buf, "501 ")
+                ? uo_mem_cmp_str_literal(buf, "502 ")
+                    ? uo_mem_cmp_str_literal(buf, "503 ")
+                        ? uo_mem_cmp_str_literal(buf, "504 ")
+                            ? uo_mem_cmp_str_literal(buf, "505 ")
+                                ? UO_HTTP_STATUS_INVALID
+                                : UO_HTTP_1_1_STATUS_505
+                            : UO_HTTP_1_1_STATUS_504
+                        : UO_HTTP_1_1_STATUS_503
+                    : UO_HTTP_1_1_STATUS_502
+                : UO_HTTP_1_1_STATUS_501
+            : UO_HTTP_1_1_STATUS_500;
+
+        default: return UO_HTTP_STATUS_INVALID;
+    }
+}

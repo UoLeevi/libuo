@@ -73,7 +73,7 @@ static void uo_http_server_prepare_response_buf(
     uo_buf_memcpy_append(buf, "\r\n", UO_STRLEN("\r\n"));
 
     if (http_response->content_len)
-        uo_buf_memcpy_append(buf, http_response->buf, http_response->content_len);
+        uo_buf_memcpy_append(buf, *http_response->buf, http_response->content_len);
 }
 
 static void uo_http_server_pass_cb_to_tcp_server(
@@ -195,13 +195,13 @@ static void tcp_server_evt_handler_after_recv(
 
     uo_http_conn_parse_request(http_conn);
 
-    if (!http_conn->http_request->is_fully_parsed)
+    if (!http_conn->http_request->state.is_fully_parsed)
     {
         uo_tcp_conn_next_recv(tcp_conn);
 
-        if (!http_conn->http_request->is_recv_headers_evt_raised && http_conn->http_request->headers)
+        if (!http_conn->http_request->state.is_recv_headers_evt_raised && http_conn->http_request->headers)
         {
-            http_conn->http_request->is_recv_headers_evt_raised = true;
+            http_conn->http_request->state.is_recv_headers_evt_raised = true;
 
             uo_cb_prepend(tcp_cb, uo_http_server_pass_cb_to_tcp_server);
             uo_cb_prepend(tcp_cb, http_server->evt_handlers.after_recv_headers);
@@ -214,17 +214,16 @@ static void tcp_server_evt_handler_after_recv(
         uo_tcp_conn_next_send(tcp_conn);
 
         uo_cb_prepend(tcp_cb, uo_http_server_pass_cb_to_tcp_server);
-
-        if (!http_conn->http_request->is_recv_headers_evt_raised)
-        {
-            http_conn->http_request->is_recv_headers_evt_raised = true;
-
-            uo_cb_prepend(tcp_cb, http_server->evt_handlers.after_recv_headers);
-        }
-
         uo_cb_prepend(tcp_cb, http_server->evt_handlers.after_recv_request);
         uo_cb_stack_push(tcp_cb, http_server);
         uo_cb_stack_push(tcp_cb, http_conn);
+
+        if (!http_conn->http_request->state.is_recv_headers_evt_raised)
+        {
+            http_conn->http_request->state.is_recv_headers_evt_raised = true;
+
+            uo_cb_prepend(tcp_cb, http_server->evt_handlers.after_recv_headers);
+        }
     }
 
     uo_cb_invoke(tcp_cb);
@@ -236,7 +235,7 @@ static void tcp_server_evt_handler_after_open(
     uo_tcp_conn *tcp_conn = uo_cb_stack_index(tcp_cb, 0);
 
     uo_http_server *http_server = uo_tcp_conn_get_user_data(tcp_conn);
-    uo_http_conn *http_conn = uo_http_conn_create(tcp_conn);
+    uo_http_conn *http_conn = uo_http_conn_create(tcp_conn, UO_HTTP_CONN_ROLE_SERVER);
     uo_http_tcp_conn_user_data *tcp_conn_user_data = malloc(sizeof *tcp_conn_user_data);
     tcp_conn_user_data->http_conn = http_conn;
     tcp_conn_user_data->http_server = http_server;

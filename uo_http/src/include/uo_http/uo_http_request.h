@@ -18,16 +18,38 @@ typedef struct uo_http_request
 {
     uo_buf *buf;
     UO_HTTP_METHOD method;
-    size_t target;
+    ptrdiff_t target;
     void *headers;
-    size_t body;
+    ptrdiff_t body;
     size_t content_len;
-    bool is_fully_parsed;
-    bool is_recv_headers_evt_raised;
+    struct
+    {
+        bool is_fully_parsed;
+        bool is_recv_headers_evt_raised;
+    } state;
 } uo_http_request;
 
 uo_http_request *uo_http_request_create(
     uo_buf *buf);
+
+bool uo_http_request_set_method(
+    uo_http_request *,
+    UO_HTTP_METHOD);
+
+bool uo_http_request_set_target(
+    uo_http_request *,
+    const char *target);
+
+bool uo_http_request_set_header(
+    uo_http_request *,
+    const char *header_name,
+    char *header_value);
+
+bool uo_http_request_set_content(
+    uo_http_request *,
+    const char *content,
+    char *content_type,
+    size_t content_len);
 
 bool uo_http_request_parse_start_line(
     uo_http_request *);

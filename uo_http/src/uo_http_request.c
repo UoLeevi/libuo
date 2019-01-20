@@ -12,8 +12,49 @@ uo_http_request *uo_http_request_create(
     uo_buf *buf)
 {
     uo_http_request *http_request = calloc(1, sizeof *http_request);
+    http_request->headers = uo_strhashtbl_create(0x20); // TODO: make size dynamic
     http_request->buf = buf;
     return http_request;
+}
+
+bool uo_http_request_set_method(
+    uo_http_request *http_request,
+    UO_HTTP_METHOD method)
+{
+    http_request->method = method;
+    return true;
+}
+
+bool uo_http_request_set_target(
+    uo_http_request *http_request,
+    const char *target)
+{
+    // TODO
+}
+
+bool uo_http_request_set_header(
+    uo_http_request *http_request,
+    const char *header_name,
+    char *header_value)
+{
+    uo_strhashtbl_insert(http_request->headers, header_name, header_value);
+    return true;
+}
+
+bool uo_http_request_set_content(
+    uo_http_request *http_request,
+    const char *content,
+    char *content_type,
+    size_t content_len)
+{
+    uo_buf_set_ptr_abs(*http_request->buf, 0);
+    uo_buf_memcpy_append(http_request->buf, content, content_len);
+    int content_len_str_len = uo_buf_printf_append(http_request->buf, "%lu", content_len);
+    char *content_len_str = uo_buf_get_ptr(*http_request->buf) - content_len_str_len;
+    uo_http_request_set_header(http_request, "content-length", content_len_str);
+    uo_http_request_set_header(http_request, "content-type", content_type);
+    http_request->content_len = content_len;
+    return true;
 }
 
 bool uo_http_request_parse_start_line(
@@ -158,8 +199,6 @@ char *uo_http_request_get_body(
 void uo_http_request_destroy(
     uo_http_request *http_request)
 {
-    if (http_request->headers)
-        uo_strhashtbl_destroy(http_request->headers);
-
+    uo_strhashtbl_destroy(http_request->headers);
     free(http_request);
 }
