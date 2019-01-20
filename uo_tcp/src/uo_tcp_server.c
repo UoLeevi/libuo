@@ -1,231 +1,17 @@
 #include "uo_tcp_server.h"
-#include "uo_io.h"
 #include "uo_err.h"
-#include "uo_queue.h"
 #include "uo_sock.h"
+
+#include <pthread.h>
+#include <unistd.h>
 
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
 
-#include <pthread.h>
-#include <unistd.h>
-
-static void uo_tcp_server_raise_evt_after_accept(uo_tcp_server *, uo_tcp_conn *);
-static void uo_tcp_server_raise_evt_before_recv(uo_tcp_server *, uo_tcp_conn *);
-static void uo_tcp_server_raise_evt_after_recv(uo_tcp_server *, uo_tcp_conn *);
-static void uo_tcp_server_raise_evt_before_send(uo_tcp_server *, uo_tcp_conn *);
-static void uo_tcp_server_raise_evt_after_send(uo_tcp_server *, uo_tcp_conn *);
-static void uo_tcp_server_raise_evt_after_close(uo_tcp_server *, uo_tcp_conn *);
-
-static void uo_tcp_server_after_close(
-    uo_cb *cb)
-{
-    uo_tcp_server *tcp_server = uo_cb_stack_index(cb, 0);
-    uo_tcp_conn *tcp_conn     = uo_cb_stack_index(cb, 1);
-
-    uo_tcp_conn_destroy(tcp_conn);
-    uo_cb_invoke(cb);
-}
-
-static void uo_tcp_server_raise_evt_after_close(
-    uo_tcp_server *tcp_server,
-    uo_tcp_conn *tcp_conn)
-{
-    uo_cb *cb = uo_cb_clone(tcp_server->evt_handlers.after_close);
-    uo_cb_stack_push(cb, tcp_conn);
-
-    uo_cb_append(cb, uo_tcp_server_after_close);
-    uo_cb_invoke(cb);
-}
-
-static void uo_tcp_server_after_send(
-    uo_cb *cb)
-{
-    uo_tcp_server *tcp_server = uo_cb_stack_index(cb, 0);
-    uo_tcp_conn *tcp_conn     = uo_cb_stack_index(cb, 1);
-
-    uo_buf_set_ptr_abs(tcp_conn->rbuf, 0);
-    uo_buf_set_ptr_abs(tcp_conn->wbuf, 0);
-
-    uo_queue_enqueue(tcp_server->conn_queue, tcp_conn, true);
-    uo_cb_invoke(cb);
-}
-
-static void uo_tcp_server_raise_evt_after_send(
-    uo_tcp_server *tcp_server,
-    uo_tcp_conn *tcp_conn)
-{
-    uo_cb *cb = uo_cb_clone(tcp_server->evt_handlers.after_send);
-    uo_cb_stack_push(cb, tcp_conn);
-
-    uo_cb_append(cb, uo_tcp_server_after_send);
-    uo_cb_invoke(cb);
-}
-
-static void uo_tcp_server_send(
-    uo_cb *cb)
-{
-    uo_tcp_server *tcp_server = uo_cb_stack_index(cb, 0);
-    uo_tcp_conn *tcp_conn     = uo_cb_stack_index(cb, 1);
-
-    size_t wlen;
-    unsigned char *p = tcp_conn->wbuf;
-    size_t len = uo_buf_get_len_before_ptr(p);
-    int wfd = tcp_conn->sockfd;
-    
-    // TODO: handle errors properly
-    while (len)
-    {
-        if ((wlen = uo_io_write(wfd, p, len)) <= 0)
-        {
-            uo_tcp_server_raise_evt_after_close(tcp_server, tcp_conn);
-            uo_cb_invoke(cb);
-            return;
-        }
-
-        len -= wlen;
-        p += wlen;
-    }
-
-    uo_tcp_server_raise_evt_after_send(tcp_server, tcp_conn);
-    uo_cb_invoke(cb);
-}
-
-static void uo_tcp_server_raise_evt_before_send(
-    uo_tcp_server *tcp_server,
-    uo_tcp_conn *tcp_conn)
-{
-    uo_cb *cb = uo_cb_clone(tcp_server->evt_handlers.before_send);
-    uo_cb_stack_push(cb, tcp_conn);
-
-    uo_cb_append(cb, uo_tcp_server_send);
-    uo_cb_invoke(cb);
-}
-
-
-static void uo_tcp_server_after_recv(
-    uo_cb *cb)
-{
-    uo_tcp_server *tcp_server = uo_cb_stack_index(cb, 0);
-    uo_tcp_conn *tcp_conn     = uo_cb_stack_index(cb, 1);
-
-    if (tcp_conn->evt.next_op == UO_TCP_RECV)
-    {
-        if (!uo_buf_get_len_after_ptr(tcp_conn->rbuf))
-            tcp_conn->rbuf = uo_buf_realloc_2x(tcp_conn->rbuf);
-
-        uo_tcp_conn_reset_evt(tcp_conn);
-        uo_queue_enqueue(tcp_server->conn_queue, tcp_conn, true);
-    }
-    else
-        uo_tcp_server_raise_evt_before_send(tcp_server, tcp_conn);
-
-    uo_cb_invoke(cb);
-}
-
-static void uo_tcp_server_raise_evt_after_recv(
-    uo_tcp_server *tcp_server,
-    uo_tcp_conn *tcp_conn)
-{
-    uo_cb *cb = uo_cb_clone(tcp_server->evt_handlers.after_recv);
-    uo_cb_stack_push(cb, tcp_conn);
-
-    uo_cb_append(cb, uo_tcp_server_after_recv);
-    uo_cb_invoke(cb);
-}
-
-
-static void uo_tcp_server_recv(
-    uo_cb *cb)
-{
-    uo_tcp_server *tcp_server = uo_cb_stack_index(cb, 0);
-    uo_tcp_conn *tcp_conn     = uo_cb_stack_index(cb, 1);
-
-    size_t len = (uintptr_t)uo_cb_stack_pop(cb);
-
-    // TODO: handle errors properly
-    if (!len)
-    {
-        uo_tcp_server_raise_evt_after_close(tcp_server, tcp_conn);
-        uo_cb_invoke(cb);
-        return;
-    }
-
-    tcp_conn->evt.last_recv_len = len;
-    uo_buf_set_ptr_rel(tcp_conn->rbuf, len);
-
-    uo_tcp_server_raise_evt_after_recv(tcp_server, tcp_conn);
-
-    uo_cb_invoke(cb);
-}
-
-static void uo_tcp_server_before_recv(
-    uo_cb *cb)
-{
-    uo_tcp_server *tcp_server = uo_cb_stack_index(cb, 0);
-    uo_tcp_conn *tcp_conn     = uo_cb_stack_index(cb, 1);
-
-    uo_buf rbuf = tcp_conn->rbuf;
-
-    uo_cb_prepend(cb, uo_tcp_server_recv);
-
-    uo_io_read_async(
-        tcp_conn->sockfd,
-        uo_buf_get_ptr(rbuf),
-        uo_buf_get_len_after_ptr(rbuf),
-        cb);
-}
-
-static void uo_tcp_server_raise_evt_before_recv(
-    uo_tcp_server *tcp_server,
-    uo_tcp_conn *tcp_conn)
-{
-    uo_cb *cb = uo_cb_clone(tcp_server->evt_handlers.before_recv);
-    uo_cb_stack_push(cb, tcp_conn);
-
-    uo_cb_append(cb, uo_tcp_server_before_recv);
-    uo_cb_invoke(cb);
-}
-
-
-static void uo_tcp_server_after_accept(
-    uo_cb *cb)
-{
-    uo_tcp_server *tcp_server = uo_cb_stack_index(cb, 0);
-    uo_tcp_conn *tcp_conn     = uo_cb_stack_index(cb, 1);
-
-    uo_queue_enqueue(tcp_server->conn_queue, tcp_conn, true);
-    uo_cb_invoke(cb);
-}
-
-static void uo_tcp_server_raise_evt_after_accept(
-    uo_tcp_server *tcp_server,
-    uo_tcp_conn *tcp_conn)
-{
-    uo_cb *cb = uo_cb_clone(tcp_server->evt_handlers.after_accept);
-    uo_cb_stack_push(cb, tcp_conn);
-
-    uo_cb_append(cb, uo_tcp_server_after_accept);
-    uo_cb_invoke(cb);
-}
-
-
-static void *uo_tcp_server_serve(
-    void *arg) 
-{
-    uo_tcp_server *tcp_server = arg;
-
-    while (!tcp_server->is_closing)
-    {
-        uo_tcp_conn *tcp_conn = uo_queue_dequeue(tcp_server->conn_queue, true);
-
-        if (tcp_conn)
-            uo_tcp_server_raise_evt_before_recv(tcp_server, tcp_conn);
-    }
-    
-    return NULL;
-}
+extern void uo_tcp_conn_open(
+    int sockfd,
+    uo_tcp_conn_evt_handlers *);
 
 static void *uo_tcp_server_accept(
     void *arg)
@@ -241,10 +27,7 @@ static void *uo_tcp_server_accept(
             continue;
         }
 
-        uo_tcp_conn *tcp_conn = uo_tcp_conn_create(sockfd);
-        uo_tcp_conn_set_user_data(tcp_conn, tcp_server->conn_defaults.user_data);
-
-        uo_tcp_server_raise_evt_after_accept(tcp_server, tcp_conn);
+        uo_tcp_conn_open(sockfd, &tcp_server->evt_handlers);
     }
 
     return NULL;
@@ -253,8 +36,7 @@ static void *uo_tcp_server_accept(
 void uo_tcp_server_start(
     uo_tcp_server *tcp_server)
 {
-    pthread_create(tcp_server->server_thrd, NULL, uo_tcp_server_serve, tcp_server);
-    pthread_create(tcp_server->listen_thrd, NULL, uo_tcp_server_accept, tcp_server);
+    pthread_create(tcp_server->thrd, NULL, uo_tcp_server_accept, tcp_server);
 }
 
 uo_tcp_server *uo_tcp_server_create(
@@ -297,22 +79,15 @@ uo_tcp_server *uo_tcp_server_create(
     else
         uo_err_goto(err_close, "Unable to listen on socket!\r\n");
 
-    uo_cb *evt_handler_template = uo_cb_create();
-    uo_cb_stack_push(evt_handler_template, tcp_server);
+    tcp_server->evt_handlers.after_open   = uo_cb_create();
+    tcp_server->evt_handlers.before_recv  = uo_cb_create();
+    tcp_server->evt_handlers.after_recv   = uo_cb_create();
+    tcp_server->evt_handlers.before_send  = uo_cb_create();
+    tcp_server->evt_handlers.after_send   = uo_cb_create();
+    tcp_server->evt_handlers.before_close = uo_cb_create();
+    tcp_server->evt_handlers.after_close  = uo_cb_create();
 
-    tcp_server->evt_handlers.after_accept = uo_cb_clone(evt_handler_template);
-    tcp_server->evt_handlers.before_recv  = uo_cb_clone(evt_handler_template);
-    tcp_server->evt_handlers.after_recv   = uo_cb_clone(evt_handler_template);
-    tcp_server->evt_handlers.before_send  = uo_cb_clone(evt_handler_template);
-    tcp_server->evt_handlers.after_send   = uo_cb_clone(evt_handler_template);
-    tcp_server->evt_handlers.after_close  = uo_cb_clone(evt_handler_template);
-
-    uo_cb_destroy(evt_handler_template);
-
-    tcp_server->conn_queue = uo_queue_create(0x100);
-
-    tcp_server->server_thrd = malloc(sizeof(pthread_t));
-    tcp_server->listen_thrd = malloc(sizeof(pthread_t));
+    tcp_server->thrd = malloc(sizeof(pthread_t));
 
     return tcp_server;
 
@@ -329,17 +104,16 @@ void uo_tcp_server_destroy(
     uo_tcp_server *tcp_server)
 {
     tcp_server->is_closing = true;
-    close(tcp_server->sockfd);
-    pthread_cancel(*(pthread_t *)tcp_server->listen_thrd);
-    uo_queue_enqueue(tcp_server->conn_queue, NULL, true);
-    pthread_join(*(pthread_t *)tcp_server->server_thrd, NULL);
-    uo_queue_destroy(tcp_server->conn_queue);
 
-    uo_cb_destroy(tcp_server->evt_handlers.after_accept);
+    close(tcp_server->sockfd);
+    pthread_join(*(pthread_t *)tcp_server->thrd, NULL);
+
+    uo_cb_destroy(tcp_server->evt_handlers.after_open);
     uo_cb_destroy(tcp_server->evt_handlers.before_recv);
     uo_cb_destroy(tcp_server->evt_handlers.after_recv);
     uo_cb_destroy(tcp_server->evt_handlers.before_send);
     uo_cb_destroy(tcp_server->evt_handlers.after_send);
+    uo_cb_destroy(tcp_server->evt_handlers.before_close);
     uo_cb_destroy(tcp_server->evt_handlers.after_close);
 
     free(tcp_server);

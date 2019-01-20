@@ -13,36 +13,75 @@
 static bool pass;
 static sem_t sem;
 
-static void uo_tcp_client_evt_handler_send_hello(
+static void tcp_client_evt_handler_send_hello(
     uo_cb *cb)
 {
-    uo_tcp_client *tcp_client = uo_cb_stack_index(cb, 0);
-    uo_tcp_conn *tcp_conn     = uo_cb_stack_index(cb, 1);
+    uo_tcp_conn *tcp_conn = uo_cb_stack_index(cb, 0);
 
     uo_buf_printf_append(&tcp_conn->wbuf, "hello");
 
     uo_cb_invoke(cb);
 }
 
-static void uo_tcp_client_evt_handler_check_response(
+static void tcp_client_evt_handler_after_send(
     uo_cb *cb)
 {
-    uo_tcp_client *tcp_client = uo_cb_stack_index(cb, 0);
-    uo_tcp_conn *tcp_conn     = uo_cb_stack_index(cb, 1);
+    uo_tcp_conn *tcp_conn = uo_cb_stack_index(cb, 0);
 
-    pass &= memcmp(tcp_conn->rbuf, "hello", 5) == 0;
-    sem_post(&sem);
+    uo_tcp_conn_next_recv(tcp_conn);
 
     uo_cb_invoke(cb);
 }
 
-static void uo_tcp_server_evt_handler_echo(
+static void tcp_client_evt_handler_check_response(
     uo_cb *cb)
 {
-    uo_tcp_server *tcp_server = uo_cb_stack_index(cb, 0);
-    uo_tcp_conn *tcp_conn     = uo_cb_stack_index(cb, 1);
+    uo_tcp_conn *tcp_conn = uo_cb_stack_index(cb, 0);
+
+    pass &= memcmp(tcp_conn->rbuf, "hello", 5) == 0;
+
+    uo_cb_invoke(cb);
+
+    sem_post(&sem);
+}
+
+static void tcp_client_evt_handler_after_open(
+    uo_cb *cb)
+{
+    uo_tcp_conn *tcp_conn = uo_cb_stack_index(cb, 0);
+
+    uo_tcp_conn_next_send(tcp_conn);
+
+    uo_cb_invoke(cb);
+}
+
+static void tcp_server_evt_handler_echo(
+    uo_cb *cb)
+{
+    uo_tcp_conn *tcp_conn = uo_cb_stack_index(cb, 0);
 
     uo_buf_memcpy_append(&tcp_conn->wbuf, tcp_conn->rbuf, uo_buf_get_len_before_ptr(tcp_conn->rbuf));
+
+    uo_cb_invoke(cb);
+}
+
+
+static void tcp_server_evt_handler_after_recv(
+    uo_cb *cb)
+{
+    uo_tcp_conn *tcp_conn = uo_cb_stack_index(cb, 0);
+
+    uo_tcp_conn_next_send(tcp_conn);
+
+    uo_cb_invoke(cb);
+}
+
+static void tcp_server_evt_handler_after_open(
+    uo_cb *cb)
+{
+    uo_tcp_conn *tcp_conn = uo_cb_stack_index(cb, 0);
+
+    uo_tcp_conn_next_recv(tcp_conn);
 
     uo_cb_invoke(cb);
 }
@@ -58,12 +97,16 @@ int main(
     sem_init(&sem, 0, 0);
 
     uo_tcp_server *tcp_server = uo_tcp_server_create("12345");
-    uo_cb_append(tcp_server->evt_handlers.before_send, &uo_tcp_server_evt_handler_echo);
+    uo_cb_append(tcp_server->evt_handlers.after_open, tcp_server_evt_handler_after_open);
+    uo_cb_append(tcp_server->evt_handlers.after_recv, tcp_server_evt_handler_after_recv);
+    uo_cb_append(tcp_server->evt_handlers.before_send, tcp_server_evt_handler_echo);
     uo_tcp_server_start(tcp_server);
 
     uo_tcp_client *tcp_client = uo_tcp_client_create("localhost", "12345");
-    uo_cb_append(tcp_client->evt_handlers.before_send, &uo_tcp_client_evt_handler_send_hello);
-    uo_cb_append(tcp_client->evt_handlers.after_recv, &uo_tcp_client_evt_handler_check_response);
+    uo_cb_append(tcp_client->evt_handlers.after_open, tcp_client_evt_handler_after_open);
+    uo_cb_append(tcp_client->evt_handlers.before_send, tcp_client_evt_handler_send_hello);
+    uo_cb_append(tcp_client->evt_handlers.after_send, tcp_client_evt_handler_after_send);
+    uo_cb_append(tcp_client->evt_handlers.after_recv, tcp_client_evt_handler_check_response);
     uo_tcp_client_connect(tcp_client);
 
     sem_wait(&sem);

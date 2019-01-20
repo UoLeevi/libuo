@@ -11,43 +11,35 @@ extern "C"
 #include <stddef.h>
 #include <stdbool.h>
 
+/**
+ * @brief TCP server
+ * 
+ * There are three steps to using the uo_tcp_server:
+ *  1) create uo_tcp_server instance using uo_tcp_server_create
+ *  2) register event handler functions for various TCP connection events
+ *  3) start the TCP server using uo_tcp_server_start
+ * 
+ * @code
+ * // create the uo_tcp_server instance
+ * uo_tcp_server *tcp_server = uo_tcp_server_create("12345");
+ * 
+ * // register event handlers
+ * uo_cb_append(tcp_server->evt_handlers.after_open, my_tcp_server_evt_handler_after_open);
+ * uo_cb_append(tcp_server->evt_handlers.after_recv, my_tcp_server_evt_handler_after_recv);
+ * uo_cb_append(tcp_server->evt_handlers.before_send, my_tcp_server_evt_handler_before_send);
+ * 
+ * // start the uo_tcp_server
+ * uo_tcp_server_start(tcp_server);
+ * @endcode
+ */
 typedef struct uo_tcp_server
 {
-    /**
-     * @brief evt_handlers struct contains callbacks for TCP server events
-     * 
-     * When TCP server raises an event it invokes a callback dedicated for that event.
-     * The callback invoked has two pointers pushed on the stack of the callback:
-     * a pointer to the TCP server instance and a pointer to the TCP connection instance.
-     * These pointers can be accessed from within the event handler function like this:
-     * 
-     *  void tcp_server_evt_handler(
-     *      uo_cb *cb)
-     *  {
-     *      uo_tcp_server *tcp_server = uo_cb_stack_index(cb, 0);
-     *      uo_tcp_conn *tcp_conn     = uo_cb_stack_index(cb, 1);
-     * 
-     *      // do stuff...
-     * 
-     *     uo_cb_invoke(cb);
-     * }
-     */
-    struct
-    {
-        uo_cb *after_accept;
-        uo_cb *before_recv;
-        uo_cb *after_recv;
-        uo_cb *before_send;
-        uo_cb *after_send;
-        uo_cb *after_close;
-    } evt_handlers;
+    uo_tcp_conn_evt_handlers evt_handlers;
     struct
     {
         void *user_data;
     } conn_defaults;
-    void *listen_thrd;
-    void *server_thrd;
-    void *conn_queue;
+    void *thrd;
     int sockfd;
     bool is_closing;
 } uo_tcp_server;

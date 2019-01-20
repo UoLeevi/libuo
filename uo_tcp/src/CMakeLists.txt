@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(uo_tcp VERSION 0.3.0)
+project(uo_tcp VERSION 0.5.0)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
@@ -19,9 +19,6 @@ endif()
 if(NOT TARGET uo::uo_mem)
     find_package(uo_mem CONFIG REQUIRED)
 endif()
-if(NOT TARGET uo::uo_queue)
-    find_package(uo_queue CONFIG REQUIRED)
-endif()
 if(NOT TARGET uo::uo_sock)
     find_package(uo_sock CONFIG REQUIRED)
 endif()
@@ -40,7 +37,6 @@ target_link_libraries(uo_tcp
         uo::uo_io
         uo::uo_err
         uo::uo_mem
-        uo::uo_queue
         uo::uo_sock
         Threads::Threads)
 

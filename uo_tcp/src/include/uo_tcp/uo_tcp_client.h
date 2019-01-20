@@ -11,36 +11,30 @@ extern "C"
 #include <stddef.h>
 #include <stdint.h>
 
+/**
+ * @brief TCP client
+ * 
+ * There are three steps to using the uo_tcp_client:
+ *  1) create uo_tcp_client instance using uo_tcp_client_create
+ *  2) register event handler functions for various TCP connection events
+ *  3) make TCP connection(s) using uo_tcp_client_connect
+ * 
+ * @code
+ * // create the uo_tcp_client instance
+ * uo_tcp_client *tcp_client = uo_tcp_client_create("localhost", "12345");
+ * 
+ * // register event handlers
+ * uo_cb_append(tcp_client->evt_handlers.after_open, my_tcp_client_evt_handler_after_open);
+ * uo_cb_append(tcp_client->evt_handlers.before_send, my_tcp_client_evt_handler_before_send);
+ * uo_cb_append(tcp_client->evt_handlers.after_recv, my_tcp_client_evt_handler_after_recv);
+ * 
+ * // open a new TCP connection
+ * uo_tcp_client_connect(tcp_client);
+ * @endcode
+ */
 typedef struct uo_tcp_client
 {
-    /**
-     * @brief evt_handlers struct contains callbacks for TCP client events
-     * 
-     * When TCP client raises an event it invokes a callback dedicated for that event.
-     * The callback invoked has two pointers pushed on the stack of the callback:
-     * a pointer to the TCP client instance and a pointer to the TCP connection instance.
-     * These pointers can be accessed from within the event handler function like this:
-     * 
-     *  void uo_tcp_client_evt_handler(
-     *      uo_cb *cb)
-     *  {
-     *      uo_tcp_client *tcp_client = uo_cb_stack_index(cb, 0);
-     *      uo_tcp_conn *tcp_conn     = uo_cb_stack_index(cb, 1);
-     * 
-     *      // do stuff...
-     * 
-     *     uo_cb_invoke(cb);
-     * }
-     */
-    struct
-    {
-        uo_cb *after_connect;
-        uo_cb *before_send;
-        uo_cb *after_send;
-        uo_cb *before_recv;
-        uo_cb *after_recv;
-        uo_cb *after_close;
-    } evt_handlers;
+    uo_tcp_conn_evt_handlers evt_handlers;
     struct
     {
         void *user_data;
@@ -50,7 +44,7 @@ typedef struct uo_tcp_client
 } uo_tcp_client;
 
 /**
- * @brief Create a TCP client
+ * @brief create a TCP client
  * 
  * @param hostname          hostname to connect to
  * @param port              port to connect to
@@ -61,14 +55,14 @@ uo_tcp_client *uo_tcp_client_create(
     const char *port);
 
 /**
- * @brief Create a TCP connection
+ * @brief open a new TCP connection
  * 
  */
 void uo_tcp_client_connect(
     uo_tcp_client *);
 
 /**
- * @brief Free up the resources owned by the TCP client instance
+ * @brief free up the resources owned by the TCP client instance
  * 
  */
 void uo_tcp_client_destroy(
