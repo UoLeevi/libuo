@@ -106,8 +106,10 @@ void uo_tcp_server_destroy(
 {
     tcp_server->is_closing = true;
 
+    // TODO: make the termination cleaner for the thread that is accepting new connections
+    pthread_cancel(*(pthread_t *)tcp_server->thrd);
+
     close(tcp_server->sockfd);
-    pthread_join(*(pthread_t *)tcp_server->thrd, NULL);
 
     uo_cb_destroy(tcp_server->evt_handlers.after_open);
     uo_cb_destroy(tcp_server->evt_handlers.before_recv);
