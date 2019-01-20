@@ -11,7 +11,8 @@
 
 extern void uo_tcp_conn_open(
     int sockfd,
-    uo_tcp_conn_evt_handlers *);
+    uo_tcp_conn_evt_handlers *,
+    void *user_data);
 
 static void *uo_tcp_server_accept(
     void *arg)
@@ -27,7 +28,7 @@ static void *uo_tcp_server_accept(
             continue;
         }
 
-        uo_tcp_conn_open(sockfd, &tcp_server->evt_handlers);
+        uo_tcp_conn_open(sockfd, &tcp_server->evt_handlers, tcp_server->conn_defaults.user_data);
     }
 
     return NULL;

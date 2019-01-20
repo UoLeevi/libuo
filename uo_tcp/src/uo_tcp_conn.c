@@ -219,9 +219,11 @@ void uo_tcp_conn_next_close(
 
 void uo_tcp_conn_open(
     int sockfd,
-    uo_tcp_conn_evt_handlers *evt_handlers)
+    uo_tcp_conn_evt_handlers *evt_handlers,
+    void *user_data)
 {
     uo_tcp_conn *tcp_conn = calloc(1, sizeof *tcp_conn);
+    tcp_conn->user_data = user_data;
     tcp_conn->rbuf = uo_buf_alloc(UO_TCP_BUF_SIZE);
     tcp_conn->wbuf = uo_buf_alloc(UO_TCP_BUF_SIZE);
     tcp_conn->evt_handlers = evt_handlers;

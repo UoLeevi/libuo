@@ -11,7 +11,8 @@
 
 extern void uo_tcp_conn_open(
     int sockfd,
-    uo_tcp_conn_evt_handlers *);
+    uo_tcp_conn_evt_handlers *,
+    void *user_data);
 
 void uo_tcp_client_connect(
     uo_tcp_client *tcp_client)
@@ -39,7 +40,7 @@ void uo_tcp_client_connect(
 
     freeaddrinfo(res);
 
-    uo_tcp_conn_open(sockfd, &tcp_client->evt_handlers);
+    uo_tcp_conn_open(sockfd, &tcp_client->evt_handlers, tcp_client->conn_defaults.user_data);
 
     return;
 
