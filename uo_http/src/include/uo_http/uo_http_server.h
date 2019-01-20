@@ -35,7 +35,7 @@ typedef struct uo_http_server
      */
     struct
     {
-        uo_cb *after_accept;
+        uo_cb *after_open;
         uo_cb *after_recv_headers;
         uo_cb *after_recv_request;
         uo_cb *before_send_response;

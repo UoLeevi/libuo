@@ -38,7 +38,7 @@ static void after_recv_headers(
     uo_cb_invoke(cb);
 }
 
-static void after_accept(
+static void after_open(
     uo_cb *cb)
 {
     uo_cb_invoke(cb);
@@ -54,7 +54,7 @@ int main(
     uo_http_server *http_server = uo_http_server_create("80");
     uo_http_server_set_opt_serve_static_files(http_server, "test_content");
 
-    uo_cb_append(http_server->evt_handlers.after_accept, after_accept);
+    uo_cb_append(http_server->evt_handlers.after_open, after_open);
     uo_cb_append(http_server->evt_handlers.after_recv_headers, after_recv_headers);
     uo_cb_append(http_server->evt_handlers.after_recv_request, after_recv_request);
     uo_cb_append(http_server->evt_handlers.before_send_response, before_send_response);
