@@ -123,7 +123,7 @@ typedef struct uo_ioop
                     uo_cb_stack_push(cb, (void *)(uintptr_t)UO_IO_ERR_NONE);
                     /* fall through */
                 default:
-                    uo_cb_stack_push(cb, rlen);
+                    uo_cb_stack_push(cb, (void *)(uintptr_t)rlen);
                     break;
             }
         }
@@ -142,7 +142,7 @@ typedef struct uo_ioop
                     uo_cb_stack_push(cb, (void *)(uintptr_t)UO_IO_ERR_NONE);
                     /* fall through */
                 default:
-                    uo_cb_stack_push(cb, wlen);
+                    uo_cb_stack_push(cb, (void *)(uintptr_t)wlen);
                     break;
             }
         }
