@@ -10,8 +10,8 @@ uo_queue *uo_queue_create(
 {
     uo_queue *queue = calloc(1, sizeof *queue);
 
-    sem_init(&queue->enqueue_sem, 0, capasity);
-    sem_init(&queue->dequeue_sem, 0, 0);
+    sem_init((sem_t *)&queue->enqueue_sem, 0, capasity);
+    sem_init((sem_t *)&queue->dequeue_sem, 0, 0);
 
     atomic_init(&queue->head, 0);
     atomic_init(&queue->tail, 0);
@@ -25,8 +25,8 @@ uo_queue *uo_queue_create(
 void uo_queue_destroy(
     uo_queue *queue)
 {
-    sem_destroy(&queue->enqueue_sem);
-    sem_destroy(&queue->dequeue_sem);
+    sem_destroy((sem_t *)&queue->enqueue_sem);
+    sem_destroy((sem_t *)&queue->dequeue_sem);
 
     free(queue->items);
     free(queue);
@@ -38,13 +38,13 @@ bool uo_queue_enqueue(
     bool should_block)
 {
     if (should_block)
-        sem_wait(&queue->enqueue_sem);
-    else if (sem_trywait(&queue->enqueue_sem) == -1)
+        sem_wait((sem_t *)&queue->enqueue_sem);
+    else if (sem_trywait((sem_t *)&queue->enqueue_sem) == -1)
         return false;
 
     size_t head = atomic_fetch_add(&queue->head, 1);
     queue->items[head % queue->capasity] = item;
-    sem_post(&queue->dequeue_sem);
+    sem_post((sem_t *)&queue->dequeue_sem);
 
     return true;
 }
@@ -54,8 +54,8 @@ void *uo_queue_dequeue(
     bool should_block)
 {
     if (should_block)
-        sem_wait(&queue->dequeue_sem);
-    else if (sem_trywait(&queue->dequeue_sem) == -1)
+        sem_wait((sem_t *)&queue->dequeue_sem);
+    else if (sem_trywait((sem_t *)&queue->dequeue_sem) == -1)
         return NULL;
 
     size_t tail = atomic_fetch_add(&queue->tail, 1);

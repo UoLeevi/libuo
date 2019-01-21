@@ -1,5 +1,6 @@
 #include "uo_io.h"
 #include "uo_cb.h"
+#include "uo_err.h"
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -114,12 +115,12 @@ typedef struct uo_ioop
             {
                 case -1:
                     // TODO: specify what error occurred
-                    uo_cb_stack_push(cb, UO_IO_ERR_UNKNOWN);
+                    uo_cb_stack_push(cb, (void *)(uintptr_t)UO_IO_ERR_UNKNOWN);
                     uo_cb_stack_push(cb, 0);
                     break;
 
                 case 0:
-                    uo_cb_stack_push(cb, UO_IO_ERR_NONE);
+                    uo_cb_stack_push(cb, (void *)(uintptr_t)UO_IO_ERR_NONE);
                     /* fall through */
                 default:
                     uo_cb_stack_push(cb, rlen);
@@ -133,12 +134,12 @@ typedef struct uo_ioop
             {
                 case -1:
                     // TODO: specify what error occurred
-                    uo_cb_stack_push(cb, UO_IO_ERR_UNKNOWN);
+                    uo_cb_stack_push(cb, (void *)(uintptr_t)UO_IO_ERR_UNKNOWN);
                     uo_cb_stack_push(cb, 0);
                     break;
 
                 case 0:
-                    uo_cb_stack_push(cb, UO_IO_ERR_NONE);
+                    uo_cb_stack_push(cb, (void *)(uintptr_t)UO_IO_ERR_NONE);
                     /* fall through */
                 default:
                     uo_cb_stack_push(cb, wlen);
@@ -147,13 +148,13 @@ typedef struct uo_ioop
         }
         else if (events & EPOLLHUP)
         {
-            uo_cb_stack_push(cb, UO_IO_ERR_NONE);
+            uo_cb_stack_push(cb, (void *)(uintptr_t)UO_IO_ERR_NONE);
             uo_cb_stack_push(cb, 0);
         }
         else
         {
             // TODO: specify what error occurred
-            uo_cb_stack_push(cb, UO_IO_ERR_UNKNOWN);
+            uo_cb_stack_push(cb, (void *)(uintptr_t)UO_IO_ERR_UNKNOWN);
             uo_cb_stack_push(cb, 0);
         }
 
@@ -174,7 +175,7 @@ typedef struct uo_ioop
             for (int i = 0; i < nfds; ++i)
             {
                 uo_ioop *ioop = epevts[i].data.ptr;
-                uo_cb_prepend(ioop->cb, (void *(*)(void *, uo_cb *))uo_io_execute_io);
+                uo_cb_prepend(ioop->cb, uo_io_execute_io);
                 uo_cb_invoke_async(ioop->cb);
             }
         }
@@ -272,7 +273,7 @@ bool uo_io_read_async(
 {
     if (!buf || !len)
     {
-        uo_cb_stack_push(cb, UO_IO_ERR_NONE);
+        uo_cb_stack_push(cb, (void *)(uintptr_t)UO_IO_ERR_NONE);
         uo_cb_stack_push(cb, 0);
         uo_cb_invoke_async(cb);
         return true;
@@ -310,7 +311,7 @@ bool uo_io_write_async(
 {
     if (!buf || !len)
     {
-        uo_cb_stack_push(cb, UO_IO_ERR_NONE);
+        uo_cb_stack_push(cb, (void *)(uintptr_t)UO_IO_ERR_NONE);
         uo_cb_stack_push(cb, 0);
         uo_cb_invoke_async(cb);
         return true;
