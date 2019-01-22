@@ -209,6 +209,8 @@ bool uo_io_init()
 
     is_init = true;
 
+    is_init &= uo_cb_init();
+
     uo_io_errno = UO_IO_ERR_NONE;
 
     #ifdef _WIN32
@@ -259,7 +261,7 @@ size_t uo_io_write(
         }
 
     #endif
-        
+
         uo_io_errno = UO_IO_ERR_NONE;
 
         return wlen;

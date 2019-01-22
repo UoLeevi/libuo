@@ -12,7 +12,7 @@ int main(
 {
     bool passed = true;
 
-
+    passed &= uo_io_init();
 
     return passed ? 0 : 1;
 }
