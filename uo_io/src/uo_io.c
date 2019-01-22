@@ -168,7 +168,12 @@ typedef struct uo_ioop
 
         while (!is_quitting)
         {
-            int nfds = epoll_wait(epfd, epevts, UO_IO_EPOLL_MAXEVENTS, -1);
+            int nfds;
+            do
+            {
+                nfds = epoll_wait(epfd, epevts, UO_IO_EPOLL_MAXEVENTS, -1);
+            } while (nfds == -1 && errno == EINTR);
+
             if (nfds == -1)
                 uo_err_exit("Error occurred while performing epoll_wait.");
 
