@@ -40,9 +40,16 @@ static void tcp_client_evt_handler_check_response(
 
     pass &= memcmp(tcp_conn->rbuf, "hello", 5) == 0;
 
-    uo_cb_invoke(cb);
+    uo_tcp_conn_next_close(tcp_conn);
 
+    uo_cb_invoke(cb);
+}
+
+static void tcp_client_evt_handler_after_close(
+    uo_cb *cb)
+{
     sem_post(&sem);
+    uo_cb_invoke(cb);
 }
 
 static void tcp_client_evt_handler_after_open(
@@ -107,10 +114,14 @@ int main(
     uo_cb_append(tcp_client->evt_handlers.before_send, tcp_client_evt_handler_send_hello);
     uo_cb_append(tcp_client->evt_handlers.after_send, tcp_client_evt_handler_after_send);
     uo_cb_append(tcp_client->evt_handlers.after_recv, tcp_client_evt_handler_check_response);
+    uo_cb_append(tcp_client->evt_handlers.after_close, tcp_client_evt_handler_after_close);
     uo_tcp_client_connect(tcp_client);
 
     sem_wait(&sem);
     sem_destroy(&sem);
+
+    uo_tcp_client_destroy(tcp_client);
+    uo_tcp_server_destroy(tcp_server);
 
     return pass ? 0 : 1;
 }
