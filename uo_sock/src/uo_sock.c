@@ -10,7 +10,11 @@ static WSADATA WsaDat;
 
 static void uo_sock_quit()
 {
+    #ifdef UO_SOCK_WIN32
 
+        WSACleanup();
+
+    #endif
 }
 
 bool uo_sock_init()
@@ -20,9 +24,11 @@ bool uo_sock_init()
 
     is_init = true;
 
-#ifdef UO_SOCK_WIN32
-    is_init &= WSAStartup(MAKEWORD(1, 1), &WsaDat) == 0;
-#endif
+    #ifdef UO_SOCK_WIN32
+
+        is_init &= WSAStartup(MAKEWORD(1, 1), &WsaDat) == 0;
+
+    #endif
 
     atexit(uo_sock_quit);
     return is_init;
@@ -35,17 +41,20 @@ int uo_setsockopt(
     const void *option_value,
     socklen_t option_len)
 {
-#ifdef UO_SOCK_WIN32
-    switch (option_name)
-    {
-        case SO_RCVTIMEO:
-        case SO_SNDTIMEO:
+    #ifdef UO_SOCK_WIN32
+
+        switch (option_name)
         {
-            const struct timeval *tv = option_value;
-            DWORD opt = tv->tv_sec * 1000 + tv->tv_usec / 1000;
-            return setsockopt(socket, level, option_name, (char *)&opt, sizeof opt);
+            case SO_RCVTIMEO:
+            case SO_SNDTIMEO:
+            {
+                const struct timeval *tv = option_value;
+                DWORD opt = tv->tv_sec * 1000 + tv->tv_usec / 1000;
+                return setsockopt(socket, level, option_name, (char *)&opt, sizeof opt);
+            }
         }
-    }
-#endif
+
+    #endif
+
     return setsockopt(socket, level, option_name, option_value, option_len);
 }

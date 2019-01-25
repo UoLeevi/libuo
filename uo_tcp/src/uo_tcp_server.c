@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <unistd.h>
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -19,10 +20,14 @@ static void *uo_tcp_server_accept(
 {
     uo_tcp_server *tcp_server = arg;
 
-    while (!tcp_server->is_closing) 
+    while (true)
     {
-        int sockfd;
-        if ((sockfd = accept(tcp_server->sockfd, NULL, NULL)) == -1)
+        int sockfd = accept(tcp_server->sockfd, NULL, NULL);
+
+        if (tcp_server->is_closing)
+            break;
+
+        if ((sockfd ) == -1)
         {
             uo_err("Error while accepting connection.");
             continue;
