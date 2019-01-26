@@ -17,6 +17,7 @@ static void uo_tcp_conn_advance(uo_cb *);
 static void uo_tcp_conn_destroy(
     uo_tcp_conn *tcp_conn)
 {
+    shutdown(tcp_conn->sockfd, SHUT_RDWR);
     close(tcp_conn->sockfd);
     uo_buf_free(tcp_conn->rbuf);
     uo_buf_free(tcp_conn->wbuf);
@@ -123,7 +124,6 @@ static void uo_tcp_conn_recv(
         uo_buf_set_ptr_rel(tcp_conn->rbuf, len);
 
         uo_cb_append(cb, tcp_conn->evt_handlers->after_recv);
-        uo_cb_append(cb, uo_tcp_conn_advance);
     }
     else
     {
@@ -131,6 +131,8 @@ static void uo_tcp_conn_recv(
         uo_cb_stack_pop(cb); // remove error code
         uo_tcp_conn_next_close(tcp_conn);
     }
+
+    uo_cb_append(cb, uo_tcp_conn_advance);
 
     uo_cb_invoke(cb);
 }

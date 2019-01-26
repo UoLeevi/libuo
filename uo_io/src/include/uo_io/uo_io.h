@@ -58,10 +58,8 @@ size_t uo_io_write(
  *                  The result of the read operation will be pushed on the stack of the uo_cb callback.
  *                  On success the result is the number of bytes read from the file descriptor.
  *                  On error two values are pushed on to the stack: an error code of type uo_io_err and a zero.
- * @return true     on successful initialization of the asynchronous operation
- * @return false    on unsuccessful initialization of the asynchronous operation
  */
-bool uo_io_read_async(
+void uo_io_read_async(
     int rfd,
     void *buf,
     size_t len,
@@ -80,10 +78,8 @@ bool uo_io_read_async(
  *                  The result of the write operation will be pushed on the stack of the uo_cb callback.
  *                  On success the result is the number of bytes written to the file descriptor.
  *                  On error two values are pushed on to the stack: an error code of type uo_io_err and a zero.
- * @return true     on successful initialization of the asynchronous operation
- * @return false    on unsuccessful initialization of the asynchronous operation
  */
-bool uo_io_write_async(
+void uo_io_write_async(
     int wfd,
     void *buf,
     size_t len,

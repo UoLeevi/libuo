@@ -79,7 +79,14 @@ typedef struct uo_ioop
 
         LPOVERLAPPED lpOverlapped = calloc(1, sizeof *lpOverlapped);
         lpOverlapped->hEvent = ioop.cb;
-        ReadFileEx((HANDLE)(uintptr_t)ioop.fd, ioop.buf, ioop.len, lpOverlapped, uo_io_cb_invoke);
+        if (!ReadFileEx((HANDLE)(uintptr_t)ioop.fd, ioop.buf, ioop.len, lpOverlapped, uo_io_cb_invoke))
+        {
+            free(lpOverlapped);
+
+            uo_cb_stack_push(ioop.cb, (void *)(uintptr_t)UO_IO_ERR_UNKNOWN);
+            uo_cb_stack_push(ioop.cb, 0);
+            uo_cb_invoke_async(ioop.cb);
+        }
     }
 
     static void uo_io_queue_write(
@@ -90,7 +97,14 @@ typedef struct uo_ioop
 
         LPOVERLAPPED lpOverlapped = calloc(1, sizeof *lpOverlapped);
         lpOverlapped->hEvent = ioop.cb;
-        WriteFileEx((HANDLE)(uintptr_t)ioop.fd, ioop.buf, ioop.len, lpOverlapped, uo_io_cb_invoke);
+        if (!WriteFileEx((HANDLE)(uintptr_t)ioop.fd, ioop.buf, ioop.len, lpOverlapped, uo_io_cb_invoke))
+        {
+            free(lpOverlapped);
+
+            uo_cb_stack_push(ioop.cb, (void *)(uintptr_t)UO_IO_ERR_UNKNOWN);
+            uo_cb_stack_push(ioop.cb, 0);
+            uo_cb_invoke_async(ioop.cb);
+        }
     }
 
 #else
@@ -278,7 +292,7 @@ size_t uo_io_write(
         return wlen;
 }
 
-bool uo_io_read_async(
+void uo_io_read_async(
     int rfd,
     void *buf,
     size_t len,
@@ -289,7 +303,7 @@ bool uo_io_read_async(
         uo_cb_stack_push(cb, (void *)(uintptr_t)UO_IO_ERR_NONE);
         uo_cb_stack_push(cb, 0);
         uo_cb_invoke_async(cb);
-        return true;
+        return;
     }
 
     uo_ioop *ioop = malloc(sizeof *ioop);
@@ -301,7 +315,7 @@ bool uo_io_read_async(
 
     #ifdef _WIN32
 
-        return QueueUserAPC(uo_io_queue_read, thrd, (ULONG_PTR)ioop);
+        bool success = QueueUserAPC(uo_io_queue_read, thrd, (ULONG_PTR)ioop);
 
     #else
 
@@ -310,13 +324,20 @@ bool uo_io_read_async(
         epevt->data.ptr = ioop;
         uo_cb_stack_push(cb, epevt);
 
-        return (epoll_ctl(epfd, EPOLL_CTL_ADD, rfd, epevt) == 0)
+        bool success = (epoll_ctl(epfd, EPOLL_CTL_ADD, rfd, epevt) == 0)
             || (errno == EEXIST && epoll_ctl(epfd, EPOLL_CTL_MOD, rfd, epevt) == 0);
 
     #endif
+
+    if (!success)
+    {
+        uo_cb_stack_push(cb, (void *)(uintptr_t)UO_IO_ERR_UNKNOWN);
+        uo_cb_stack_push(cb, 0);
+        uo_cb_invoke_async(cb);
+    }
 }
 
-bool uo_io_write_async(
+void uo_io_write_async(
     int wfd,
     void *buf,
     size_t len,
@@ -327,7 +348,7 @@ bool uo_io_write_async(
         uo_cb_stack_push(cb, (void *)(uintptr_t)UO_IO_ERR_NONE);
         uo_cb_stack_push(cb, 0);
         uo_cb_invoke_async(cb);
-        return true;
+        return;
     }
 
     uo_ioop *ioop = malloc(sizeof *ioop);
@@ -339,7 +360,7 @@ bool uo_io_write_async(
 
     #ifdef _WIN32
 
-        return QueueUserAPC(uo_io_queue_write, thrd, (ULONG_PTR)ioop);
+        bool success = QueueUserAPC(uo_io_queue_write, thrd, (ULONG_PTR)ioop);
 
     #else
 
@@ -348,8 +369,15 @@ bool uo_io_write_async(
         epevt->data.ptr = ioop;
         uo_cb_stack_push(cb, epevt);
 
-        return (epoll_ctl(epfd, EPOLL_CTL_ADD, wfd, epevt) == 0)
+        bool success = (epoll_ctl(epfd, EPOLL_CTL_ADD, wfd, epevt) == 0)
             || (errno == EEXIST && epoll_ctl(epfd, EPOLL_CTL_MOD, wfd, epevt) == 0);
 
     #endif
+
+    if (!success)
+    {
+        uo_cb_stack_push(cb, (void *)(uintptr_t)UO_IO_ERR_UNKNOWN);
+        uo_cb_stack_push(cb, 0);
+        uo_cb_invoke_async(cb);
+    }
 }
