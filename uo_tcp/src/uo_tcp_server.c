@@ -50,6 +50,8 @@ uo_tcp_server *uo_tcp_server_create(
 {
     uo_tcp_server *tcp_server = calloc(1, sizeof *tcp_server);
 
+    tcp_server->port = port;
+
     tcp_server->sockfd = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
     if (tcp_server->sockfd != -1)
     {
@@ -111,8 +113,29 @@ void uo_tcp_server_destroy(
 {
     tcp_server->is_closing = true;
 
-    // TODO: make the termination cleaner for the thread that is accepting new connections
-    pthread_cancel(*(pthread_t *)tcp_server->thrd);
+    struct addrinfo hints = {
+        .ai_family = AF_UNSPEC,
+        .ai_socktype = SOCK_STREAM,
+        .ai_protocol = IPPROTO_TCP
+    }, *res;
+
+    if (getaddrinfo("localhost", tcp_server->port, &hints, &res) == 0)
+    {
+        int sockfd = socket(res->ai_family, SOCK_STREAM, IPPROTO_TCP);
+        if (sockfd != -1)
+        {
+            if (connect(sockfd, res->ai_addr, res->ai_addrlen) != -1)
+                pthread_join(*(pthread_t *)tcp_server->thrd, NULL);
+            else
+                pthread_cancel(*(pthread_t *)tcp_server->thrd);
+
+            close(sockfd);
+        }
+
+        freeaddrinfo(res);
+    }
+    else
+        pthread_cancel(*(pthread_t *)tcp_server->thrd);
 
     close(tcp_server->sockfd);
 
@@ -124,5 +147,6 @@ void uo_tcp_server_destroy(
     uo_cb_destroy(tcp_server->evt_handlers.before_close);
     uo_cb_destroy(tcp_server->evt_handlers.after_close);
 
+    free(tcp_server->thrd);
     free(tcp_server);
 }

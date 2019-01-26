@@ -39,6 +39,7 @@ typedef struct uo_tcp_server
     {
         void *user_data;
     } conn_defaults;
+    const char *port;
     void *thrd;
     int sockfd;
     bool is_closing;
