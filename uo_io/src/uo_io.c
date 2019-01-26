@@ -166,9 +166,12 @@ typedef struct uo_ioop
     {
         struct epoll_event epevts[UO_IO_EPOLL_MAXEVENTS];
 
-        while (!is_quitting)
+        while (true)
         {
             int nfds = epoll_wait(epfd, epevts, UO_IO_EPOLL_MAXEVENTS, -1);
+
+            if (is_quitting)
+                break;
 
             if (nfds == -1 && errno != EINTR)
                 uo_err_exit("Error occurred while performing epoll_wait.");
@@ -195,9 +198,16 @@ static void uo_io_quit(void)
 
     #else
 
-        uo_cb *noop_cb = uo_cb_create();
-        uo_io_write_async(1, NULL, 0, noop_cb);
-        pthread_join(thrd, NULL);
+        struct epoll_event epevt = {
+            .events = EPOLLOUT | EPOLLONESHOT
+        };
+
+        if ((epoll_ctl(epfd, EPOLL_CTL_ADD, 1, epevt) == 0)
+            || (errno == EEXIST && epoll_ctl(epfd, EPOLL_CTL_MOD, 1, epevt) == 0))
+            pthread_join(thrd, NULL);
+        else
+            pthread_cancel(thrd);
+
         close(epfd);
 
     #endif
