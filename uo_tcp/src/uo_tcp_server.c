@@ -108,6 +108,21 @@ err_free:
     return NULL;
 }
 
+extern void uo_tcp_conn_before_send_length_prefixed_msg(
+    uo_cb *);
+
+extern void uo_tcp_conn_after_recv_length_prefixed_msg(
+    uo_cb *);
+
+bool uo_tcp_server_set_opt_use_length_prefixed_messages(
+    uo_tcp_server *tcp_server)
+{
+    uo_cb_append(tcp_server->evt_handlers.before_send, uo_tcp_conn_before_send_length_prefixed_msg);
+    uo_cb_prepend(tcp_server->evt_handlers.after_recv, uo_tcp_conn_after_recv_length_prefixed_msg);
+
+    return true;
+}
+
 void uo_tcp_server_destroy(
     uo_tcp_server *tcp_server)
 {

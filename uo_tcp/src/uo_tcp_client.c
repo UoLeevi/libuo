@@ -73,6 +73,21 @@ uo_tcp_client *uo_tcp_client_create(
     return tcp_client;
 }
 
+extern void uo_tcp_conn_before_send_length_prefixed_msg(
+    uo_cb *);
+
+extern void uo_tcp_conn_after_recv_length_prefixed_msg(
+    uo_cb *);
+
+bool uo_tcp_client_set_opt_use_length_prefixed_messages(
+    uo_tcp_client *tcp_client)
+{
+    uo_cb_append(tcp_client->evt_handlers.before_send, uo_tcp_conn_before_send_length_prefixed_msg);
+    uo_cb_prepend(tcp_client->evt_handlers.after_recv, uo_tcp_conn_after_recv_length_prefixed_msg);
+
+    return true;
+}
+
 void uo_tcp_client_destroy(
     uo_tcp_client *tcp_client)
 {

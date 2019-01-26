@@ -55,6 +55,15 @@ uo_tcp_client *uo_tcp_client_create(
     const char *port);
 
 /**
+ * @brief use length prefixed messages
+ * 
+ * @return true     on success
+ * @return false    on error
+ */
+bool uo_tcp_client_set_opt_use_length_prefixed_messages(
+    uo_tcp_client *);
+
+/**
  * @brief open a new TCP connection
  * 
  */

@@ -120,7 +120,7 @@ static void uo_tcp_conn_recv(
 
     if (len)
     {
-        tcp_conn->evt_arg.last_recv_len = len;
+        tcp_conn->evt_arg.after_recv.last_recv_len = len;
         uo_buf_set_ptr_rel(tcp_conn->rbuf, len);
 
         uo_cb_append(cb, tcp_conn->evt_handlers->after_recv);
@@ -239,4 +239,46 @@ void uo_tcp_conn_open(
 
     uo_cb_append(cb, uo_tcp_conn_advance);
     uo_cb_invoke_async(cb);
+}
+
+void uo_tcp_conn_before_send_length_prefixed_msg(
+    uo_cb *cb)
+{
+    uo_tcp_conn *tcp_conn = uo_cb_stack_index(cb, 0);
+
+    uo_buf wbuf = tcp_conn->wbuf;
+
+    uint32_t len = uo_buf_get_len_before_ptr(wbuf);
+
+    if (uo_buf_get_len_after_ptr(wbuf) < sizeof len)
+        wbuf = tcp_conn->wbuf = uo_buf_realloc_2x(wbuf);
+
+    uo_buf_set_ptr_rel(wbuf, sizeof len);
+    memmove(wbuf + sizeof len, wbuf, len);
+    *(uint32_t *)wbuf = htonl(len);
+
+    uo_cb_invoke(cb);
+}
+
+void uo_tcp_conn_after_recv_length_prefixed_msg(
+    uo_cb *cb)
+{
+    uo_tcp_conn *tcp_conn = uo_cb_stack_index(cb, 0);
+
+    uo_buf rbuf = tcp_conn->rbuf;
+
+    uint32_t len = uo_buf_get_len_before_ptr(rbuf);
+
+    if (len < sizeof(uint32_t))
+        uo_tcp_conn_next_close(tcp_conn);
+    else if (ntohl(*(uint32_t *)rbuf) > (len -= sizeof(uint32_t)))
+        uo_tcp_conn_next_recv(tcp_conn);
+    else
+    {
+        tcp_conn->evt_arg.after_recv.is_msg_fully_received = true;
+        memmove(rbuf, rbuf + sizeof len, len);
+        uo_buf_set_ptr_rel(rbuf, -sizeof(uint32_t));
+    }
+
+    uo_cb_invoke(cb);
 }

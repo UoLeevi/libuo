@@ -18,5 +18,5 @@ target_link_libraries(uo_tcp_test
         uo::uo_tcp
         Threads::Threads)
 
-add_test(NAME uo_tcp.unit_tests
+add_test(NAME uo_tcp_test
     COMMAND uo_tcp_test)

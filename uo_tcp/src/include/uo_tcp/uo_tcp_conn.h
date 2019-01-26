@@ -44,7 +44,11 @@ typedef struct uo_tcp_conn_evt_handlers
 
 typedef union uo_tcp_conn_evt_arg
 {
-    size_t last_recv_len;
+    struct
+    {
+        size_t last_recv_len;
+        bool is_msg_fully_received;
+    } after_recv;
 } uo_tcp_conn_evt_arg;
 
 typedef struct uo_tcp_conn
