@@ -60,7 +60,7 @@ void *uo_queue_dequeue(
 
     size_t tail = atomic_fetch_add(&queue->tail, 1);
     void *item = queue->items[tail % queue->capasity];
-    sem_post(&queue->enqueue_sem);
+    sem_post((sem_t *)&queue->enqueue_sem);
 
     return item;
 }
