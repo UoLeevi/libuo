@@ -202,8 +202,8 @@ static void uo_io_quit(void)
             .events = EPOLLOUT | EPOLLONESHOT
         };
 
-        if ((epoll_ctl(epfd, EPOLL_CTL_ADD, 1, epevt) == 0)
-            || (errno == EEXIST && epoll_ctl(epfd, EPOLL_CTL_MOD, 1, epevt) == 0))
+        if ((epoll_ctl(epfd, EPOLL_CTL_ADD, 1, &epevt) == 0)
+            || (errno == EEXIST && epoll_ctl(epfd, EPOLL_CTL_MOD, 1, &epevt) == 0))
             pthread_join(thrd, NULL);
         else
             pthread_cancel(thrd);
