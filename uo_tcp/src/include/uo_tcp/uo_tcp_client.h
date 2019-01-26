@@ -54,6 +54,12 @@ uo_tcp_client *uo_tcp_client_create(
     const char *hostname,
     const char *port);
 
+bool uo_tcp_client_set_opt_use_flow_send_recv_repeat(
+    uo_tcp_client *);
+
+bool uo_tcp_client_set_opt_use_flow_send_recv_close(
+    uo_tcp_client *);
+
 /**
  * @brief use length prefixed messages
  * 

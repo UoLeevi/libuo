@@ -54,6 +54,12 @@ typedef struct uo_tcp_server
 uo_tcp_server *uo_tcp_server_create(
     const char *port);
 
+bool uo_tcp_server_set_opt_use_flow_recv_send_repeat(
+    uo_tcp_server *);
+
+bool uo_tcp_server_set_opt_use_flow_recv_send_close(
+    uo_tcp_server *);
+
 /**
  * @brief use length prefixed messages
  * 

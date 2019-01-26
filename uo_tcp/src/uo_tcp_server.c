@@ -123,6 +123,35 @@ bool uo_tcp_server_set_opt_use_length_prefixed_messages(
     return true;
 }
 
+extern void uo_tcp_conn_next_recv_cb_func(
+    uo_cb *);
+
+extern void uo_tcp_conn_next_send_cb_func(
+    uo_cb *);
+
+extern void uo_tcp_conn_next_close_cb_func(
+    uo_cb *);
+
+bool uo_tcp_server_set_opt_use_flow_recv_send_repeat(
+    uo_tcp_server *tcp_server)
+{
+    uo_cb_append(tcp_server->evt_handlers.after_open, uo_tcp_conn_next_recv_cb_func);
+    uo_cb_append(tcp_server->evt_handlers.after_recv, uo_tcp_conn_next_send_cb_func);
+    uo_cb_append(tcp_server->evt_handlers.after_send, uo_tcp_conn_next_recv_cb_func);
+
+    return true;
+}
+
+bool uo_tcp_server_set_opt_use_flow_recv_send_close(
+    uo_tcp_server *tcp_server)
+{
+    uo_cb_append(tcp_server->evt_handlers.after_open, uo_tcp_conn_next_recv_cb_func);
+    uo_cb_append(tcp_server->evt_handlers.after_recv, uo_tcp_conn_next_send_cb_func);
+    uo_cb_append(tcp_server->evt_handlers.after_send, uo_tcp_conn_next_close_cb_func);
+
+    return true;
+}
+
 void uo_tcp_server_destroy(
     uo_tcp_server *tcp_server)
 {

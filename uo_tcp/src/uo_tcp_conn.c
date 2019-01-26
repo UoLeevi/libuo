@@ -282,3 +282,33 @@ void uo_tcp_conn_after_recv_length_prefixed_msg(
 
     uo_cb_invoke(cb);
 }
+
+void uo_tcp_conn_next_recv_cb_func(
+    uo_cb *cb)
+{
+    uo_tcp_conn *tcp_conn = uo_cb_stack_index(cb, 0);
+
+    uo_tcp_conn_next_recv(tcp_conn);
+
+    uo_cb_invoke(cb);
+}
+
+void uo_tcp_conn_next_send_cb_func(
+    uo_cb *cb)
+{
+    uo_tcp_conn *tcp_conn = uo_cb_stack_index(cb, 0);
+
+    uo_tcp_conn_next_send(tcp_conn);
+
+    uo_cb_invoke(cb);
+}
+
+void uo_tcp_conn_next_close_cb_func(
+    uo_cb *cb)
+{
+    uo_tcp_conn *tcp_conn = uo_cb_stack_index(cb, 0);
+
+    uo_tcp_conn_next_close(tcp_conn);
+
+    uo_cb_invoke(cb);
+}

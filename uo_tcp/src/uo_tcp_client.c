@@ -73,6 +73,35 @@ uo_tcp_client *uo_tcp_client_create(
     return tcp_client;
 }
 
+extern void uo_tcp_conn_next_recv_cb_func(
+    uo_cb *);
+
+extern void uo_tcp_conn_next_send_cb_func(
+    uo_cb *);
+
+extern void uo_tcp_conn_next_close_cb_func(
+    uo_cb *);
+
+bool uo_tcp_client_set_opt_use_flow_send_recv_repeat(
+    uo_tcp_client *tcp_client)
+{
+    uo_cb_append(tcp_client->evt_handlers.after_open, uo_tcp_conn_next_send_cb_func);
+    uo_cb_append(tcp_client->evt_handlers.after_send, uo_tcp_conn_next_recv_cb_func);
+    uo_cb_append(tcp_client->evt_handlers.after_recv, uo_tcp_conn_next_send_cb_func);
+
+    return true;
+}
+
+bool uo_tcp_client_set_opt_use_flow_send_recv_close(
+    uo_tcp_client *tcp_client)
+{
+    uo_cb_append(tcp_client->evt_handlers.after_open, uo_tcp_conn_next_send_cb_func);
+    uo_cb_append(tcp_client->evt_handlers.after_send, uo_tcp_conn_next_recv_cb_func);
+    uo_cb_append(tcp_client->evt_handlers.after_recv, uo_tcp_conn_next_close_cb_func);
+
+    return true;
+}
+
 extern void uo_tcp_conn_before_send_length_prefixed_msg(
     uo_cb *);
 
