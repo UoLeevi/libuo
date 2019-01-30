@@ -21,13 +21,13 @@ static void uo_http_server_serve_static_file(
     uo_http_request *http_request = http_sess->http_request;
     uo_http_response *http_response = http_sess->http_response;
 
-    uo_buf filename_buf = uo_buf_alloc(0x100);
+    uo_buf filename_buf = uo_buf_alloc(0x200);
     char *target = uo_http_request_get_target(http_request);
 
     if (strcmp(target, "/") == 0)
         target = "/index.html";
 
-    uo_buf_printf_append(&filename_buf, "%s/%s", dirname, target);
+    uo_buf_printf_append(&filename_buf, "%s%s", dirname, target);
 
     if (uo_http_response_set_content_from_file(http_response, filename_buf))
         uo_http_msg_set_status_line(http_response, UO_HTTP_200, UO_HTTP_1_1);
