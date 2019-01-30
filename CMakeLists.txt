@@ -3,6 +3,7 @@ project(uo)
 
 add_subdirectory(uo_macro)
 add_subdirectory(uo_mem)
+add_subdirectory(uo_prog)
 add_subdirectory(uo_err)
 add_subdirectory(uo_buf)
 add_subdirectory(uo_base64)
