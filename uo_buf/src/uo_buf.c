@@ -48,14 +48,18 @@ int uo_buf_printf_append(
     const char *format,
     ...)
 {
-    va_list args;
-    va_start(args, format);
-    int size = vsnprintf(NULL, 0, format, args);
+    va_list args[2];
+    va_start(args[0], format);
+    va_copy(args[1], args[0]);
+
+    int size = vsnprintf(NULL, 0, format, args[0]);
+    va_end(args[0]);
+
     while (uo_buf_get_len_after_ptr(*buf) <= size)
         *buf = uo_buf_realloc_2x(*buf);
 
-    vsnprintf(uo_buf_get_ptr(*buf), uo_buf_get_len_after_ptr(*buf), format, args);
-    va_end(args);
+    vsnprintf(uo_buf_get_ptr(*buf), uo_buf_get_len_after_ptr(*buf), format, args[1]);
+    va_end(args[1]);
 
     uo_buf_set_ptr_rel(*buf, size);
 
