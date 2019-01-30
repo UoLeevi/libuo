@@ -105,20 +105,20 @@ void uo_buf_set_ptr_rel(
  */
 void uo_buf_set_ptr_abs(
     uo_buf,
-    size_t);
+    ptrdiff_t);
 
 /**
  * @brief get the number of bytes from the beginning of the buffer to the current position
  * 
  */
-size_t uo_buf_get_len_before_ptr(
+ptrdiff_t uo_buf_get_len_before_ptr(
     uo_buf);
 
 /**
  * @brief get the number of bytes from the current position to the end of the buffer
  * 
  */
-size_t uo_buf_get_len_after_ptr(
+ptrdiff_t uo_buf_get_len_after_ptr(
     uo_buf);
 
 /**

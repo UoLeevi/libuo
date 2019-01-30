@@ -37,7 +37,7 @@ void uo_buf_free(
 void uo_buf_null_terminate(
     uo_buf *buf)
 {
-    if (!uo_buf_get_len_after_ptr(*buf))
+    if (uo_buf_get_len_after_ptr(*buf) < 1)
         *buf = uo_buf_realloc_2x(*buf);
 
     *uo_buf_get_ptr(*buf) = '\0';
@@ -67,7 +67,7 @@ void *uo_buf_memcpy_append(
     const void *restrict src, 
     size_t size)
 {
-    while (uo_buf_get_len_after_ptr(*buf) <= size)
+    while (uo_buf_get_len_after_ptr(*buf) <= (ptrdiff_t)size)
         *buf = uo_buf_realloc_2x(*buf);
 
     void *dst = memcpy(uo_buf_get_ptr(*buf), src, size);
@@ -80,33 +80,33 @@ void *uo_buf_memcpy_append(
 unsigned char *uo_buf_get_ptr(
     uo_buf buf)
 {
-    return buf + ((size_t *)buf)[-1];
+    return buf + ((ptrdiff_t *)buf)[-1];
 }
 
 void uo_buf_set_ptr_rel(
     uo_buf buf,
     ptrdiff_t rel_offset)
 {
-    ((size_t *)buf)[-1] += rel_offset;
+    ((ptrdiff_t *)buf)[-1] += rel_offset;
 }
 
 void uo_buf_set_ptr_abs(
     uo_buf buf,
-    size_t abs_offset)
+    ptrdiff_t abs_offset)
 {
-    ((size_t *)buf)[-1] = abs_offset;
+    ((ptrdiff_t *)buf)[-1] = abs_offset;
 }
 
-size_t uo_buf_get_len_before_ptr(
+ptrdiff_t uo_buf_get_len_before_ptr(
     uo_buf buf)
 {
-    return ((size_t *)buf)[-1];
+    return ((ptrdiff_t *)buf)[-1];
 }
 
-size_t uo_buf_get_len_after_ptr(
+ptrdiff_t uo_buf_get_len_after_ptr(
     uo_buf buf)
 {
-    return ((size_t *)buf)[-2] - ((size_t *)buf)[-1];
+    return ((ptrdiff_t *)buf)[-2] - ((ptrdiff_t *)buf)[-1];
 }
 
 size_t uo_buf_get_size(
