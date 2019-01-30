@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(uo_http VERSION 0.2.0)
+project(uo_http VERSION 0.3.0)
 
 if(NOT TARGET uo::uo_tcp)
     find_package(uo_tcp CONFIG REQUIRED)
@@ -19,12 +19,9 @@ endif()
 
 add_library(uo_http
     uo_http_client.c
-    uo_http_conn.c
-    uo_http_method.c
-    uo_http_request.c
-    uo_http_response.c
+    uo_http_msg.c
     uo_http_server.c
-    uo_http_status.c
+    uo_http_sess.c
     uo_http.c)
 
 target_link_libraries(uo_http

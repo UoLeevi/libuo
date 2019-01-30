@@ -1,7 +1,5 @@
 #include "uo_http_server.h"
-#include "uo_http_conn.h"
-#include "uo_http_request.h"
-#include "uo_http_response.h"
+#include "uo_http_sess.h"
 #include "uo_tcp_server.h"
 #include "uo_tcp.h"
 #include "uo_strhashtbl.h"
@@ -16,18 +14,12 @@
 
 #include <sys/stat.h>
 
-typedef struct uo_http_tcp_conn_user_data
-{
-    uo_http_conn *http_conn;
-    uo_http_server *http_server;
-} uo_http_tcp_conn_user_data;
-
 static void uo_http_server_serve_static_file(
-    uo_http_conn *http_conn,
+    uo_http_sess *http_sess,
     const char *dirname)
 {
-    uo_http_request *http_request = http_conn->http_request;
-    uo_http_response *http_response = http_conn->http_response;
+    uo_http_request *http_request = http_sess->http_request;
+    uo_http_response *http_response = http_sess->http_response;
 
     uo_buf filename_buf = uo_buf_alloc(0x100);
     char *target = uo_http_request_get_target(http_request);
@@ -37,218 +29,198 @@ static void uo_http_server_serve_static_file(
 
     uo_buf_printf_append(&filename_buf, "%s/%s", dirname, target);
 
-    if (uo_http_response_set_file(http_response, filename_buf))
-        uo_http_response_set_status(http_response, UO_HTTP_1_1_STATUS_200);
+    if (uo_http_response_set_content_from_file(http_response, filename_buf))
+        uo_http_msg_set_status_line(http_response, UO_HTTP_200, UO_HTTP_1_1);
     else
     {
-        uo_http_response_set_status(http_response, UO_HTTP_1_1_STATUS_404);
-        uo_http_response_set_content(http_response, "404 Not Found", "text/plain", UO_STRLEN("404 Not Found"));
+        uo_http_msg_set_status_line(http_response, UO_HTTP_404, UO_HTTP_1_1);
+        uo_http_msg_set_content(http_response, "404 Not Found", "text/plain", UO_STRLEN("404 Not Found"));
     }
 
     uo_buf_free(filename_buf);
 }
 
-static void uo_http_server_prepare_response_buf(
-    uo_http_conn *http_conn)
+static void uo_http_sess_pass_cb_to_tcp_server(
+    uo_cb *cb)
 {
-    uo_http_request *http_request = http_conn->http_request;
-    uo_http_response *http_response = http_conn->http_response;
-    uo_tcp_conn *tcp_conn = http_conn->tcp_conn;
-    uo_buf *buf = &tcp_conn->wbuf;
+    uo_http_sess *http_sess = uo_cb_stack_pop(cb); // remove http_sess
+    uo_tcp_conn *tcp_conn = http_sess->tcp_conn;
+    uo_cb_stack_push(cb, tcp_conn); // add tcp_conn
 
-    if (!http_response->status)
-        uo_http_response_set_status(http_response, http_response->content_len
-            ? UO_HTTP_1_1_STATUS_500
-            : UO_HTTP_1_1_STATUS_204);
-
-    uo_http_status_append_line(*buf, http_response->status);
-
-    uo_strhashtbl *headers = http_response->headers;
-    struct uo_strkvp *header_kvps = headers->items;
-    
-    for (size_t i = 0; i < headers->capacity; ++i)
-        if ((header_kvps + i)->key)
-            uo_buf_printf_append(buf, "%s: %s\r\n", (header_kvps + i)->key, (header_kvps + i)->value);
-
-    uo_buf_memcpy_append(buf, "\r\n", UO_STRLEN("\r\n"));
-
-    if (http_response->content_len)
-        uo_buf_memcpy_append(buf, *http_response->buf, http_response->content_len);
-}
-
-static void uo_http_server_pass_cb_to_tcp_server(
-    uo_cb *tcp_cb)
-{
-    uo_cb_stack_pop(tcp_cb); // remove http_conn
-    uo_cb_stack_pop(tcp_cb); // remove http_server
-
-    uo_cb_invoke(tcp_cb);
+    uo_cb_invoke(cb);
 }
 
 static void uo_http_server_after_close(
-    uo_cb *tcp_cb)
+    uo_cb *cb)
 {
-    uo_http_server *http_server = uo_cb_stack_index(tcp_cb, 1);
-    uo_http_conn *http_conn = uo_cb_stack_index(tcp_cb, 2);
+    uo_http_sess *http_sess = uo_cb_stack_pop(cb); // remove http_sess
+    uo_tcp_conn *tcp_conn = http_sess->tcp_conn;
+    uo_cb_stack_push(cb, tcp_conn); // add tcp_conn
 
-    uo_http_conn_destroy(http_conn);
+    uo_http_sess_destroy(http_sess);
 
-    uo_cb_invoke(tcp_cb);
+    uo_cb_invoke(cb);
 }
 
 static void tcp_server_evt_handler_after_close(
-    uo_cb *tcp_cb)
+    uo_cb *cb)
 {
-    uo_tcp_conn *tcp_conn = uo_cb_stack_index(tcp_cb, 0);
+    uo_tcp_conn *tcp_conn = uo_cb_stack_pop(cb);
+    uo_http_sess *http_sess = tcp_conn->user_data;
 
-    uo_http_tcp_conn_user_data *tcp_conn_user_data = uo_tcp_conn_get_user_data(tcp_conn);
-    uo_http_server *http_server = tcp_conn_user_data->http_server;
-    uo_http_conn *http_conn = tcp_conn_user_data->http_conn;
-    free(tcp_conn_user_data);
+    uo_cb_stack_push(cb, http_sess);
 
-    uo_cb_prepend(tcp_cb, uo_http_server_pass_cb_to_tcp_server);
-    uo_cb_prepend(tcp_cb, uo_http_server_after_close);
-    uo_cb_prepend(tcp_cb, http_server->evt_handlers.after_close);
-    uo_cb_stack_push(tcp_cb, http_server);
-    uo_cb_stack_push(tcp_cb, http_conn);
+    uo_cb_prepend(cb, uo_http_server_after_close);
+    uo_cb_prepend(cb, http_sess->evt_handlers->after_close);
 
-    uo_cb_invoke(tcp_cb);
+    uo_cb_invoke(cb);
+}
+
+static void tcp_server_evt_handler_before_close(
+    uo_cb *cb)
+{
+    uo_tcp_conn *tcp_conn = uo_cb_stack_pop(cb);
+    uo_http_sess *http_sess = tcp_conn->user_data;
+
+    uo_cb_stack_push(cb, http_sess);
+
+    uo_cb_prepend(cb, uo_http_sess_pass_cb_to_tcp_server);
+    uo_cb_prepend(cb, http_sess->evt_handlers->before_close);
+
+    uo_cb_invoke(cb);
 }
 
 static void uo_http_server_after_send_response(
-    uo_cb *tcp_cb)
+    uo_cb *cb)
 {
-    uo_http_server *http_server = uo_cb_stack_index(tcp_cb, 1);
-    uo_http_conn *http_conn = uo_cb_stack_index(tcp_cb, 2);
+    uo_http_sess *http_sess = uo_cb_stack_index(cb, 0);
 
-    uo_http_conn_reset_request(http_conn);
-    uo_http_conn_reset_response(http_conn);
+    uo_http_sess_reset(http_sess);
 
-    uo_cb_invoke(tcp_cb);
+    uo_cb_invoke(cb);
 }
 
 static void tcp_server_evt_handler_after_send(
-    uo_cb *tcp_cb)
+    uo_cb *cb)
 {
-    uo_tcp_conn *tcp_conn = uo_cb_stack_index(tcp_cb, 0);
+    uo_tcp_conn *tcp_conn = uo_cb_stack_pop(cb);
+    uo_http_sess *http_sess = tcp_conn->user_data;
 
-    uo_http_tcp_conn_user_data *tcp_conn_user_data = uo_tcp_conn_get_user_data(tcp_conn);
-    uo_http_server *http_server = tcp_conn_user_data->http_server;
-    uo_http_conn *http_conn = tcp_conn_user_data->http_conn;
+    bool should_close = false;
 
-    char *header_connection = uo_strhashtbl_find(http_conn->http_request->headers, "connection");
+    if (http_sess->http_request->headers)
+    {
+        char *header_connection = uo_strhashtbl_find(http_sess->http_request->headers, "connection");
+        should_close &= header_connection && strcmp(header_connection, "close") == 0;
+    }
 
-    if (header_connection && strcmp(header_connection, "close") == 0)
+    if (should_close)
         uo_tcp_conn_next_close(tcp_conn);
     else
         uo_tcp_conn_next_recv(tcp_conn);
 
-    uo_cb_prepend(tcp_cb, uo_http_server_pass_cb_to_tcp_server);
-    uo_cb_prepend(tcp_cb, uo_http_server_after_send_response);
-    uo_cb_prepend(tcp_cb, http_server->evt_handlers.after_send_response);
-    uo_cb_stack_push(tcp_cb, http_server);
-    uo_cb_stack_push(tcp_cb, http_conn);
+    uo_cb_stack_push(cb, http_sess);
+    uo_cb_prepend(cb, uo_http_sess_pass_cb_to_tcp_server);
+    uo_cb_prepend(cb, uo_http_server_after_send_response);
+    uo_cb_prepend(cb, http_sess->evt_handlers->after_send_msg);
 
-    uo_cb_invoke(tcp_cb);
+    uo_cb_invoke(cb);
 }
 
 static void uo_http_server_before_send_response(
-    uo_cb *tcp_cb)
+    uo_cb *cb)
 {
-    uo_http_server *http_server = uo_cb_stack_index(tcp_cb, 1);
-    uo_http_conn *http_conn = uo_cb_stack_index(tcp_cb, 2);
+    uo_http_sess *http_sess = uo_cb_stack_index(cb, 0);
+    uo_http_msg *http_response = http_sess->http_response;
 
-    if (!http_conn->http_response->status && http_server->opt.is_serving_static_files)
-        uo_http_server_serve_static_file(http_conn, http_server->opt.param.dirname);
+    if (!http_response->start_line_len)
+    {
+        uo_http_server *http_server = http_sess->owner.http_server;
 
-    uo_http_server_prepare_response_buf(http_conn);
+        if (http_server->opt.is_serving_static_files)
+            uo_http_server_serve_static_file(http_sess, http_server->opt.param.dirname);
+        else
+        {
+            uo_http_msg_set_status_line(http_response, UO_HTTP_404, UO_HTTP_1_1);
+            uo_http_msg_set_content(http_response, "404 Not Found", "text/plain", UO_STRLEN("404 Not Found"));
+        }
+    }
 
-    uo_cb_invoke(tcp_cb);
+    uo_tcp_conn *tcp_conn = http_sess->tcp_conn;
+    uo_http_msg_write_to_buf(http_response, &tcp_conn->wbuf);
+
+    uo_cb_invoke(cb);
 }
 
 static void tcp_server_evt_handler_before_send(
-    uo_cb *tcp_cb)
+    uo_cb *cb)
 {
-    uo_tcp_conn *tcp_conn = uo_cb_stack_index(tcp_cb, 0);
+    uo_tcp_conn *tcp_conn = uo_cb_stack_pop(cb);
+    uo_http_sess *http_sess = tcp_conn->user_data;
 
-    uo_http_tcp_conn_user_data *tcp_conn_user_data = uo_tcp_conn_get_user_data(tcp_conn);
-    uo_http_server *http_server = tcp_conn_user_data->http_server;
-    uo_http_conn *http_conn = tcp_conn_user_data->http_conn;
+    uo_cb_stack_push(cb, http_sess);
 
-    uo_cb_prepend(tcp_cb, uo_http_server_pass_cb_to_tcp_server);
-    uo_cb_prepend(tcp_cb, uo_http_server_before_send_response);
-    uo_cb_prepend(tcp_cb, http_server->evt_handlers.before_send_response);
-    uo_cb_stack_push(tcp_cb, http_server);
-    uo_cb_stack_push(tcp_cb, http_conn);
+    uo_cb_prepend(cb, uo_http_sess_pass_cb_to_tcp_server);
+    uo_cb_prepend(cb, uo_http_server_before_send_response);
+    uo_cb_prepend(cb, http_sess->evt_handlers->before_send_msg);
 
-    uo_cb_invoke(tcp_cb);
+    uo_cb_invoke(cb);
 }
 
 static void tcp_server_evt_handler_after_recv(
-    uo_cb *tcp_cb)
+    uo_cb *cb)
 {
-    uo_tcp_conn *tcp_conn = uo_cb_stack_index(tcp_cb, 0);
+    uo_tcp_conn *tcp_conn = uo_cb_stack_index(cb, 0);
+    uo_http_sess *http_sess = tcp_conn->user_data;
+    uo_http_msg *http_request = http_sess->http_request;
 
-    uo_http_tcp_conn_user_data *tcp_conn_user_data = uo_tcp_conn_get_user_data(tcp_conn);
-    uo_http_server *http_server = tcp_conn_user_data->http_server;
-    uo_http_conn *http_conn = tcp_conn_user_data->http_conn;
-
-    uo_http_conn_parse_request(http_conn);
-
-    if (!http_conn->http_request->state.is_fully_parsed)
+    if (http_request->start_line_len
+        || uo_http_msg_parse_start_line(http_request))
     {
-        uo_tcp_conn_next_recv(tcp_conn);
-
-        if (!http_conn->http_request->state.is_recv_headers_evt_raised && http_conn->http_request->headers)
+        if (http_request->headers && uo_http_msg_parse_body(http_request))
         {
-            http_conn->http_request->state.is_recv_headers_evt_raised = true;
-
-            uo_cb_prepend(tcp_cb, uo_http_server_pass_cb_to_tcp_server);
-            uo_cb_prepend(tcp_cb, http_server->evt_handlers.after_recv_headers);
-            uo_cb_stack_push(tcp_cb, http_server);
-            uo_cb_stack_push(tcp_cb, http_conn);
+            uo_cb_stack_pop(cb);
+            uo_cb_stack_push(cb, http_sess);
+            uo_cb_prepend(cb, uo_http_sess_pass_cb_to_tcp_server);
+            uo_cb_prepend(cb, http_sess->evt_handlers->after_recv_msg);
         }
+        else if (uo_http_msg_parse_headers(http_request))
+        {
+            uo_cb_stack_pop(cb);
+            uo_cb_stack_push(cb, http_sess);
+            uo_cb_prepend(cb, uo_http_sess_pass_cb_to_tcp_server);
+
+            if (uo_http_msg_parse_body(http_request))
+                uo_cb_prepend(cb, http_sess->evt_handlers->after_recv_msg);
+            else
+                uo_tcp_conn_next_recv(tcp_conn);
+
+            uo_cb_prepend(cb, http_sess->evt_handlers->after_recv_headers);
+        }
+        else
+            uo_tcp_conn_next_recv(tcp_conn);
     }
     else
-    {
-        uo_tcp_conn_next_send(tcp_conn);
+        uo_tcp_conn_next_recv(tcp_conn);
 
-        uo_cb_prepend(tcp_cb, uo_http_server_pass_cb_to_tcp_server);
-        uo_cb_prepend(tcp_cb, http_server->evt_handlers.after_recv_request);
-        uo_cb_stack_push(tcp_cb, http_server);
-        uo_cb_stack_push(tcp_cb, http_conn);
-
-        if (!http_conn->http_request->state.is_recv_headers_evt_raised)
-        {
-            http_conn->http_request->state.is_recv_headers_evt_raised = true;
-
-            uo_cb_prepend(tcp_cb, http_server->evt_handlers.after_recv_headers);
-        }
-    }
-
-    uo_cb_invoke(tcp_cb);
+    uo_cb_invoke(cb);
 }
 
 static void tcp_server_evt_handler_after_open(
-    uo_cb *tcp_cb)
+    uo_cb *cb)
 {
-    uo_tcp_conn *tcp_conn = uo_cb_stack_index(tcp_cb, 0);
+    uo_tcp_conn *tcp_conn = uo_cb_stack_pop(cb);
 
     uo_http_server *http_server = uo_tcp_conn_get_user_data(tcp_conn);
-    uo_http_conn *http_conn = uo_http_conn_create(tcp_conn, UO_HTTP_CONN_ROLE_SERVER);
-    uo_http_tcp_conn_user_data *tcp_conn_user_data = malloc(sizeof *tcp_conn_user_data);
-    tcp_conn_user_data->http_conn = http_conn;
-    tcp_conn_user_data->http_server = http_server;
-    uo_tcp_conn_set_user_data(tcp_conn, tcp_conn_user_data);
+    uo_http_sess *http_sess = uo_http_sess_create(http_server, tcp_conn);
+    uo_tcp_conn_set_user_data(tcp_conn, http_sess);
 
-    uo_cb_prepend(tcp_cb, uo_http_server_pass_cb_to_tcp_server);
-    uo_cb_prepend(tcp_cb, http_server->evt_handlers.after_open);
-    uo_cb_stack_push(tcp_cb, http_server);
-    uo_cb_stack_push(tcp_cb, http_conn);
+    uo_cb_stack_push(cb, http_sess);
 
-    uo_tcp_conn_next_recv(tcp_conn);
+    uo_cb_prepend(cb, uo_http_sess_pass_cb_to_tcp_server);
+    uo_cb_prepend(cb, http_sess->evt_handlers->after_open);
 
-    uo_cb_invoke(tcp_cb);
+    uo_cb_invoke(cb);
 }
 
 uo_http_server *uo_http_server_create(
@@ -258,21 +230,22 @@ uo_http_server *uo_http_server_create(
 
     uo_tcp_server *tcp_server = uo_tcp_server_create(port);
     tcp_server->conn_defaults.user_data = http_server;
-
     uo_cb_append(tcp_server->evt_handlers.after_open, tcp_server_evt_handler_after_open);
     uo_cb_append(tcp_server->evt_handlers.after_recv, tcp_server_evt_handler_after_recv);
     uo_cb_append(tcp_server->evt_handlers.before_send, tcp_server_evt_handler_before_send);
     uo_cb_append(tcp_server->evt_handlers.after_send, tcp_server_evt_handler_after_send);
+    uo_cb_append(tcp_server->evt_handlers.before_close, tcp_server_evt_handler_before_close);
     uo_cb_append(tcp_server->evt_handlers.after_close, tcp_server_evt_handler_after_close);
-
+    uo_tcp_server_set_opt_use_flow_recv_send_repeat(tcp_server);
     http_server->tcp_server = tcp_server;
 
-    http_server->evt_handlers.after_open           = uo_cb_create();
-    http_server->evt_handlers.after_recv_headers   = uo_cb_create();
-    http_server->evt_handlers.after_recv_request   = uo_cb_create();
-    http_server->evt_handlers.before_send_response = uo_cb_create();
-    http_server->evt_handlers.after_send_response  = uo_cb_create();
-    http_server->evt_handlers.after_close          = uo_cb_create();
+    http_server->evt_handlers.after_open         = uo_cb_create();
+    http_server->evt_handlers.after_recv_headers = uo_cb_create();
+    http_server->evt_handlers.after_recv_msg     = uo_cb_create();
+    http_server->evt_handlers.before_send_msg    = uo_cb_create();
+    http_server->evt_handlers.after_send_msg     = uo_cb_create();
+    http_server->evt_handlers.before_close       = uo_cb_create();
+    http_server->evt_handlers.after_close        = uo_cb_create();
 
     return http_server;
 }
@@ -304,9 +277,10 @@ void uo_http_server_destroy(
 
     uo_cb_destroy(http_server->evt_handlers.after_open);
     uo_cb_destroy(http_server->evt_handlers.after_recv_headers);
-    uo_cb_destroy(http_server->evt_handlers.after_recv_request);
-    uo_cb_destroy(http_server->evt_handlers.before_send_response);
-    uo_cb_destroy(http_server->evt_handlers.after_send_response);
+    uo_cb_destroy(http_server->evt_handlers.after_recv_msg);
+    uo_cb_destroy(http_server->evt_handlers.before_send_msg);
+    uo_cb_destroy(http_server->evt_handlers.after_send_msg);
+    uo_cb_destroy(http_server->evt_handlers.before_close);
     uo_cb_destroy(http_server->evt_handlers.after_close);
 
     free(http_server);

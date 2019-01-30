@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-#include "uo_http_conn.h"
+#include "uo_http_sess.h"
 #include "uo_cb.h"
 
 #include <stdbool.h>
@@ -13,35 +13,7 @@ extern "C" {
 
 typedef struct uo_http_server
 {
-    /**
-     * @brief evt_handlers struct contains callbacks for HTTP server events
-     * 
-     * When HTTP server raises an event it invokes a callback dedicated for that event.
-     * The callback invoked has four pointers pushed on the stack of the callback:
-     * two pointers related to underlying TCP server event that are used internally,
-     * a pointer to the HTTP server instance and a pointer to the HTTP connection instance.
-     * These pointers can be accessed from within the event handler function like this:
-     * 
-     *  void http_server_evt_handler(
-     *      uo_cb *cb)
-     *  {
-     *      uo_http_server *http_server = uo_cb_stack_index(cb, 1);
-     *      uo_http_conn *http_conn     = uo_cb_stack_index(cb, 2);
-     * 
-     *      // do stuff...
-     * 
-     *     uo_cb_invoke(cb);
-     * }
-     */
-    struct
-    {
-        uo_cb *after_open;
-        uo_cb *after_recv_headers;
-        uo_cb *after_recv_request;
-        uo_cb *before_send_response;
-        uo_cb *after_send_response;
-        uo_cb *after_close;
-    } evt_handlers;
+    uo_http_sess_evt_handlers evt_handlers;
     struct
     {
         bool is_serving_static_files;
@@ -53,7 +25,7 @@ typedef struct uo_http_server
     struct
     {
         void *user_data;
-    } conn_defaults;
+    } sess_defaults;
     void *tcp_server;
 } uo_http_server;
 

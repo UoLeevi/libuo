@@ -1,4 +1,5 @@
 #include "uo_http.h"
+#include "uo_http_client.h"
 #include "uo_http_server.h"
 #include "uo_macro.h"
 
@@ -8,37 +9,32 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-static void after_close(
+#include <semaphore.h>
+
+static bool pass;
+static sem_t sem;
+
+static void http_client_evt_handler_before_send_request(
     uo_cb *cb)
 {
     uo_cb_invoke(cb);
 }
 
-static void after_send_response(
+static void http_client_evt_handler_after_recv_response(
     uo_cb *cb)
 {
+    
     uo_cb_invoke(cb);
 }
 
-static void before_send_response(
+static void http_client_evt_handler_after_close(
     uo_cb *cb)
 {
+    sem_post(&sem);
     uo_cb_invoke(cb);
 }
 
-static void after_recv_request(
-    uo_cb *cb)
-{
-    uo_cb_invoke(cb);
-}
-
-static void after_recv_headers(
-    uo_cb *cb)
-{
-    uo_cb_invoke(cb);
-}
-
-static void after_open(
+static void http_server_evt_handler_after_recv_request(
     uo_cb *cb)
 {
     uo_cb_invoke(cb);
@@ -48,25 +44,28 @@ int main(
     int argc, 
     char const **argv)
 {
-    bool passed = true;
+    pass = true;
 
-    passed &= uo_http_init();
-    uo_http_server *http_server = uo_http_server_create("80");
+    pass &= uo_http_init();
+
+    sem_init(&sem, 0, 0);
+
+    uo_http_server *http_server = uo_http_server_create("12345");
     uo_http_server_set_opt_serve_static_files(http_server, "test_content");
-
-    uo_cb_append(http_server->evt_handlers.after_open, after_open);
-    uo_cb_append(http_server->evt_handlers.after_recv_headers, after_recv_headers);
-    uo_cb_append(http_server->evt_handlers.after_recv_request, after_recv_request);
-    uo_cb_append(http_server->evt_handlers.before_send_response, before_send_response);
-    uo_cb_append(http_server->evt_handlers.after_send_response, after_send_response);
-    uo_cb_append(http_server->evt_handlers.after_close, after_close);
-
+    uo_cb_append(http_server->evt_handlers.after_recv_msg, http_server_evt_handler_after_recv_request);
     uo_http_server_start(http_server);
 
-    printf("Press 'q' to quit...\n");
-    while(getchar() != 'q');
+    uo_http_client *http_client = uo_http_client_create("localhost", "12345");
+    uo_cb_append(http_client->evt_handlers.before_send_msg, http_client_evt_handler_before_send_request);
+    uo_cb_append(http_client->evt_handlers.after_recv_msg, http_client_evt_handler_after_recv_response);
+    uo_cb_append(http_client->evt_handlers.after_close, http_client_evt_handler_after_close);
+    uo_http_client_connect(http_client);
 
+    sem_wait(&sem);
+    sem_destroy(&sem);
+
+    uo_http_client_destroy(http_client);
     uo_http_server_destroy(http_server);
 
-    return passed ? 0 : 1;
+    return pass ? 0 : 1;
 }

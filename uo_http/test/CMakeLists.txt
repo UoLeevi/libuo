@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.12)
 project(uo_http_test VERSION 0.1.0)
 
 enable_testing()
+
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
 if(NOT TARGET uo::uo_http)
     find_package(uo_http CONFIG REQUIRED)
 endif()
@@ -15,7 +19,8 @@ add_executable(uo_http_test
 target_link_libraries(uo_http_test
     PRIVATE
         uo::uo_macro
-        uo::uo_http)
+        uo::uo_http
+        Threads::Threads)
 
 target_compile_features(uo_http_test
     PUBLIC

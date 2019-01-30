@@ -5,23 +5,27 @@
 extern "C" {
 #endif
 
-#include "uo_buf.h"
+#define UO_HTTP_METHOD_GET      "GET"
+#define UO_HTTP_METHOD_HEAD     "HEAD"
+#define UO_HTTP_METHOD_PUT      "PUT"
+#define UO_HTTP_METHOD_DELETE   "DELETE"
+#define UO_HTTP_METHOD_OPTIONS  "OPTIONS"
+#define UO_HTTP_METHOD_TRACE    "TRACE"
+#define UO_HTTP_METHOD_POST     "POST"
+#define UO_HTTP_METHOD_CONNECT  "CONNECT"
 
-typedef enum UO_HTTP_METHOD
+typedef enum uo_http_method
 {
     UO_HTTP_METHOD_INVALID,
-    UO_HTTP_1_1_METHOD_GET,
-    UO_HTTP_1_1_METHOD_HEAD,
-    UO_HTTP_1_1_METHOD_PUT,
-    UO_HTTP_1_1_METHOD_DELETE,
-    UO_HTTP_1_1_METHOD_OPTIONS,
-    UO_HTTP_1_1_METHOD_TRACE,
-    UO_HTTP_1_1_METHOD_POST,
-    UO_HTTP_1_1_METHOD_CONNECT
-} UO_HTTP_METHOD;
-
-UO_HTTP_METHOD uo_http_method_parse(
-    uo_buf);
+    UO_HTTP_GET,
+    UO_HTTP_HEAD,
+    UO_HTTP_PUT,
+    UO_HTTP_DELETE,
+    UO_HTTP_OPTIONS,
+    UO_HTTP_TRACE,
+    UO_HTTP_POST,
+    UO_HTTP_CONNECT
+} uo_http_method;
 
 #ifdef __cplusplus
 }
