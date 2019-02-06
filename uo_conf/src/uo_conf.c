@@ -11,10 +11,10 @@
 #include <errno.h>
 
 uo_conf *uo_conf_create(
-	char *filename)
+    char *filename)
 {
     uo_conf *conf = calloc(1, sizeof *conf);
-    uo_strhashtbl *hashtbl = conf->hashtbl = uo_strhashtbl_create(0x100);
+    uo_strhashtbl *strhashtbl = conf->strhashtbl = uo_strhashtbl_create(0x100);
 
     struct stat sb;
     if (stat(filename, &sb) == -1)
@@ -38,7 +38,7 @@ uo_conf *uo_conf_create(
     {
         char *value = strtok(NULL, "\r\n");
 
-        uo_strhashtbl_insert(hashtbl, key, value);
+        uo_strhashtbl_insert(strhashtbl, key, value);
         
         key = strtok(NULL, "\r\n\t ");
     }
@@ -50,7 +50,7 @@ err_close:
     free(buf);
 
 err_free:
-    free(hashtbl);
+    free(strhashtbl);
     free(conf);
 
     return NULL;
@@ -58,15 +58,15 @@ err_free:
 }
 
 char *uo_conf_get(
-	uo_conf *conf,
-	const char *key)
+    uo_conf *conf,
+    const char *key)
 {
-    return uo_strhashtbl_find(conf->hashtbl, key);
+    return uo_strhashtbl_find(conf->strhashtbl, key);
 }
 
 void uo_conf_destroy(
-	uo_conf *conf) 
+    uo_conf *conf) 
 {
-    free(conf->hashtbl);
+    free(conf->strhashtbl);
     free(conf);
 }

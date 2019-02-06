@@ -8,19 +8,21 @@ extern "C" {
 #include <stdint.h>
 #include <stddef.h>
 
+typedef struct uo_strhashtbl uo_strhashtbl;
+
 typedef struct uo_conf {
-	void *hashtbl;
+    uo_strhashtbl *strhashtbl;
 } uo_conf;
 
 uo_conf *uo_conf_create(
-	char *filepath);
+    char *filepath);
 
 char *uo_conf_get(
-	uo_conf *,
-	const char *key);
+    uo_conf *,
+    const char *key);
 
 void uo_conf_destroy(
-	uo_conf *);
+    uo_conf *);
 
 #ifdef __cplusplus
 }
