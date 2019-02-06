@@ -29,7 +29,6 @@ typedef struct uo_http_msg
     struct
     {
         bool is_invalid;
-        ptrdiff_t tmp;
     } state;
 } uo_http_msg, uo_http_request, uo_http_response;
 

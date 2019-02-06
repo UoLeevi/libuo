@@ -51,8 +51,6 @@ bool uo_http_msg_set_content(
     uo_http_msg_set_header(http_msg, "content-type", content_type);
     uo_buf_set_ptr_rel(*http_msg->buf, 1);
 
-    http_msg->state.tmp = uo_buf_get_len_before_ptr(*http_msg->buf);
-
     return true;
 }
 
@@ -92,8 +90,6 @@ bool uo_http_msg_set_request_line(
     http_request->start_line_len = uo_buf_printf_append(http_request->buf,
         "%s %s %s", method_str, target, version_str);
     uo_buf_set_ptr_rel(*http_request->buf, 1);
-
-    http_request->state.tmp = uo_buf_get_len_before_ptr(*http_request->buf);
 
     return true;
 }
@@ -163,8 +159,6 @@ bool uo_http_msg_set_status_line(
         "%s %s", version_str, status_str);
     uo_buf_set_ptr_rel(*http_response->buf, 1);
 
-    http_response->state.tmp = uo_buf_get_len_before_ptr(*http_response->buf);
-
     return true;
 }
 
@@ -188,6 +182,8 @@ static void uo_http_response_set_content_type_header_based_on_filename(
         case 'h': filetype = "text/html; charset=utf-8"; break;
         case 'j': filetype = "application/javascript; charset=utf-8"; break;
         case 'c': filetype = "text/css; charset=utf-8"; break;
+        case 's': filetype = "image/svg+xml; charset=utf-8"; break;
+        default:  filetype = "application/octet-stream"; break;
     }
 
     if (filetype)
@@ -226,8 +222,6 @@ bool uo_http_response_set_content_from_file(
     uo_http_msg_set_header(http_response, "content-length", content_len_str);
     uo_http_response_set_content_type_header_based_on_filename(http_response, filename);
     uo_buf_set_ptr_rel(*http_response->buf, 1);
-
-    http_response->state.tmp = uo_buf_get_len_before_ptr(*http_response->buf);
 
     return true;
 
@@ -444,11 +438,12 @@ char *uo_http_request_get_target(
     if (!target_end)
         NULL;
 
-    uo_buf_set_ptr_abs(*http_request->buf, http_request->state.tmp);
-    uo_buf_memcpy_append(http_request->buf, target, target_end - target);
+    uo_buf_set_ptr_rel(*http_request->buf, 1);
+    target = uo_buf_memcpy_append(http_request->buf, target, target_end - target);
     uo_buf_null_terminate(http_request->buf);
+    uo_buf_set_ptr_rel(*http_request->buf, 1);
 
-    return *http_request->buf + http_request->state.tmp;
+    return target;
 }
 
 uo_http_status uo_http_response_get_status(
