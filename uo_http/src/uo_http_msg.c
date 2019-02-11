@@ -372,6 +372,35 @@ bool uo_http_msg_parse_body(
     return false;
 }
 
+uo_http_ver uo_http_msg_get_version(
+    uo_http_msg *http_msg)
+{
+    uo_buf buf = *http_msg->buf;
+    char *start_line = buf + http_msg->start_line;
+    bool is_response = *(uint32_t *)start_line == *(uint32_t *)"HTTP";
+    char last_ver_char;
+
+    if (is_response)
+    {
+        char *sp = memchr(start_line, ' ', http_msg->start_line_len);
+        
+        if (!sp)
+            return UO_HTTP_VER_INVALID;
+
+        last_ver_char = sp[-1];
+    }
+    else
+        last_ver_char = start_line[http_msg->start_line_len - 1];
+
+    switch (last_ver_char)
+    {
+        case '0': return UO_HTTP_1_0;
+        case '1': return UO_HTTP_1_1;
+        case '2': return UO_HTTP_2;
+        default:  return UO_HTTP_VER_INVALID;
+    }
+}
+
 char *uo_http_msg_get_body(
     uo_http_msg *http_msg)
 {
