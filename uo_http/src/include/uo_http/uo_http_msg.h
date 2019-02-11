@@ -21,6 +21,7 @@ extern "C" {
 typedef struct uo_http_msg
 {
     uo_buf *buf;
+    char *uri;
     ptrdiff_t start_line;
     size_t start_line_len;
     void *headers;
@@ -83,7 +84,7 @@ uo_http_ver uo_http_msg_get_version(
 uo_http_method uo_http_request_get_method(
     uo_http_request *);
 
-char *uo_http_request_get_target(
+char *uo_http_request_get_uri(
     uo_http_request *);
 
 uo_http_status uo_http_response_get_status(

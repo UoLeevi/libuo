@@ -91,7 +91,7 @@ bool uo_http_msg_set_request_line(
         "%s %s %s", method_str, target, version_str);
     uo_buf_set_ptr_rel(*http_request->buf, 1);
 
-    return true;
+    return uo_http_msg_parse_start_line(http_request);
 }
 
 bool uo_http_msg_set_status_line(
@@ -235,14 +235,70 @@ bool uo_http_msg_parse_start_line(
     uo_http_msg *http_msg)
 {
     uo_buf buf = *http_msg->buf;
-    size_t len = uo_buf_get_len_before_ptr(buf);
 
-    char *cr = memchr(buf, '\r', len);
+    char *start_line = buf + http_msg->start_line;
+    size_t len = uo_buf_get_ptr(buf) - (unsigned char *)start_line;
+
+    char *cr = memchr(start_line, '\r', len);
     if (!cr)
         return false;
 
     *cr = '\0';
-    http_msg->start_line_len = cr - (char *)buf;
+    size_t start_ine_len = http_msg->start_line_len = cr - start_line;
+
+    char *sp = memchr(start_line, ' ', start_ine_len);
+    if (!sp)
+        return false;
+
+    char *target = sp + 1;
+
+    char *target_end = strrchr(target, ' ');
+    if (!target_end)
+        return false;
+
+    if (http_msg->uri)
+        free(http_msg->uri);
+
+    char *uri = http_msg->uri = malloc(target_end - target + 1);
+
+    // decode URI
+    // https://stackoverflow.com/a/14530993
+    char a, b;
+    while (target != target_end)
+    {
+        if (*target == '+') 
+        {
+            *uri++ = ' ';
+            target++;
+        }
+        else if ((*target == '%') &&
+            ((a = target[1]) && (b = target[2])) &&
+            (isxdigit(a) && isxdigit(b)))
+        {
+            if (a >= 'a') 
+                a -= 'a' - 'A';
+
+            if (a >= 'A')
+                a -= ('A' - 0xA);
+            else 
+                a -= '0';
+
+            if (b >= 'a')
+                b -= 'a' - 'A';
+            if (b >= 'A')
+                b -= ('A' - 0xA);
+            else 
+                b -= '0';
+
+            *uri++ = 0x10 * a + b;
+            target += 3;
+        }
+        else
+            *uri++ = *target++;
+    }
+
+    *uri++ = '\0';
+
     return true;
 }
 
@@ -452,27 +508,10 @@ uo_http_method uo_http_request_get_method(
     return UO_HTTP_METHOD_INVALID;
 }
 
-char *uo_http_request_get_target(
+char *uo_http_request_get_uri(
     uo_http_request *http_request)
 {
-    char *start_line = *http_request->buf + http_request->start_line;
-
-    char *sp = memchr(start_line, ' ', http_request->start_line_len);
-    if (!sp)
-        NULL;
-
-    char *target = sp + 1;
-
-    char *target_end = strrchr(target, ' ');
-    if (!target_end)
-        NULL;
-
-    uo_buf_set_ptr_rel(*http_request->buf, 1);
-    target = uo_buf_memcpy_append(http_request->buf, target, target_end - target);
-    uo_buf_null_terminate(http_request->buf);
-    uo_buf_set_ptr_rel(*http_request->buf, 1);
-
-    return target;
+    return http_request->uri;
 }
 
 uo_http_status uo_http_response_get_status(
@@ -559,6 +598,9 @@ void uo_http_msg_write_to_buf(
 void uo_http_msg_destroy(
     uo_http_msg *http_msg)
 {
+    if (http_msg->uri)
+        free(http_msg->uri);
+
     if (http_msg->headers)
         uo_strhashtbl_destroy(http_msg->headers);
 

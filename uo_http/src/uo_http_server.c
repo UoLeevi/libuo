@@ -22,7 +22,7 @@ static void uo_http_server_serve_static_file(
     uo_http_response *http_response = http_sess->http_response;
 
     uo_buf filename_buf = uo_buf_alloc(0x200);
-    char *target = uo_http_request_get_target(http_request);
+    char *target = uo_http_request_get_uri(http_request);
 
     if (strcmp(target, "/") == 0)
         target = "/index.html";
