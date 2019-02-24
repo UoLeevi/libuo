@@ -85,7 +85,7 @@ char *uo_jwt_decode_payload(
     if (!jwt_payload)
         return NULL;
 
-    jwt_payload + 1;
+    ++jwt_payload;
 
     char *jwt_payload_end = memchr(jwt_payload, '.', jwt_len - (jwt_payload - jwt));
 
