@@ -22,15 +22,20 @@ char *uo_jwt_hs256_append_signature(
     const char *key,
     size_t key_len);
 
-#define uo_jwt_append_claim(dst, key, val) \
+#define uo_jwt_append_claim(dst, name, val) \
     uo_mem_append_str_literal( \
-        uo_json_encode_kvp(dst, key, val), ", ")
+        uo_json_encode_kvp(dst, name, val), ", ")
 
 bool uo_jwt_verify(
     const char *jwt,
     size_t jwt_len,
     const char *key,
     size_t key_len);
+
+char *uo_jwt_decode_payload(
+    char *dst,
+    char *jwt,
+    size_t jwt_len);
 
 #ifdef __cplusplus
 }

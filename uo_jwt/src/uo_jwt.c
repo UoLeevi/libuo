@@ -74,3 +74,33 @@ bool uo_jwt_verify(
     
     return memcmp(signature, hs256, 43) == 0;
 }
+
+char *uo_jwt_decode_payload(
+    char *dst,
+    char *jwt,
+    size_t jwt_len)
+{
+    char *jwt_payload = memchr(jwt, '.', jwt_len - 1);
+
+    if (!jwt_payload)
+        return NULL;
+
+    jwt_payload + 1;
+
+    char *jwt_payload_end = memchr(jwt_payload, '.', jwt_len - (jwt_payload - jwt));
+
+    if (!jwt_payload_end)
+        return NULL;
+
+    if (!dst)
+        dst = jwt_payload;
+
+    jwt_payload_end = uo_base64url_decode(dst, jwt_payload, jwt_payload_end - jwt_payload);
+
+    if (!jwt_payload_end)
+        return NULL;
+
+    *jwt_payload_end = '\0';
+
+    return dst;
+}
