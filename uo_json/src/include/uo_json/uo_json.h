@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 // https://tools.ietf.org/html/rfc8259
+// http://www.json.org
 
 #include "uo_mem.h"
 
@@ -13,6 +14,13 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdarg.h>
+
+char *uo_json_find_value(
+    const char *json,
+    const char *name);
+
+char *uo_json_find_end(
+    const char *json);
 
 char *uo_json_encode_utf8(
     char *dst,

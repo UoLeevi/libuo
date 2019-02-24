@@ -6,6 +6,7 @@ if(NOT TARGET uo::uo_json)
     find_package(uo_json CONFIG REQUIRED)
 endif()
 
+
 add_executable(uo_json_encode_test
     uo_json_encode_test.c)
 
@@ -22,3 +23,18 @@ add_test(NAME uo_json_encode_utf8_test
 
 add_test(NAME uo_json_encode_number_test
     COMMAND uo_json_encode_test number)
+
+
+add_executable(uo_json_parse_test
+    uo_json_parse_test.c)
+
+target_link_libraries(uo_json_parse_test
+    PRIVATE
+        uo::uo_json)
+
+target_compile_features(uo_json_parse_test
+    PUBLIC
+        c_std_11)
+
+add_test(NAME uo_json_parse_test
+    COMMAND uo_json_parse_test)
