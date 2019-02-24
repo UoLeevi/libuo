@@ -36,5 +36,17 @@ int main(
     passed &= uo_json_find_end(json5) - json5 == 91;
     passed &= uo_json_find_value(json5, "asdf") - json5 == 23;
 
+    const char *json6 =
+     "{ "
+        "\"sub\": \"1234567890\","
+        "\"name\": \"John Doe\","
+        "\"iat\": 1516239022"
+    "}";
+
+    char *val6 = uo_json_find_value(json6, "sub");
+    size_t val6_len = uo_json_find_end(val6) - val6;
+
+    passed &= memcmp(val6, "\"1234567890\"", val6_len) == 0;
+
     return passed ? 0 : 1;
 }

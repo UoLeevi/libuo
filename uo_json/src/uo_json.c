@@ -241,7 +241,7 @@ char *uo_json_find_value(
 {
     size_t name_len = strlen(name);
 
-    const char *p = json + 1;
+    const char *p = json;
 
     while (isspace(*p))
         ++p;
