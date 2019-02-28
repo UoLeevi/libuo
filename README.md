@@ -1,6 +1,35 @@
 # libuo
 
-C library for concurrency, asynchronous I/O, networking, etc.
+**libuo** is the C library that provides the building blocks for many of my software projects. **libuo** aims to be a modular, cross-platform, high-performance C library that raises the level of abstraction of C programming just enough to enable the programmer to be productive and able to write code that is also readable and extensible.
+
+**libuo** includes multiple libraries that can be linked with your C programs based on what you need. Here are highlighted some of the libraries that I use the most often.
+
+### Networking
+**`uo_http`** - for event-driven HTTP servers and clients  
+**`uo_tcp`** - for event-driven TCP servers and clients
+
+### Configuration
+**`uo_conf`** - inteface for simple text file configuration
+
+### Data encoding
+**`uo_jwt`** - JWT encoding, decoding, signing and verification  
+**`uo_json`** - JSON encoding and parsing  
+**`uo_base64`** - base64 and base64url encoding and decoding
+
+### Asynchronous I/O
+**`uo_io`** - Asychronous socket I/O for Windows and Linux  
+
+### Concurrency
+**`uo_cb`** - Callbacks for asynchronous workloads  
+
+### Data structures
+**`uo_strhashtbl`** - hash table for key-value pairs with string keys  
+**`uo_queue`** - "blocking" queue for multithreaded synchronized data access 
+
+### Utilities
+**`uo_buf`** - buffer that can handle memory allocation automatically  
+**`uo_prog`** - helpers for signal handling and program control  
+**`uo_err`** - helper functions for error handling
 
 ## Supported architectures and compilers
 
