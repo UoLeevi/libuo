@@ -14,7 +14,7 @@ uo_conf *uo_conf_create(
     char *filename)
 {
     uo_conf *conf = calloc(1, sizeof *conf);
-    uo_strhashtbl *strhashtbl = conf->strhashtbl = uo_strhashtbl_create(0x100);
+    uo_strhashtbl *strhashtbl = conf->strhashtbl = uo_strhashtbl_create(0x10);
 
     struct stat sb;
     if (stat(filename, &sb) == -1)

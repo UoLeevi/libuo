@@ -25,7 +25,7 @@ bool uo_http_msg_set_header(
     char *header_value)
 {
     if (!http_msg->headers)
-        http_msg->headers = uo_strhashtbl_create(0x20); // TODO: make size dynamic
+        http_msg->headers = uo_strhashtbl_create(0x20);
 
     uo_strhashtbl_insert(http_msg->headers, header_name, header_value);
 
@@ -340,7 +340,7 @@ bool uo_http_msg_parse_headers(
     if (!headers_end)
         return false;
 
-    uo_strhashtbl *headers = uo_strhashtbl_create(header_count * 1.5 + 1);
+    uo_strhashtbl *headers = uo_strhashtbl_create(header_count * 2 + 1);
 
     cr = buf + http_msg->start_line_len;
 
@@ -579,12 +579,14 @@ void uo_http_msg_write_to_buf(
     if (http_msg->headers)
     {
         uo_strhashtbl *headers = http_msg->headers;
-        struct uo_strkvp *header_kvps = headers->items;
-        
-        for (size_t i = 0; i < headers->capacity; ++i)
-            if ((header_kvps + i)->key)
-                uo_buf_printf_append(dst,
-                    "%s: %s\r\n", (header_kvps + i)->key, (header_kvps + i)->value);
+        uo_strkvp header = (uo_strkvp) { .key = NULL, .value = NULL };
+
+        size_t header_count = uo_strhashtbl_get_count(headers);
+        while (header_count--)
+        {
+            header = uo_strhashtbl_find_next_strkvp(headers, header.key);
+            uo_buf_printf_append(dst, "%s: %s\r\n", header.key, header.value);
+        }
     }
 
     uo_buf_memcpy_append(dst, "\r\n", UO_STRLEN("\r\n"));

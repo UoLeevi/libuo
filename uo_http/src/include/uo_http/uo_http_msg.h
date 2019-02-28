@@ -13,6 +13,8 @@ extern "C" {
 #include <stdbool.h>
 #include <stddef.h>
 
+typedef struct uo_strhashtbl uo_strhashtbl;
+
 /**
  * @brief type that can represents HTTP request or response
  * 
@@ -24,7 +26,7 @@ typedef struct uo_http_msg
     char *uri;
     ptrdiff_t start_line;
     size_t start_line_len;
-    void *headers;
+    uo_strhashtbl *headers;
     ptrdiff_t body;
     size_t body_len;
     struct
