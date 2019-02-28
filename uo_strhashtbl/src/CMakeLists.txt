@@ -1,8 +1,15 @@
 cmake_minimum_required(VERSION 3.12)
-project(uo_strhashtbl VERSION 0.1.0)
+project(uo_strhashtbl VERSION 0.2.0)
+
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
 
 add_library(uo_strhashtbl
     uo_strhashtbl.c)
+
+target_link_libraries(uo_strhashtbl
+    PRIVATE
+        Threads::Threads)
 
 target_compile_features(uo_strhashtbl
     PUBLIC
