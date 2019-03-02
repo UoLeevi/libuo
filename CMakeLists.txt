@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.12)
 project(uo)
 
 add_subdirectory(uo_macro)
+add_subdirectory(uo_linklist)
 add_subdirectory(uo_mem)
 add_subdirectory(uo_prog)
 add_subdirectory(uo_err)
