@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.12)
 project(uo)
 
+enable_testing()
+
 add_subdirectory(uo_macro)
 add_subdirectory(uo_linklist)
 add_subdirectory(uo_mem)
