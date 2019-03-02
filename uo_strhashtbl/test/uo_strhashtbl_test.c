@@ -29,10 +29,10 @@ int main(
         passed &= uo_strhashtbl_get_count(strhashtbl) == i;
         uo_strhashtbl_insert(strhashtbl, lorem + i, lorem + i);
     }
-    
+
     passed &= uo_strhashtbl_get_count(strhashtbl) == 0x1000;
 
-    uo_strkvp strkvp = { .key = NULL, .value = NULL };
+    uo_strkvp strkvp = { .key = NULL };
     for (size_t i = 0; i < 0x1000; ++i)
     {
         strkvp = uo_strhashtbl_find_next_strkvp(strhashtbl, strkvp.key);

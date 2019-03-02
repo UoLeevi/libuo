@@ -1,4 +1,5 @@
 #include "uo_strhashtbl.h"
+#include "uo_linklist.h"
 
 #include <pthread.h>
 
@@ -11,17 +12,16 @@
 
 struct uo_strhashtbl_item
 {
+    uo_linklist link;
     uo_strkvp strkvp;
-    struct uo_strhashtbl_item *prev;
-    struct uo_strhashtbl_item *next;
 };
 
 struct uo_strhashtbl
 {
+    uo_linklist head;
     size_t count;
     size_t removed_count;
     size_t capacity;
-    struct uo_strhashtbl_item *head;
     struct uo_strhashtbl_item *items;
     pthread_mutex_t mtx;
 };
@@ -110,12 +110,20 @@ uo_strkvp uo_strhashtbl_find_next_strkvp(
     if (key)
     {
         struct uo_strhashtbl_item *item = uo_strhashtbl_find_item(strhashtbl->items, strhashtbl->capacity, key);
-        return item && item->next
-            ? item->next->strkvp
-            : (uo_strkvp) { .key = NULL, .value = NULL };
+
+        if (!item)
+            return (uo_strkvp) { .key = NULL, .value = NULL };
+
+        item = uo_linklist_next(item) == strhashtbl
+            ? uo_linklist_next(uo_linklist_next(item))
+            : uo_linklist_next(item);
+
+        return item->strkvp;
     }
-    
-    return strhashtbl->head->strkvp;
+
+    struct uo_strhashtbl_item *item = uo_linklist_next(strhashtbl);
+
+    return item->strkvp;
 }
 
 static void uo_strhashtbl_resize(
@@ -125,26 +133,27 @@ static void uo_strhashtbl_resize(
     strhashtbl->capacity = capacity;
     struct uo_strhashtbl_item *new_items = calloc(capacity, sizeof *strhashtbl->items);
 
-    struct uo_strhashtbl_item *item = strhashtbl->head;
-    struct uo_strhashtbl_item *new_item = strhashtbl->head = uo_strhashtbl_find_item(new_items, capacity, item->strkvp.key);
+    struct uo_strhashtbl_item *item = uo_linklist_next(strhashtbl);
+    uo_linklist_remove(strhashtbl);
+
+    struct uo_strhashtbl_item *new_item = uo_strhashtbl_find_item(new_items, capacity, item->strkvp.key);
+
+    uo_linklist_insert_after(strhashtbl, new_item);
+    uo_linklist_insert_before(strhashtbl, new_item);
 
     new_item->strkvp = item->strkvp;
-    item = item->next;
+    item = uo_linklist_next(item);
 
     size_t count = strhashtbl->count;
 
     for (size_t i = 1; i < count; ++i)
     {
-        new_item->next = uo_strhashtbl_find_item(new_items, capacity, item->strkvp.key);
-        new_item->next->prev = new_item;
-        new_item = new_item->next;
+        uo_linklist_insert_before(strhashtbl, uo_strhashtbl_find_item(new_items, capacity, item->strkvp.key));
+        new_item = uo_linklist_next(new_item);
 
         new_item->strkvp = item->strkvp;
-        item = item->next;
+        item = uo_linklist_next(item);
     }
-
-    new_item->next = strhashtbl->head;
-    strhashtbl->head->prev = new_item;
 
     free(strhashtbl->items);
     strhashtbl->items = new_items;
@@ -172,15 +181,10 @@ void uo_strhashtbl_insert(
 
     item->strkvp.key = key;
 
-    if (strhashtbl->head)
-    {
-        item->next = strhashtbl->head;
-        item->prev = strhashtbl->head->prev;
-        item->next->prev = item;
-        item->prev->next = item;
-    }
-    else
-        strhashtbl->head = item->prev = item->next = item;
+    if (!uo_linklist_prev(strhashtbl))
+        uo_linklist_insert_after(strhashtbl, item);
+        
+    uo_linklist_insert_before(strhashtbl, item);
 
     if (++strhashtbl->count == strhashtbl->capacity >> 1)
     {
@@ -212,27 +216,18 @@ void *uo_strhashtbl_remove(
     item->strkvp.key = NULL;
     item->strkvp.value = (void *)UO_STRHASHTBL_TAG_REMOVED;
 
-    if (item->next != item)
-    {
-        struct uo_strhashtbl_item *item_next = item->next;
-        struct uo_strhashtbl_item *item_prev = item->prev;
+    uo_linklist_remove(item);
 
-        item_next->prev = item_prev;
-        item_prev->next = item_prev;
+    size_t removed_count = ++strhashtbl->removed_count;
+    size_t count = --strhashtbl->count;
 
-        if (strhashtbl->head == item)
-            strhashtbl->head = item->next;
-    }
-    else
-        strhashtbl->head = NULL;
-
-    if (++strhashtbl->removed_count >= strhashtbl->capacity >> 2)
+    if (removed_count >= strhashtbl->capacity >> 2)
     {
         uo_strhashtbl_resize(strhashtbl, strhashtbl->capacity);
         strhashtbl->removed_count = 0;
     }
 
-    if ((--strhashtbl->count == strhashtbl->capacity >> 3) >= UO_STRHASHTBL_MIN_CAPACITY)
+    if ((count == strhashtbl->capacity >> 3) >= UO_STRHASHTBL_MIN_CAPACITY)
     {
         uo_strhashtbl_resize(strhashtbl, strhashtbl->capacity >> 1);
         strhashtbl->removed_count = 0;

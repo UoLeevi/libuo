@@ -6,7 +6,6 @@ if(NOT TARGET uo::uo_strhashtbl)
     find_package(uo_strhashtbl CONFIG REQUIRED)
 endif()
 
-
 add_executable(uo_strhashtbl_test
     uo_strhashtbl_test.c)
 
