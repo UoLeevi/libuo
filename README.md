@@ -1,8 +1,11 @@
 # libuo
 
-**libuo** is the C library that provides the building blocks for many of my software projects. **libuo** aims to be a modular, cross-platform, high-performance C library that raises the level of abstraction of C programming just enough to enable the programmer to be productive and able to write code that is also readable and extensible.
+**libuo** is a C library that provides commonly used data structures and functionality for the use of server-side applications. **libuo** aims to be a modular, cross-platform, high-performance C library that raises the level of abstraction of C programming just enough to enable the programmer to be productive and able to write code that is also readable and extensible.
 
-**libuo** includes multiple libraries that can be linked with your C programs based on what you need. Here are highlighted some of the libraries that I use the most often.
+**libuo** comprises of multiple modules that can be linked with your C programs separately, based on what you need. 
+
+
+## Highlighted features and functionality
 
 ### Networking
 **`uo_http`** - for event-driven HTTP servers and clients  
@@ -32,6 +35,7 @@
 **`uo_prog`** - helpers for signal handling and program control  
 **`uo_err`** - helper functions for error handling
 
+
 ## Supported architectures and compilers
 
 ### Linux
@@ -40,6 +44,7 @@
 
 ### Windows 10
  - x86-64 gcc 8.1.0 (x86_64-posix-seh-rev0, MinGW-W64)
+
 
 ## Installation
 
@@ -60,6 +65,7 @@ scripts/rebuild.ps1 # for debug builds use: scripts/rebuild-debug.ps1
 scripts/test.ps1
 ```
 
+
 ## Usage example
 
 ### Simple **libuo** web server build using CMake
@@ -71,6 +77,7 @@ set(CMAKE_PREFIX_PATH "/usr/local/libuo")
 
 find_package(uo_conf CONFIG REQUIRED)
 find_package(uo_http CONFIG REQUIRED)
+find_package(uo_prog CONFIG REQUIRED)
 
 add_executable(my-web-app
     main.c)
@@ -78,7 +85,8 @@ add_executable(my-web-app
 target_link_libraries(my-web-app
     PRIVATE
         uo::uo_conf
-        uo::uo_http)
+        uo::uo_http
+        uo::uo_prog)
 ```
 
 #### `main.c` file
@@ -87,20 +95,19 @@ target_link_libraries(my-web-app
 #include "uo_conf.h"
 #include "uo_http.h"
 #include "uo_http_server.h"
+#include "uo_prog.h"
 
-#include <stdio.h>
-
-void before_send(
-    uo_http_conn *http_conn,
+void http_server_before_send_response(
     uo_cb *cb)
 {
+    // get HTTP session object
+    uo_http_sess *http_sess = uo_cb_stack_index(cb, 0);
+    
     // override response header
-    uo_http_response_set_header(http_conn->http_response, "server", "libuo http");
+    uo_http_msg_set_header(http_sess->http_response, "server", "libuo http");
     
-    // do some other work...
-    
-    // proceed to the next step
-    uo_cb_invoke_async(cb, NULL);
+    // proceed to the next step in HTTP session handling
+    uo_cb_invoke(cb);
 }
 
 int main(
@@ -120,17 +127,18 @@ int main(
     // create HTTP server
     uo_http_server *http_server = uo_http_server_create(port);
 
-    // set up additional event handler
-    http_server->evt.before_send_handler = before_send;
+    // set up additional event handlers
+    uo_cb_append(http_server->evt_handlers.before_send_msg, http_server_before_send_response);
     
-    // set root directory
+    // set root directory for static content
     uo_http_server_set_opt_serve_static_files(http_server, root_dir);
 
     // start the HTTP server
     uo_http_server_start(http_server);
 
-    printf("Press 'q' to quit...\n");
-    while(getchar() != 'q');
+    // wait for signal to exit
+    uo_prog_init();
+    uo_prog_wait_for_sigint();
 
     // do cleanup before exit
     uo_http_server_destroy(http_server);
@@ -145,6 +153,7 @@ int main(
 http_server.port 8080
 http_server.root_dir /path-to-content-root
 ```
+
 
 ## TO DO
 
