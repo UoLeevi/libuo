@@ -60,7 +60,9 @@ scripts/rebuild.ps1 # for debug builds use: scripts/rebuild-debug.ps1
 scripts/test.ps1
 ```
 
-## Usage example with CMake
+## Usage example
+
+### Simple **libuo** web server build using CMake
 
 #### `CMakeLists.txt` file
 
@@ -136,6 +138,12 @@ int main(
 
     return 0;
 }
+```
+
+#### `my-web-app.conf` file
+```
+http_server.port 8080
+http_server.root_dir /path-to-content-root
 ```
 
 ## TO DO
