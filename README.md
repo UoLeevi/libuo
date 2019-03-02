@@ -23,7 +23,8 @@
 **`uo_cb`** - Callbacks for asynchronous workloads  
 
 ### Data structures
-**`uo_strhashtbl`** - hash table for key-value pairs with string keys  
+**`uo_linklist`** - linked list without dynamic memory allocation 
+**`uo_strhashtbl`** - hash table for storing values with string keys  
 **`uo_queue`** - "blocking" queue for multithreaded synchronized data access 
 
 ### Utilities
@@ -45,22 +46,18 @@
 ### Prerequisites
  - CMake 3.12
 
-### Windows 10
-
-``` 
-mkdir build
-cd build
-cmake .. -G "MinGW Makefiles" -DCMAKE_INSTALL_PREFIX=/usr/local/libuo #-DCMAKE_BUILD_TYPE=Debug
-cmake --build . --target install
-```
-
 ### Linux
 
+```bash
+scripts/rebuild.sh # for debug builds use: scripts/rebuild-debug.sh
+scripts/test.sh
 ```
-mkdir build
-cd build
-cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local/libuo #-DCMAKE_BUILD_TYPE=Debug
-cmake --build . --target install
+
+### Windows 10
+
+```powershell
+scripts/rebuild.ps1 # for debug builds use: scripts/rebuild-debug.ps1
+scripts/test.ps1
 ```
 
 ## Usage example with CMake
