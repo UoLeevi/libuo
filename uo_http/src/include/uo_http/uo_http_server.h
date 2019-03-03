@@ -11,6 +11,40 @@ extern "C" {
 #include <stdbool.h>
 #include <stddef.h>
 
+/**
+ * @brief HTTP server
+ * 
+ * uo_http_server is an event-driven HTTP server that support asynchronous.
+ * 
+ * uo_http_server is used in three steps:
+ *  1. create uo_http_server instance calling uo_http_server_create
+ *  2. set up options and handlers using uo_http_server_set_opt_* and 
+ *     uo_http_server_add_request_handler[_*] functions
+ *  3. start the uo_http_server by calling uo_http_start
+ * 
+ * Additionally you can directly add callbacks to various HTTP session 
+ * lifecycle events with uo_cb_append and the evt_handlers struct. 
+ *  E.g. 
+ *    uo_cb_append(
+ *        http_server->evt_handlers.before_send_msg, // subscribed event
+ *        http_server_before_send_response);         // a function with signature: void (*)(uo_cb *)
+ * 
+ * The HTTP lifecycle events are as follows:
+ *   after_open
+ *    - after new TCP connection has been accepted 
+ *   after_recv_headers
+ *    - after request headers have been received and parsed
+ *   after_recv_msg
+ *    - after request has been fully received and parsed
+ *   before_send_msg
+ *    - after all request handlers have been processed and response is ready to be sent
+ *   after_send_msg
+ *    - after response is sent back to the client
+ *   before_close
+ *    - before server closes the TCP socket
+ *   after_close
+ *    - after server has closed the TCP socket
+ */
 typedef struct uo_http_server
 {
     uo_http_sess_evt_handlers evt_handlers;
@@ -55,6 +89,20 @@ void uo_http_server_start(
 bool uo_http_server_set_opt_serve_static_files(
     uo_http_server *,
     const char *dirname);
+
+/**
+ * @brief add a handler (i.e. callback) for specific request uri and method
+ * 
+ * @param method    request method
+ * @param uri       request uri
+ * @return true     on success
+ * @return false    on error
+ */
+bool uo_http_server_add_request_handler(
+    uo_http_server *,
+    uo_http_method method,
+    const char *uri,
+    uo_cb *);
 
 /**
  * @brief free up the resources owned by the HTTP server instance
