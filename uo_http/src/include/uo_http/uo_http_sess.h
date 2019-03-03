@@ -39,7 +39,7 @@ typedef struct uo_http_sess
     {
         uo_http_client *http_client;
         uo_http_server *http_server;
-    } owner;
+    };
     uo_buf buf;
 } uo_http_sess;
 

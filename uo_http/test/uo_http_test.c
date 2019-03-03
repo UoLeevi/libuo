@@ -11,6 +11,9 @@
 
 #include <semaphore.h>
 
+// TODO
+// Proper tests should be written
+
 static bool pass;
 static sem_t sem;
 

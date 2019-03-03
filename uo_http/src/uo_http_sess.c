@@ -14,7 +14,7 @@ uo_http_sess *uo_http_sess_create_for_client(
     uo_tcp_conn *tcp_conn)
 {
     uo_http_sess *http_sess = calloc(1, sizeof *http_sess);
-    http_sess->owner.http_client = http_client;
+    http_sess->http_client = http_client;
     http_sess->user_data = http_client->sess_defaults.user_data;
     http_sess->evt_handlers = &http_client->evt_handlers;
     http_sess->tcp_conn = tcp_conn;
@@ -32,7 +32,7 @@ uo_http_sess *uo_http_sess_create_for_server(
     uo_tcp_conn *tcp_conn)
 {
     uo_http_sess *http_sess = calloc(1, sizeof *http_sess);
-    http_sess->owner.http_server = http_server;
+    http_sess->http_server = http_server;
     http_sess->user_data = http_server->sess_defaults.user_data;
     http_sess->evt_handlers = &http_server->evt_handlers;
     http_sess->tcp_conn = tcp_conn;

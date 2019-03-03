@@ -11,6 +11,8 @@ extern "C" {
 #include <stdbool.h>
 #include <stddef.h>
 
+typedef struct uo_tcp_server uo_tcp_server;
+
 /**
  * @brief HTTP server
  * 
@@ -50,8 +52,15 @@ typedef struct uo_http_server
     uo_http_sess_evt_handlers evt_handlers;
     struct
     {
+        uo_strhashtbl *GET;
+        uo_strhashtbl *POST;
+        uo_strhashtbl *PUT;
+        uo_strhashtbl *DELETE;
+    } request_handlers;
+    struct
+    {
         bool is_serving_static_files;
-        union
+        struct
         {
             const char *dirname;
         } param;
@@ -60,7 +69,7 @@ typedef struct uo_http_server
     {
         void *user_data;
     } sess_defaults;
-    void *tcp_server;
+    uo_tcp_server *tcp_server;
 } uo_http_server;
 
 /**
@@ -93,8 +102,11 @@ bool uo_http_server_set_opt_serve_static_files(
 /**
  * @brief add a handler (i.e. callback) for specific request uri and method
  * 
+ * Only single handler for each URI-method pair is permitted.
+ * 
  * @param method    request method
- * @param uri       request uri
+ * @param uri       request URI
+ * @param handler   handler callback
  * @return true     on success
  * @return false    on error
  */
@@ -102,7 +114,7 @@ bool uo_http_server_add_request_handler(
     uo_http_server *,
     uo_http_method method,
     const char *uri,
-    uo_cb *);
+    uo_cb *handler);
 
 /**
  * @brief free up the resources owned by the HTTP server instance

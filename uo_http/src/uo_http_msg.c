@@ -63,14 +63,14 @@ bool uo_http_msg_set_request_line(
     const char *method_str;
     switch (method)
     {
-        case UO_HTTP_GET:       method_str = UO_HTTP_METHOD_GET;        break;
-        case UO_HTTP_HEAD:      method_str = UO_HTTP_METHOD_HEAD;       break;
-        case UO_HTTP_PUT:       method_str = UO_HTTP_METHOD_PUT;        break;
-        case UO_HTTP_DELETE:    method_str = UO_HTTP_METHOD_DELETE;     break;
-        case UO_HTTP_OPTIONS:   method_str = UO_HTTP_METHOD_OPTIONS;    break;
-        case UO_HTTP_TRACE:     method_str = UO_HTTP_METHOD_TRACE;      break;
-        case UO_HTTP_POST:      method_str = UO_HTTP_METHOD_POST;       break;
-        case UO_HTTP_CONNECT:   method_str = UO_HTTP_METHOD_CONNECT;    break;
+        case UO_HTTP_GET:       method_str = "GET";        break;
+        case UO_HTTP_HEAD:      method_str = "HEAD";       break;
+        case UO_HTTP_PUT:       method_str = "PUT";        break;
+        case UO_HTTP_DELETE:    method_str = "DELETE";     break;
+        case UO_HTTP_OPTIONS:   method_str = "OPTIONS";    break;
+        case UO_HTTP_TRACE:     method_str = "TRACE";      break;
+        case UO_HTTP_POST:      method_str = "POST";       break;
+        case UO_HTTP_CONNECT:   method_str = "CONNECT";    break;
         default: return false;
     }
 
@@ -482,26 +482,26 @@ uo_http_method uo_http_request_get_method(
     switch (sp - start_line)
     {
         case 3:
-            if (memcmp(start_line, UO_HTTP_METHOD_GET, 3) == 0) return UO_HTTP_GET;
-            if (memcmp(start_line, UO_HTTP_METHOD_PUT, 3) == 0) return UO_HTTP_PUT;
+            if (memcmp(start_line, "GET", 3) == 0) return UO_HTTP_GET;
+            if (memcmp(start_line, "PUT", 3) == 0) return UO_HTTP_PUT;
             break;
 
         case 4:
-            if (memcmp(start_line, UO_HTTP_METHOD_POST, 4) == 0) return UO_HTTP_POST;
-            if (memcmp(start_line, UO_HTTP_METHOD_HEAD, 4) == 0) return UO_HTTP_HEAD;
+            if (memcmp(start_line, "POST", 4) == 0) return UO_HTTP_POST;
+            if (memcmp(start_line, "HEAD", 4) == 0) return UO_HTTP_HEAD;
             break;
 
         case 5:
-            if (memcmp(start_line, UO_HTTP_METHOD_TRACE, 5) == 0) return UO_HTTP_TRACE;
+            if (memcmp(start_line, "TRACE", 5) == 0) return UO_HTTP_TRACE;
             break;
 
         case 6:
-            if (memcmp(start_line, UO_HTTP_METHOD_DELETE, 6) == 0) return UO_HTTP_DELETE;
+            if (memcmp(start_line, "DELETE", 6) == 0) return UO_HTTP_DELETE;
             break;
 
         case 7:
-            if (memcmp(start_line, UO_HTTP_METHOD_OPTIONS, 7) == 0) return UO_HTTP_OPTIONS;
-            if (memcmp(start_line, UO_HTTP_METHOD_CONNECT, 7) == 0) return UO_HTTP_CONNECT;
+            if (memcmp(start_line, "OPTIONS", 7) == 0) return UO_HTTP_OPTIONS;
+            if (memcmp(start_line, "CONNECT", 7) == 0) return UO_HTTP_CONNECT;
             break;
     }
 
@@ -593,8 +593,6 @@ void uo_http_msg_write_to_buf(
 
     if (http_msg->body_len)
         uo_buf_memcpy_append(dst, buf + http_msg->body, http_msg->body_len);
-
-
 }
 
 void uo_http_msg_destroy(
