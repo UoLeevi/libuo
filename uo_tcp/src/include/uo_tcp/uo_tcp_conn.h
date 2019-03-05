@@ -13,6 +13,10 @@ extern "C"
 #include <stddef.h>
 #include <stdatomic.h>
 
+typedef struct uo_tcp_server uo_tcp_server;
+typedef struct uo_tcp_client uo_tcp_client;
+typedef struct uo_strhashtbl uo_strhashtbl;
+
 /**
  * @brief uo_tcp_conn_evt_handlers struct contains callbacks for TCP connection events
  * 
@@ -53,7 +57,8 @@ typedef union uo_tcp_conn_evt_arg
 
 typedef struct uo_tcp_conn
 {
-    void *user_data;
+    uo_strhashtbl *user_data;
+    uo_strhashtbl *shared_user_data;
     uo_buf rbuf;
     uo_buf wbuf;
     uo_tcp_conn_evt_handlers *evt_handlers;
@@ -75,18 +80,27 @@ typedef struct uo_tcp_conn
 /**
  * @brief get a pointer to the user data that has been set using uo_tcp_conn_set_user_data
  * 
+ * If there is no user_data set for the tcp_conn then user_data would be checked for
+ * the uo_tcp_server or uo_tcp_client that opened the connection.
+ * 
+ * @param key       null terminated string key
  * @return void *   a pointer to the user data
  */
 void *uo_tcp_conn_get_user_data(
-    uo_tcp_conn *);
+    uo_tcp_conn *,
+    const char *key);
 
 /**
  * @brief store an arbitrary pointer that can be later accessed using uo_tcp_conn_set_user_data
  * 
+ * The stored user_data is specific to the connection that is specified as the first argument.
+ * 
+ * @param key           null terminated string key
  * @param user_data     a pointer to arbitrary user data
  */
 void uo_tcp_conn_set_user_data(
     uo_tcp_conn *,
+    const char *key,
     void *user_data);
 
 /**

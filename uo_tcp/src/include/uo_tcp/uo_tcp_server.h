@@ -34,11 +34,8 @@ extern "C"
  */
 typedef struct uo_tcp_server
 {
+    uo_strhashtbl *user_data;
     uo_tcp_conn_evt_handlers evt_handlers;
-    struct
-    {
-        void *user_data;
-    } conn_defaults;
     const char *port;
     void *thrd;
     int sockfd;
@@ -53,6 +50,27 @@ typedef struct uo_tcp_server
  */
 uo_tcp_server *uo_tcp_server_create(
     const char *port);
+
+/**
+ * @brief get a pointer to the user data that has been set using uo_tcp_server_set_user_data
+ * 
+ * @param key       null terminated string key
+ * @return void *   a pointer to the user data
+ */
+void *uo_tcp_server_get_user_data(
+    uo_tcp_server *,
+    const char *key);
+
+/**
+ * @brief store an arbitrary pointer that can be later accessed using uo_tcp_server_get_user_data
+ * 
+ * @param key           null terminated string key
+ * @param user_data     a pointer to arbitrary user data
+ */
+void uo_tcp_server_set_user_data(
+    uo_tcp_server *,
+    const char *key,
+    void *user_data);
 
 bool uo_tcp_server_set_opt_use_flow_recv_send_repeat(
     uo_tcp_server *);

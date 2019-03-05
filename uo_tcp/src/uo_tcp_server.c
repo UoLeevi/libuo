@@ -1,4 +1,5 @@
 #include "uo_tcp_server.h"
+#include "uo_strhashtbl.h"
 #include "uo_err.h"
 #include "uo_sock.h"
 
@@ -12,8 +13,8 @@
 
 extern void uo_tcp_conn_open(
     int sockfd,
-    uo_tcp_conn_evt_handlers *,
-    void *user_data);
+    uo_tcp_conn_evt_handlers *evt_handlers,
+    uo_strhashtbl *shared_user_data);
 
 static void *uo_tcp_server_accept(
     void *arg)
@@ -33,7 +34,7 @@ static void *uo_tcp_server_accept(
             continue;
         }
 
-        uo_tcp_conn_open(sockfd, &tcp_server->evt_handlers, tcp_server->conn_defaults.user_data);
+        uo_tcp_conn_open(sockfd, &tcp_server->evt_handlers, tcp_server->user_data);
     }
 
     return NULL;
@@ -152,6 +153,27 @@ bool uo_tcp_server_set_opt_use_flow_recv_send_close(
     return true;
 }
 
+void *uo_tcp_server_get_user_data(
+    uo_tcp_server *tcp_server,
+    const char *key)
+{
+    if (!tcp_server->user_data)
+        return NULL;
+
+    return uo_strhashtbl_find(tcp_server->user_data, key);
+}
+
+void uo_tcp_server_set_user_data(
+    uo_tcp_server *tcp_server,
+    const char *key,
+    void *user_data)
+{
+    if (!tcp_server->user_data)
+        tcp_server->user_data = uo_strhashtbl_create(0);
+
+    uo_strhashtbl_insert(tcp_server->user_data, key, (const void *)user_data);
+}
+
 void uo_tcp_server_destroy(
     uo_tcp_server *tcp_server)
 {
@@ -190,6 +212,9 @@ void uo_tcp_server_destroy(
     uo_cb_destroy(tcp_server->evt_handlers.after_send);
     uo_cb_destroy(tcp_server->evt_handlers.before_close);
     uo_cb_destroy(tcp_server->evt_handlers.after_close);
+
+    if (tcp_server->user_data)
+        uo_strhashtbl_destroy(tcp_server->user_data);
 
     free(tcp_server->thrd);
     free(tcp_server);
