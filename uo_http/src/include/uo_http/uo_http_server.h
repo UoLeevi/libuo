@@ -5,13 +5,14 @@
 extern "C" {
 #endif
 
-#include "uo_http_sess.h"
+#include "uo_http_conn.h"
 #include "uo_cb.h"
 
 #include <stdbool.h>
 #include <stddef.h>
 
 typedef struct uo_tcp_server uo_tcp_server;
+typedef struct uo_strhashtbl uo_strhashtbl;
 
 /**
  * @brief HTTP server
@@ -49,7 +50,8 @@ typedef struct uo_tcp_server uo_tcp_server;
  */
 typedef struct uo_http_server
 {
-    uo_http_sess_evt_handlers evt_handlers;
+    uo_strhashtbl *user_data;
+    uo_http_conn_evt_handlers evt_handlers;
     struct
     {
         uo_strhashtbl *GET;
@@ -65,10 +67,6 @@ typedef struct uo_http_server
             const char *dirname;
         } param;
     } opt;
-    struct
-    {
-        void *user_data;
-    } sess_defaults;
     uo_tcp_server *tcp_server;
 } uo_http_server;
 
@@ -80,6 +78,27 @@ typedef struct uo_http_server
  */
 uo_http_server *uo_http_server_create(
     const char *port);
+
+/**
+ * @brief get a pointer to the user data that has been set using uo_http_server_set_user_data
+ * 
+ * @param key       null terminated string key
+ * @return void *   a pointer to the user data
+ */
+void *uo_http_server_get_user_data(
+    uo_http_server *,
+    const char *key);
+
+/**
+ * @brief store an arbitrary pointer that can be later accessed using uo_http_server_get_user_data
+ * 
+ * @param key           null terminated string key
+ * @param user_data     a pointer to arbitrary user data
+ */
+void uo_http_server_set_user_data(
+    uo_http_server *,
+    const char *key,
+    void *user_data);
 
 /**
  * @brief start the HTTP server

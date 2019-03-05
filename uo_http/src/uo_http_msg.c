@@ -54,8 +54,8 @@ bool uo_http_msg_set_content(
     return true;
 }
 
-bool uo_http_msg_set_request_line(
-    uo_http_request *http_request,
+bool uo_http_req_set_request_line(
+    uo_http_req *http_req,
     uo_http_method method,
     char *target,
     uo_http_ver version)
@@ -86,16 +86,16 @@ bool uo_http_msg_set_request_line(
     if (!*target)
         return false;
 
-    http_request->start_line = uo_buf_get_len_before_ptr(*http_request->buf);
-    http_request->start_line_len = uo_buf_printf_append(http_request->buf,
+    http_req->start_line = uo_buf_get_len_before_ptr(*http_req->buf);
+    http_req->start_line_len = uo_buf_printf_append(http_req->buf,
         "%s %s %s", method_str, target, version_str);
-    uo_buf_set_ptr_rel(*http_request->buf, 1);
+    uo_buf_set_ptr_rel(*http_req->buf, 1);
 
-    return uo_http_msg_parse_start_line(http_request);
+    return uo_http_msg_parse_start_line(http_req);
 }
 
-bool uo_http_msg_set_status_line(
-    uo_http_response *http_response,
+bool uo_http_res_set_status_line(
+    uo_http_res *http_res,
     uo_http_status status,
     uo_http_ver version)
 {
@@ -154,16 +154,16 @@ bool uo_http_msg_set_status_line(
         default: return false;
     }
 
-    http_response->start_line = uo_buf_get_len_before_ptr(*http_response->buf);
-    http_response->start_line_len = uo_buf_printf_append(http_response->buf,
+    http_res->start_line = uo_buf_get_len_before_ptr(*http_res->buf);
+    http_res->start_line_len = uo_buf_printf_append(http_res->buf,
         "%s %s", version_str, status_str);
-    uo_buf_set_ptr_rel(*http_response->buf, 1);
+    uo_buf_set_ptr_rel(*http_res->buf, 1);
 
     return true;
 }
 
-static void uo_http_response_set_content_type_header_based_on_filename(
-    uo_http_response *http_response,
+static void uo_http_res_set_content_type_header_based_on_filename(
+    uo_http_res *http_res,
     const char *filename)
 {
     // https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Complete_list_of_MIME_types
@@ -187,11 +187,11 @@ static void uo_http_response_set_content_type_header_based_on_filename(
     }
 
     if (filetype)
-        uo_http_msg_set_header(http_response, "content-type", filetype);
+        uo_http_msg_set_header(http_res, "content-type", filetype);
 }
 
-bool uo_http_response_set_content_from_file(
-    uo_http_response *http_response,
+bool uo_http_res_set_content_from_file(
+    uo_http_res *http_res,
     const char *filename)
 {
     struct stat sb;
@@ -202,26 +202,26 @@ bool uo_http_response_set_content_from_file(
     if (!fp)
         return false;
 
-    while (uo_buf_get_len_after_ptr(*http_response->buf) < sb.st_size + 21)
-        *http_response->buf = uo_buf_realloc_2x(*http_response->buf);
+    while (uo_buf_get_len_after_ptr(*http_res->buf) < sb.st_size + 21)
+        *http_res->buf = uo_buf_realloc_2x(*http_res->buf);
 
-    if (fread(uo_buf_get_ptr(*http_response->buf), sizeof **http_response->buf, sb.st_size, fp) != sb.st_size || ferror(fp))
+    if (fread(uo_buf_get_ptr(*http_res->buf), sizeof **http_res->buf, sb.st_size, fp) != sb.st_size || ferror(fp))
         goto err_fclose;
 
     fclose(fp);
 
-    http_response->body = uo_buf_get_len_before_ptr(*http_response->buf);
-    http_response->body_len = sb.st_size;
+    http_res->body = uo_buf_get_len_before_ptr(*http_res->buf);
+    http_res->body_len = sb.st_size;
 
-    uo_buf_set_ptr_rel(*http_response->buf, sb.st_size);
-    uo_buf_null_terminate(http_response->buf);
-    uo_buf_set_ptr_rel(*http_response->buf, 1);
+    uo_buf_set_ptr_rel(*http_res->buf, sb.st_size);
+    uo_buf_null_terminate(http_res->buf);
+    uo_buf_set_ptr_rel(*http_res->buf, 1);
 
-    int content_len_str_len = uo_buf_printf_append(http_response->buf, "%lu", sb.st_size);
-    char *content_len_str = uo_buf_get_ptr(*http_response->buf) - content_len_str_len;
-    uo_http_msg_set_header(http_response, "content-length", content_len_str);
-    uo_http_response_set_content_type_header_based_on_filename(http_response, filename);
-    uo_buf_set_ptr_rel(*http_response->buf, 1);
+    int content_len_str_len = uo_buf_printf_append(http_res->buf, "%lu", sb.st_size);
+    char *content_len_str = uo_buf_get_ptr(*http_res->buf) - content_len_str_len;
+    uo_http_msg_set_header(http_res, "content-length", content_len_str);
+    uo_http_res_set_content_type_header_based_on_filename(http_res, filename);
+    uo_buf_set_ptr_rel(*http_res->buf, 1);
 
     return true;
 
@@ -409,7 +409,7 @@ bool uo_http_msg_parse_body(
     }
 
     if (*(uint32_t *)(buf + http_msg->start_line) == *(uint32_t *)"HTTP")
-        switch (uo_http_response_get_status(http_msg))
+        switch (uo_http_res_get_status(http_msg))
         {
             case UO_HTTP_100:
             case UO_HTTP_101:
@@ -418,7 +418,7 @@ bool uo_http_msg_parse_body(
                 return true;
         }
     else
-        switch (uo_http_request_get_method(http_msg))
+        switch (uo_http_req_get_method(http_msg))
         {
             case UO_HTTP_GET:
             case UO_HTTP_TRACE:
@@ -470,11 +470,11 @@ char *uo_http_msg_get_header(
     return uo_strhashtbl_find(http_msg->headers, header_name);
 }
 
-uo_http_method uo_http_request_get_method(
-    uo_http_request *http_request)
+uo_http_method uo_http_req_get_method(
+    uo_http_req *http_req)
 {
-    char *start_line = *http_request->buf + http_request->start_line;
-    char *sp = memchr(start_line, ' ', http_request->start_line_len);
+    char *start_line = *http_req->buf + http_req->start_line;
+    char *sp = memchr(start_line, ' ', http_req->start_line_len);
 
     if (!sp)
         return UO_HTTP_METHOD_INVALID;
@@ -508,17 +508,17 @@ uo_http_method uo_http_request_get_method(
     return UO_HTTP_METHOD_INVALID;
 }
 
-char *uo_http_request_get_uri(
-    uo_http_request *http_request)
+char *uo_http_req_get_uri(
+    uo_http_req *http_req)
 {
-    return http_request->uri;
+    return http_req->uri;
 }
 
-uo_http_status uo_http_response_get_status(
-    uo_http_response *http_response)
+uo_http_status uo_http_res_get_status(
+    uo_http_res *http_res)
 {
     int status_code;
-    if (sscanf(*http_response->buf + http_response->start_line, "%*s %d ", &status_code) != 1)
+    if (sscanf(*http_res->buf + http_res->start_line, "%*s %d ", &status_code) != 1)
         return UO_HTTP_STATUS_INVALID;
 
     switch (status_code)

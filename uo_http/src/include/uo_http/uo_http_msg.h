@@ -13,6 +13,21 @@ extern "C" {
 #include <stdbool.h>
 #include <stddef.h>
 
+#define uo_http_req_set_header uo_http_msg_set_header
+#define uo_http_res_set_header uo_http_msg_set_header
+
+#define uo_http_req_set_content uo_http_msg_set_content
+#define uo_http_res_set_content uo_http_msg_set_content
+
+#define uo_http_req_get_body uo_http_msg_get_body
+#define uo_http_res_get_body uo_http_msg_get_body
+
+#define uo_http_req_get_header uo_http_msg_get_header
+#define uo_http_res_get_header uo_http_msg_get_header
+
+#define uo_http_req_get_version uo_http_msg_get_version
+#define uo_http_res_get_version uo_http_msg_get_version
+
 typedef struct uo_strhashtbl uo_strhashtbl;
 
 /**
@@ -33,7 +48,7 @@ typedef struct uo_http_msg
     {
         bool is_invalid;
     } state;
-} uo_http_msg, uo_http_request, uo_http_response;
+} uo_http_msg, uo_http_req, uo_http_res;
 
 uo_http_msg *uo_http_msg_create(
     uo_buf *buf);
@@ -49,19 +64,19 @@ bool uo_http_msg_set_content(
     char *content_type,
     size_t content_len);
 
-bool uo_http_msg_set_request_line(
-    uo_http_request *,
+bool uo_http_req_set_request_line(
+    uo_http_req *,
     uo_http_method,
     char *target,
     uo_http_ver);
 
-bool uo_http_msg_set_status_line(
-    uo_http_response *,
+bool uo_http_res_set_status_line(
+    uo_http_res *,
     uo_http_status,
     uo_http_ver);
 
-bool uo_http_response_set_content_from_file(
-    uo_http_response *,
+bool uo_http_res_set_content_from_file(
+    uo_http_res *,
     const char *filename);
 
 bool uo_http_msg_parse_start_line(
@@ -83,14 +98,14 @@ char *uo_http_msg_get_header(
 uo_http_ver uo_http_msg_get_version(
     uo_http_msg *);
 
-uo_http_method uo_http_request_get_method(
-    uo_http_request *);
+uo_http_method uo_http_req_get_method(
+    uo_http_req *);
 
-char *uo_http_request_get_uri(
-    uo_http_request *);
+char *uo_http_req_get_uri(
+    uo_http_req *);
 
-uo_http_status uo_http_response_get_status(
-    uo_http_response *);
+uo_http_status uo_http_res_get_status(
+    uo_http_res *);
 
 void uo_http_msg_write_to_buf(
     uo_http_msg *,
