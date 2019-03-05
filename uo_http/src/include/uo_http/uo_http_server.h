@@ -98,7 +98,7 @@ void *uo_http_server_get_user_data(
 void uo_http_server_set_user_data(
     uo_http_server *,
     const char *key,
-    void *user_data);
+    const void *user_data);
 
 /**
  * @brief start the HTTP server

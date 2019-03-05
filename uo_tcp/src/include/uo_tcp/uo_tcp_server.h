@@ -70,7 +70,7 @@ void *uo_tcp_server_get_user_data(
 void uo_tcp_server_set_user_data(
     uo_tcp_server *,
     const char *key,
-    void *user_data);
+    const void *user_data);
 
 bool uo_tcp_server_set_opt_use_flow_recv_send_repeat(
     uo_tcp_server *);

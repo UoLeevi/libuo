@@ -51,7 +51,7 @@ void *uo_http_client_get_user_data(
 void uo_http_client_set_user_data(
     uo_http_client *,
     const char *key,
-    void *user_data);
+    const void *user_data);
 
 /**
  * @brief create a TCP connection

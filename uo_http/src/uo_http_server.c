@@ -346,12 +346,12 @@ void *uo_http_server_get_user_data(
 void uo_http_server_set_user_data(
     uo_http_server *http_server,
     const char *key,
-    void *user_data)
+    const void *user_data)
 {
     if (!http_server->user_data)
         http_server->user_data = uo_strhashtbl_create(0);
 
-    uo_strhashtbl_insert(http_server->user_data, key, (const void *)user_data);
+    uo_strhashtbl_insert(http_server->user_data, key, user_data);
 }
 
 void uo_http_server_destroy(

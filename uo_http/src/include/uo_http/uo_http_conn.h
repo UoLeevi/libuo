@@ -34,7 +34,7 @@ typedef struct uo_http_conn
     uo_strhashtbl *user_data;
     union
     {
-        uo_strhashtbl *shared_user_data;
+        uo_strhashtbl **shared_user_data;
         uo_http_client *http_client;
         uo_http_server *http_server;
     };
@@ -84,7 +84,7 @@ void *uo_http_conn_get_user_data(
 void uo_http_conn_set_user_data(
     uo_http_conn *,
     const char *key,
-    void *user_data);
+    const void *user_data);
 
 void uo_http_conn_destroy(
     uo_http_conn *);

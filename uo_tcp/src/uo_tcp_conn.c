@@ -213,12 +213,12 @@ void *uo_tcp_conn_get_user_data(
 void uo_tcp_conn_set_user_data(
     uo_tcp_conn *tcp_conn,
     const char *key,
-    void *user_data)
+    const void *user_data)
 {
     if (!tcp_conn->user_data)
         tcp_conn->user_data = uo_strhashtbl_create(0);
 
-    uo_strhashtbl_insert(tcp_conn->user_data, key, (const void *)user_data);
+    uo_strhashtbl_insert(tcp_conn->user_data, key, user_data);
 }
 
 void uo_tcp_conn_next_recv(

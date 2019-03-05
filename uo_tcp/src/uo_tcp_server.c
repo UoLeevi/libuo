@@ -166,12 +166,12 @@ void *uo_tcp_server_get_user_data(
 void uo_tcp_server_set_user_data(
     uo_tcp_server *tcp_server,
     const char *key,
-    void *user_data)
+    const void *user_data)
 {
     if (!tcp_server->user_data)
         tcp_server->user_data = uo_strhashtbl_create(0);
 
-    uo_strhashtbl_insert(tcp_server->user_data, key, (const void *)user_data);
+    uo_strhashtbl_insert(tcp_server->user_data, key, user_data);
 }
 
 void uo_tcp_server_destroy(

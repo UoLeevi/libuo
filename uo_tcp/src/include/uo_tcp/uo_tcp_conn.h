@@ -101,7 +101,7 @@ void *uo_tcp_conn_get_user_data(
 void uo_tcp_conn_set_user_data(
     uo_tcp_conn *,
     const char *key,
-    void *user_data);
+    const void *user_data);
 
 /**
  * @brief instruct the TCP connection to read data from the socket and append it to rbuf
