@@ -119,7 +119,7 @@ bool uo_http_server_set_opt_serve_static_files(
     const char *dirname);
 
 /**
- * @brief add a handler (i.e. callback) for specific request uri and method
+ * @brief add a handler (i.e. callback) for specific request URI and method
  * 
  * Only single handler for each URI-method pair is permitted.
  * 

@@ -56,18 +56,18 @@ uo_http_msg *uo_http_msg_create(
 bool uo_http_msg_set_header(
     uo_http_msg *,
     const char *header_name,
-    char *header_value);
+    const char *header_value);
 
 bool uo_http_msg_set_content(
     uo_http_msg *,
     const char *content,
-    char *content_type,
+    const char *content_type,
     size_t content_len);
 
 bool uo_http_req_set_request_line(
     uo_http_req *,
     uo_http_method,
-    char *target,
+    const char *target,
     uo_http_ver);
 
 bool uo_http_res_set_status_line(

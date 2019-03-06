@@ -22,7 +22,7 @@ uo_http_msg *uo_http_msg_create(
 bool uo_http_msg_set_header(
     uo_http_msg *http_msg,
     const char *header_name,
-    char *header_value)
+    const char *header_value)
 {
     if (!http_msg->headers)
         http_msg->headers = uo_strhashtbl_create(0x20);
@@ -35,7 +35,7 @@ bool uo_http_msg_set_header(
 bool uo_http_msg_set_content(
     uo_http_msg *http_msg,
     const char *content,
-    char *content_type,
+    const char *content_type,
     size_t content_len)
 {
     http_msg->body = uo_buf_get_len_before_ptr(*http_msg->buf);
@@ -57,7 +57,7 @@ bool uo_http_msg_set_content(
 bool uo_http_req_set_request_line(
     uo_http_req *http_req,
     uo_http_method method,
-    char *target,
+    const char *target,
     uo_http_ver version)
 {
     const char *method_str;
