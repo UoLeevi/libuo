@@ -5,6 +5,9 @@
 extern "C" {
 #endif
 
+#define uo__nameof(n) #n
+#define uo_nameof(n) uo__nameof(n)
+
 #define UO_CAT(x, y) x ## y
 #define UO_EVALCAT(x, y) UO_CAT(x, y)
 #define UO_VAR(ident) UO_EVALCAT(ident, __LINE__)
