@@ -19,15 +19,21 @@ static _Thread_local const void *temp_ptr;
     (dst) = (void *)(((char *)memcpy((dst), (src), UO_VAR(len_))) + UO_VAR(len_)); \
 }
 
-#define uo_mem_append_str_literal(dst, str_literal) _Generic((dst), \
-              char *: ((char *)memcpy((dst), (str_literal), UO_STRLEN(str_literal)) + UO_STRLEN(str_literal)), \
-     unsigned char *: ((unsigned char *)memcpy((dst), (str_literal), UO_STRLEN(str_literal)) + UO_STRLEN(str_literal)), \
-             default: ((void *)((char *)memcpy((dst), (str_literal), UO_STRLEN(str_literal)) + UO_STRLEN(str_literal))))
+#define uo_mem_append(dst, src, len) \
+( \
+    temp_ptr = (src), \
+    temp_size = (len), \
+    _Generic((dst), \
+                 char *: (char *)memcpy((dst), temp_ptr, temp_size) + temp_size, \
+        unsigned char *: (unsigned char *)memcpy((dst), temp_ptr, temp_size) + temp_size, \
+                default: (void *)((char *)memcpy((dst), temp_ptr, temp_size) + temp_size)) \
+)
 
-#define uo_mem_append_str(dst, str) _Generic((dst), \
-              char *: (temp_ptr = (str), (char *)memcpy((dst), temp_ptr, temp_size = strlen((const char *)temp_ptr)) + temp_size), \
-     unsigned char *: (temp_ptr = (str), (unsigned char *)memcpy((dst), temp_ptr, temp_size = strlen((const char *)temp_ptr)) + temp_size), \
-             default: (temp_ptr = (str), (void *)((char *)memcpy((dst), temp_ptr, temp_size = strlen((const char *)temp_ptr)) + temp_size)))
+#define uo_mem_append_str_literal(dst, str_literal) \
+    uo_mem_append(dst, str_literal, UO_STRLEN(str_literal))
+
+#define uo_mem_append_str(dst, str) \
+    uo_mem_append(dst, str_literal, strlen(str_literal))
 
 #define uo_mem_cmp_str_literal(str, str_literal) \
     memcmp((str), (str_literal), UO_STRLEN(str_literal))

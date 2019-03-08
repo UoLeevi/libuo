@@ -12,7 +12,8 @@ int main(
 {
     bool passed = true;
     
-    passed &= UO_NARG(a, b, c) == 3;
+    passed &= uo_narg(a, b, c) == 3;
+    passed &= strcmp(uo_nameof(passed), "passed") == 0;
 
     return passed ? 0 : 1;
 }
