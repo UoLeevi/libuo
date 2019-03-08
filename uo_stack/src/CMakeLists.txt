@@ -1,15 +1,8 @@
 cmake_minimum_required(VERSION 3.12)
-project(uo_stack VERSION 0.1.0)
-
-set(THREADS_PREFER_PTHREAD_FLAG ON)
-find_package(Threads REQUIRED)
+project(uo_stack VERSION 0.2.0)
 
 add_library(uo_stack
     uo_stack.c)
-
-target_link_libraries(uo_stack
-    PRIVATE
-        Threads::Threads)
 
 target_compile_features(uo_stack
     PUBLIC

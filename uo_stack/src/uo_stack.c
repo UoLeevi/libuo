@@ -2,21 +2,20 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
 
-#include <pthread.h>
-#include <semaphore.h>
+#define UO_STACK_MIN_CAPACITY 0x4
 
 uo_stack *uo_stack_create(
-    size_t capasity)
+    size_t initial_capacity)
 {
+    size_t capacity = UO_STACK_MIN_CAPACITY;
+
+    while (capacity <= initial_capacity)
+        capacity <<= 1;
+
     uo_stack *stack = calloc(1, sizeof *stack);
-
-    sem_init((sem_t *)&stack->push_sem, 0, capasity);
-    sem_init((sem_t *)&stack->pop_sem, 0, 0);
-
-    pthread_mutex_init((pthread_mutex_t *)&stack->mtx, NULL);
-
-    stack->items = malloc(sizeof(void *) * capasity);
+    stack->items = malloc(sizeof *stack->items * (stack->capacity = capacity));
 
     return stack;
 }
@@ -24,44 +23,32 @@ uo_stack *uo_stack_create(
 void uo_stack_destroy(
     uo_stack *stack)
 {
-    sem_destroy((sem_t *)&stack->push_sem);
-    sem_destroy((sem_t *)&stack->pop_sem);
-
     free(stack->items);
     free(stack);
 }
 
-bool uo_stack_push(
+void uo_stack_push(
     uo_stack *stack,
-    void *item,
-    bool should_block)
+    const void *item)
 {
-    if (should_block)
-        sem_wait((sem_t *)&stack->push_sem);
-    else if (sem_trywait((sem_t *)&stack->push_sem) == -1)
-        return false;
+    size_t count = stack->count++;
 
-    pthread_mutex_lock((pthread_mutex_t *)&stack->mtx);
-    stack->items[stack->top++] = item;
-    pthread_mutex_unlock((pthread_mutex_t *)&stack->mtx);
-    sem_post((sem_t *)&stack->pop_sem);
+    if (count == stack->capacity)
+        stack->items = realloc(stack->items, sizeof *stack->items * (stack->capacity <<= 1));
 
-    return true;
+    stack->items[count] = (void *)item;
 }
 
 void *uo_stack_pop(
-    uo_stack *stack,
-    bool should_block)
+    uo_stack *stack)
 {
-    if (should_block)
-        sem_wait((sem_t *)&stack->pop_sem);
-    else if (sem_trywait((sem_t *)&stack->pop_sem) == -1)
-        return NULL;
+    assert(stack->count);
 
-    pthread_mutex_lock((pthread_mutex_t *)&stack->mtx);
-    void *item = stack->items[--stack->top];
-    pthread_mutex_unlock((pthread_mutex_t *)&stack->mtx);
-    sem_post((sem_t *)&stack->push_sem);
+    size_t count = --stack->count;
+    void *item = stack->items[count];
+
+    if ((count == stack->capacity >> 3) >= UO_STACK_MIN_CAPACITY)
+        stack->items = realloc(stack->items, sizeof *stack->items * (stack->capacity >>= 1));
 
     return item;
 }
