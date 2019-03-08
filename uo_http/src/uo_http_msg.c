@@ -1,5 +1,6 @@
 #include "uo_http_msg.h"
 #include "uo_strhashtbl.h"
+#include "uo_finstack.h"
 #include "uo_mem.h"
 
 #include <sys/stat.h>
@@ -16,6 +17,10 @@ uo_http_msg *uo_http_msg_create(
 {
     uo_http_msg *http_msg = calloc(1, sizeof *http_msg);
     http_msg->buf = buf;
+
+    uo_finstack *finstack = http_msg->finstack = uo_finstack_create();
+    uo_finstack_add(finstack, finstack, uo_finstack_destroy);
+
     return http_msg;
 }
 
@@ -311,65 +316,44 @@ bool uo_http_msg_parse_headers(
     size_t len = uo_buf_get_len_before_ptr(buf);
 
     char *end = buf + len;
-    char *header_line = buf + http_msg->start_line_len + UO_STRLEN("\r\n");
-    size_t header_count = 0;
-
-    if (end < header_line)
-        return false;
-
-    char *headers_end = NULL;
-    char *cr;
-
-    while (header_line + UO_STRLEN("\r\n") <= end)
-        if (*(uint16_t *)header_line == *(uint16_t *)"\r\n")
-        {
-            headers_end = header_line;
-            break;
-        }
-        else
-        {
-            ++header_count;
-            cr = memchr(header_line, '\r', end - header_line);
-
-            if (!cr)
-                return false;
-
-            header_line = cr + UO_STRLEN("\r\n");
-        }
+    char *headers_start = buf + http_msg->start_line_len + UO_STRLEN("\r\n");
+    char *headers_end = strstr(headers_start, "\r\n\r\n");
 
     if (!headers_end)
         return false;
 
-    uo_strhashtbl *headers = uo_strhashtbl_create(header_count * 2 + 1);
+    http_msg->body = headers_end + UO_STRLEN("\r\n\r\n") - (char *)buf;
 
-    cr = buf + http_msg->start_line_len;
+    size_t headers_len = headers_end - headers_start;
+    char *headers_buf = malloc(headers_len + 1);
+    headers_buf[headers_len] = '\0';
+    memcpy(headers_buf, headers_start, headers_len);
 
-    for (size_t i = 0; i < header_count; ++i)
+    uo_finstack_add(http_msg->finstack, headers_buf, free);
+
+    char *header_line = headers_buf;
+    headers_end = headers_buf + headers_len;
+
+    char *saveptr;
+    char *header_name = strtok_r(header_line, ": ", &saveptr);
+    char *header_value;
+
+    uo_strhashtbl *headers = http_msg->headers = uo_strhashtbl_create(0);
+
+    while (header_name)
     {
-        char *header_name = cr + 2;
-        
-        cr = memchr(cr + 1, '\r', headers_end - cr);
-        *cr = '\0';
-        
-        char *header_name_end = memchr(header_name, ':', cr - header_name);
-        if (!header_name_end)
-            goto err_free_headers;
-        
-        *header_name_end = '\0';
-        
-        char *p = header_name_end;
-        while (p-- > header_name)
+        char *p = header_name;
+        while (*p)
+        {
             *p = tolower(*p);
-
-        p = header_name_end + 1;
-        while (*p == ' ')
             ++p;
-        
-        uo_strhashtbl_insert(headers, header_name, p);
-    }
+        }
 
-    http_msg->body = headers_end + UO_STRLEN("\r\n") - (char *)buf;
-    http_msg->headers = headers;
+        header_value = strtok_r(NULL, "\r\n", &saveptr);
+
+        uo_strhashtbl_insert(headers, header_name, header_value);
+        header_name = strtok_r(NULL, ": ", &saveptr);
+    }
 
     return true;
 
@@ -603,6 +587,8 @@ void uo_http_msg_destroy(
 
     if (http_msg->headers)
         uo_strhashtbl_destroy(http_msg->headers);
+
+    uo_finstack_finalize(http_msg->finstack);
 
     free(http_msg);
 }

@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.12)
 project(uo_http VERSION 0.4.0)
 
+if(NOT TARGET uo::uo_finstack)
+    find_package(uo_finstack CONFIG REQUIRED)
+endif()
 if(NOT TARGET uo::uo_tcp)
     find_package(uo_tcp CONFIG REQUIRED)
 endif()
@@ -29,6 +32,7 @@ target_link_libraries(uo_http
         uo::uo_buf
         uo::uo_cb
     PRIVATE
+        uo::uo_finstack
         uo::uo_tcp
         uo::uo_mem
         uo::uo_strhashtbl)

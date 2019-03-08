@@ -48,6 +48,7 @@ typedef struct uo_http_msg
     {
         bool is_invalid;
     } state;
+    void *finstack;
 } uo_http_msg, uo_http_req, uo_http_res;
 
 uo_http_msg *uo_http_msg_create(
