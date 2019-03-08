@@ -345,11 +345,10 @@ bool uo_http_msg_parse_headers(
 
     uo_finstack_add(http_msg->finstack, headers_buf, free);
 
-    char *header_line = headers_buf;
     headers_end = headers_buf + headers_len;
 
     char *saveptr;
-    char *header_name = strtok_r(header_line, ": ", &saveptr);
+    char *header_name = strtok_r(headers_buf, ":", &saveptr);
     char *header_value;
 
     uo_strhashtbl *headers = http_msg->headers = uo_strhashtbl_create(0);
@@ -363,10 +362,16 @@ bool uo_http_msg_parse_headers(
             ++p;
         }
 
-        header_value = strtok_r(NULL, "\r\n", &saveptr);
+        ++p;
+
+        while ((isspace(*p)))
+            ++p;
+
+        header_value = strtok_r(NULL, "\r", &saveptr);
 
         uo_strhashtbl_insert(headers, header_name, header_value);
-        header_name = strtok_r(NULL, ": ", &saveptr);
+
+        header_name = strtok_r(NULL, "\n:", &saveptr);
     }
 
     return true;
