@@ -367,7 +367,7 @@ bool uo_http_msg_parse_headers(
         while ((isspace(*p)))
             ++p;
 
-        header_value = strtok_r(NULL, "\r", &saveptr);
+        header_value = strtok_r(p, "\r", &saveptr);
 
         uo_strhashtbl_insert(headers, header_name, header_value);
 
