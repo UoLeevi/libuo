@@ -320,7 +320,21 @@ bool uo_http_msg_parse_headers(
     char *headers_end = strstr(headers_start, "\r\n\r\n");
 
     if (!headers_end)
+    {
+        // TODO:
+        // this changes when start_line parsing changes
+
+        if (strstr(headers_start, "\r\n") == headers_start)
+        { 
+            // no headers
+            http_msg->body = headers_start + UO_STRLEN("\r\n") - (char *)buf;
+            http_msg->headers = uo_strhashtbl_create(0);
+
+            return true;
+        }
+
         return false;
+    }
 
     http_msg->body = headers_end + UO_STRLEN("\r\n\r\n") - (char *)buf;
 
