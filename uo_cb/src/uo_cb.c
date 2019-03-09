@@ -55,7 +55,7 @@ uo_cb *uo_cb_clone(
 {
     uo_cb *cb_clone = calloc(1, sizeof *cb);
 
-    uo_stack_create_at(&cb_clone->stack, &cb->stack);
+    uo_stack_create_at(&cb_clone->stack, cb->stack.count);
     uo_stack_push_arr(&cb_clone->stack, cb->stack.items, cb->stack.count);
 
     size_t count = cb_clone->func_list.count = cb->func_list.count;
