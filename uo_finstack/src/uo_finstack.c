@@ -36,7 +36,7 @@ void uo__finstack_add(
 void uo_finstack_finalize(
     uo_finstack *finstack)
 {
-    size_t count = uo_stack_get_count(finstack);
+    size_t count = uo_stack_count(finstack);
     struct uo_finstack_item *item;
 
     for (size_t i = 0; i < count; ++i)

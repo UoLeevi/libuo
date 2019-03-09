@@ -582,12 +582,15 @@ void uo_http_msg_write_to_buf(
     if (http_msg->headers)
     {
         uo_strhashtbl *headers = http_msg->headers;
-        uo_strkvp header = (uo_strkvp) { .key = NULL, .value = NULL };
 
-        size_t header_count = uo_strhashtbl_get_count(headers);
+        size_t header_count = uo_strhashtbl_count(headers);
+
+        uo_strkvplist *header_list = (uo_strkvplist *)headers;
+
         while (header_count--)
         {
-            header = uo_strhashtbl_find_next_strkvp(headers, header.key);
+            header_list = uo_strkvplist_next(header_list);
+            uo_strkvp header = header_list->strkvp;
             uo_buf_printf_append(dst, "%s: %s\r\n", header.key, header.value);
         }
     }
