@@ -27,6 +27,15 @@ typedef struct uo_linklist
     struct uo_linklist *prev;
 } uo_linklist;
 
+#define uo_def_link(type)                                                       \
+\
+/* @brief typed linked list entry                                            */ \
+typedef struct uo_link_type(type)                                               \
+{                                                                               \
+    uo_linklist link;                                                           \
+    type item;                                                                  \
+} uo_link_type(type);
+
 /**
  * @brief get next link
  * 
