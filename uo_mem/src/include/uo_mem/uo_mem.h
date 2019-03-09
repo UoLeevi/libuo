@@ -15,8 +15,8 @@ static _Thread_local const void *temp_ptr;
 
 #define uo_mem_write(dst, src, len) \
 { \
-    const size_t UO_VAR(len_) = (len); \
-    (dst) = (void *)(((char *)memcpy((dst), (src), UO_VAR(len_))) + UO_VAR(len_)); \
+    const size_t uo_var(len_) = (len); \
+    (dst) = (void *)(((char *)memcpy((dst), (src), uo_var(len_))) + uo_var(len_)); \
 }
 
 #define uo_mem_append(dst, src, len) \
@@ -39,8 +39,8 @@ static _Thread_local const void *temp_ptr;
     memcmp((str), (str_literal), UO_STRLEN(str_literal))
 
 #define uo_mem_using(p, size) \
-    for (int UO_VAR(once) = 1; UO_VAR(once);) \
-        for (void *(p) = malloc(size); UO_VAR(once); free(p), UO_VAR(once) = 0)
+    for (int uo_var(once) = 1; uo_var(once);) \
+        for (void *(p) = malloc(size); uo_var(once); free(p), uo_var(once) = 0)
 
 #ifdef __cplusplus
 }

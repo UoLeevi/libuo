@@ -5,17 +5,43 @@
 extern "C" {
 #endif
 
-#define uo_nameof(n) UO__NAMEOF(n)
-#define UO__NAMEOF(n) #n
+/**
+ * @brief get string literal corresponding a token
+ *
+ */
+#define uo_nameof(n) \
+    UO__NAMEOF(n)
 
-#define UO_CAT(x, y) x ## y
-#define UO_EVALCAT(x, y) UO_CAT(x, y)
-#define UO_VAR(ident) UO_EVALCAT(ident, __LINE__)
+/**
+ * @brief create a variable name that is unlikely to collide with macro arguments
+ * 
+ */
+#define uo_var(ident) \
+    uo_cat(ident, __LINE__)
+
+/**
+ * @brief count the number of arguments
+ * 
+ */
+#define uo_narg(...) \
+    UO_NARG_(__VA_ARGS__,UO_RSEQ_N())
+
+/**
+ * @brief concatenate tokens
+ * 
+ */
+#define uo_cat(x, y) \
+    UO_CAT(x, y)
+
 
 #define UO_STRLEN(s) (sizeof(s)/sizeof(s[0]) - 1)
 
-#define uo_narg(...) UO_NARG_(__VA_ARGS__,UO_RSEQ_N())
+#define UO__NAMEOF(n) #n
+
+#define UO_CAT(x, y) x ## y
+
 #define UO_NARG_(...) UO_ARG_N(__VA_ARGS__)
+
 #define UO_ARG_N( \
            _0x01, _0x02, _0x03, _0x04, _0x05, _0x06, _0x07, _0x08, _0x09, _0x0A, _0x0B, _0x0C, _0x0D, _0x0E, _0x0F, \
     _0x10, _0x11, _0x12, _0x13, _0x14, _0x15, _0x16, _0x17, _0x18, _0x19, _0x1A, _0x1B, _0x1C, _0x1D, _0x1E, _0x1F, \
