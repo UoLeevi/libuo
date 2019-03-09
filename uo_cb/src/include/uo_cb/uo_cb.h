@@ -153,7 +153,7 @@ static inline void uo_cb_stack_push(
 static inline void *uo_cb_stack_pop(
     uo_cb *cb)
 {
-    uo_stack_pop(&cb->stack);
+    return uo_stack_pop(&cb->stack);
 }
 
 /**
@@ -163,7 +163,7 @@ static inline void *uo_cb_stack_pop(
 static inline void *uo_cb_stack_peek(
     uo_cb *cb)
 {
-    uo_stack_peek(&cb->stack);
+    return uo_stack_peek(&cb->stack);
 }
 
 /**
@@ -175,7 +175,7 @@ static inline void *uo_cb_stack_index(
     uo_cb *cb,
     int index)
 {
-    uo_stack_index(&cb->stack, index);
+    return uo_stack_index(&cb->stack, index);
 }
 
 #ifdef __cplusplus
