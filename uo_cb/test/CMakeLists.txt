@@ -18,5 +18,5 @@ target_link_libraries(uo_cb_test
         uo::uo_cb
         Threads::Threads)
 
-add_test(NAME uo_cb.unit_tests
+add_test(NAME uo_cb_test
     COMMAND uo_cb_test)

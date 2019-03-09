@@ -4,12 +4,18 @@ project(uo_cb VERSION 0.3)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
+if(NOT TARGET uo::uo_stack)
+    find_package(uo_stack CONFIG REQUIRED)
+endif()
+
 add_library(uo_cb
     uo_cb.c
     uo_cb_queue.c
     uo_cb_thrd_pool.c)
 
 target_link_libraries(uo_cb
+    PUBLIC
+        uo::uo_stack
     PRIVATE
         Threads::Threads
         m)

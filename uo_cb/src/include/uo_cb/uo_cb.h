@@ -5,25 +5,22 @@
 extern "C" {
 #endif
 
+#include "uo_stack.h"
+
 #include <stddef.h>
 #include <stdbool.h>
 
 typedef struct uo_cb uo_cb;
-
 typedef void uo_cb_func(uo_cb *);
 
 struct uo_cb 
 {
+    uo_stack stack;
     struct
     {
         uo_cb_func **items;
         size_t count;
     } func_list;
-    struct
-    {
-        void **items;
-        size_t top;
-    } stack;
 };
 
 /**
@@ -142,32 +139,44 @@ void uo_cb_append_cb(
  * @brief push a pointer to the top of the stack of the callback
  * 
  */
-void uo_cb_stack_push(
-    uo_cb *,
-    void *);
+static inline void uo_cb_stack_push(
+    uo_cb *cb,
+    void *item)
+{
+    uo_stack_push(&cb->stack, item);
+}
 
 /**
  * @brief pop a pointer from the top of the stack of the callback
  * 
  */
-void *uo_cb_stack_pop(
-    uo_cb *);
+static inline void *uo_cb_stack_pop(
+    uo_cb *cb)
+{
+    uo_stack_pop(&cb->stack);
+}
 
 /**
  * @brief get a pointer from the top of the stack of the callback
  * 
  */
-void *uo_cb_stack_peek(
-    uo_cb *);
+static inline void *uo_cb_stack_peek(
+    uo_cb *cb)
+{
+    uo_stack_peek(&cb->stack);
+}
 
 /**
  * @brief get a pointer from the the stack of the callback by index
  * 
- * @param index     use negative index to index starting from the last item of the stack
+ * @param index     use negative index to index starting from one past the last item of the stack
  */
-void *uo_cb_stack_index(
-    uo_cb *,
-    int index);
+static inline void *uo_cb_stack_index(
+    uo_cb *cb,
+    int index)
+{
+    uo_stack_index(&cb->stack, index);
+}
 
 #ifdef __cplusplus
 }
