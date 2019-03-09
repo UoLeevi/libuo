@@ -26,6 +26,7 @@
 **`uo_cb`** - Callbacks for asynchronous workloads  
 
 ### Data structures
+**`uo_stack`** - stack data structure with additional support for indexing and inserts
 **`uo_linklist`** - linked list without dynamic memory allocation  
 **`uo_strhashtbl`** - hash table for storing values with string keys  
 **`uo_queue`** - "blocking" queue for multithreaded synchronized data access 

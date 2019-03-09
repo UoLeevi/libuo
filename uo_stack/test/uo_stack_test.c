@@ -10,21 +10,78 @@ int main(
 {
     bool passed = true;
 
-    uo_stack *stack = uo_stack_create(0);
+    uo_stack *stack = uo_stack_create(0x10);
+
+    passed &= stack->capacity == 0x10;
 
     for (size_t i = 0; i < 0x1000; ++i)
     {
-        passed &= uo_stack_get_count(stack) == i;
+        passed &= uo_stack_count(stack) == i;
         uo_stack_push(stack, lorem + i);
     }
 
+    passed &= uo_stack_index(stack, 0) == lorem + 0;
+    passed &= uo_stack_index(stack, 0x100) == lorem + 0x100;
+    passed &= uo_stack_index(stack, -1) == lorem + uo_stack_count(stack) - 1;
+    passed &= uo_stack_index(stack, -1) == uo_stack_peek(stack);
+
     for (size_t i = 0; i < 0x1000; ++i)
     {
-        passed &= uo_stack_get_count(stack) == 0x1000 - i;
+        passed &= uo_stack_count(stack) == 0x1000 - i;
         passed &= uo_stack_pop(stack) == (void *)(lorem + 0x1000 - 1 - i);
     }
 
-    passed &= uo_stack_get_count(stack) == 0;
+    uo_stack_push_arr(stack, (void **)lorem, 0x10);
+    passed &= uo_stack_count(stack) == 0x10;
+
+    uo_stack_push_arr(stack, (void **)lorem + 0x10, 0x10);
+    passed &= uo_stack_count(stack) == 0x20;
+
+    uo_stack_insert_arr(stack, 0x10, (void **)lorem + 0x20, 0x10);
+    passed &= uo_stack_count(stack) == 0x30;
+
+    uo_stack_insert_arr(stack, -0x10, (void **)lorem + 0x30, 0x10);
+    passed &= uo_stack_count(stack) == 0x40;
+
+    for (size_t i = 0; i < 0x10; ++i)
+        passed &= uo_stack_index(stack, i) == ((void **)lorem)[i];
+
+    for (size_t i = 0x10; i < 0x20; ++i)
+        passed &= uo_stack_index(stack, i) == ((void **)lorem)[i + 0x10];
+
+    for (size_t i = 0x20; i < 0x30; ++i)
+        passed &= uo_stack_index(stack, i) == ((void **)lorem)[i + 0x10];
+
+    for (size_t i = 0x30; i < 0x40; ++i)
+        passed &= uo_stack_index(stack, i) == ((void **)lorem)[i - 0x20];
+
+    for (size_t i = 0; i < 0x10; ++i)
+        passed &= uo_stack_pop(stack) == ((void **)lorem)[0x20 - 1 - i];
+
+    for (size_t i = 0; i < 0x10; ++i)
+        passed &= uo_stack_pop(stack) == ((void **)lorem)[0x40 - 1 - i];
+
+    for (size_t i = 0; i < 0x10; ++i)
+        passed &= uo_stack_pop(stack) == ((void **)lorem)[0x30 - 1 - i];
+
+    for (size_t i = 0; i < 0x10; ++i)
+        passed &= uo_stack_pop(stack) == ((void **)lorem)[0x10 - 1 - i];
+
+    passed &= uo_stack_count(stack) == 0;
+
+    uo_stack_insert(stack, 0x0, lorem + 0x0);
+    uo_stack_insert(stack, 0x0, lorem + 0x1);
+    uo_stack_insert(stack, 0x0, lorem + 0x2);
+    uo_stack_insert(stack, 0x0, lorem + 0x3);
+
+    passed &= uo_stack_count(stack) == 4;
+
+    passed &= uo_stack_pop(stack) == lorem + 0x0;
+    passed &= uo_stack_pop(stack) == lorem + 0x1;
+    passed &= uo_stack_pop(stack) == lorem + 0x2;
+    passed &= uo_stack_pop(stack) == lorem + 0x3;
+
+    passed &= uo_stack_count(stack) == 0;
 
     return passed ? 0 : 1;
 }
