@@ -18,25 +18,25 @@ int main(
     const char *key1 = "key1";
     const char *value1 = "value1";
     uo_strhashtbl_insert(strhashtbl, key1, value1);
-    passed &= uo_strhashtbl_get_count(strhashtbl) == 1;
+    passed &= uo_strhashtbl_count(strhashtbl) == 1;
     passed &= uo_strhashtbl_find(strhashtbl, key1) == value1;
     passed &= uo_strhashtbl_remove(strhashtbl, key1) == value1;
-    passed &= uo_strhashtbl_get_count(strhashtbl) == 0;
+    passed &= uo_strhashtbl_count(strhashtbl) == 0;
     passed &= uo_strhashtbl_find(strhashtbl, key1) == NULL;
 
     for (size_t i = 0; i < 0x1000; ++i)
     {
-        passed &= uo_strhashtbl_get_count(strhashtbl) == i;
+        passed &= uo_strhashtbl_count(strhashtbl) == i;
         uo_strhashtbl_insert(strhashtbl, lorem + i, lorem + i);
     }
 
-    passed &= uo_strhashtbl_get_count(strhashtbl) == 0x1000;
+    passed &= uo_strhashtbl_count(strhashtbl) == 0x1000;
 
-    uo_strkvp strkvp = { .key = NULL };
+    uo_strkvplist *strkvplist = uo_strhashtbl_list(strhashtbl, NULL);
     for (size_t i = 0; i < 0x1000; ++i)
     {
-        strkvp = uo_strhashtbl_find_next_strkvp(strhashtbl, strkvp.key);
-        passed &= strcmp(strkvp.value, lorem + i) == 0;
+        passed &= strcmp(strkvplist->strkvp.value, lorem + i) == 0;
+        strkvplist = uo_strkvplist_next(strkvplist);
     }
 
     for (size_t i = 0; i < 0x1000; ++i)
@@ -47,17 +47,17 @@ int main(
 
     for (size_t i = 0; i < (0x1000 - 0x100); ++i)
     {
-        passed &= uo_strhashtbl_get_count(strhashtbl) == 0x1000 - i;
+        passed &= uo_strhashtbl_count(strhashtbl) == 0x1000 - i;
         passed &= uo_strhashtbl_remove(strhashtbl, lorem + i) == lorem + i;
     }
 
-    passed &= uo_strhashtbl_get_count(strhashtbl) == 0x100;
+    passed &= uo_strhashtbl_count(strhashtbl) == 0x100;
 
-    strkvp.key = lorem + (0x1000 - 0x100);
+    strkvplist = uo_strhashtbl_list(strhashtbl, lorem + (0x1000 - 0x100));
     for (size_t i = (0x1000 - 0x100); i < 0x1000 - 1; ++i)
     {
-        strkvp = uo_strhashtbl_find_next_strkvp(strhashtbl, strkvp.key);
-        passed &= strcmp(strkvp.value, lorem + i + 1) == 0;
+        passed &= strcmp(strkvplist->strkvp.value, lorem + i) == 0;
+        strkvplist = uo_strkvplist_next(strkvplist);
     }
 
     uo_strhashtbl_destroy(strhashtbl);

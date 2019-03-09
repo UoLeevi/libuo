@@ -5,6 +5,8 @@
 extern "C" {
 #endif
 
+#include "uo_linklist.h"
+
 #include <stddef.h>
 #include <stdbool.h>
 
@@ -14,18 +16,42 @@ typedef struct uo_strkvp
     void *value;
 } uo_strkvp;
 
+typedef struct uo_strkvplist
+{
+    uo_linklist link;
+    uo_strkvp strkvp;
+} uo_strkvplist;
+
 typedef struct uo_strhashtbl uo_strhashtbl;
+
+/**
+ * @brief create an instance of uo_strhashtbl at specific memory location
+ * 
+ * uo_strhashtbl is automatically resizing hash table with string keys.
+ * 
+ * @param initial_capacity  minimum initial capacity, note that resize occures when uo_strhashtbl is half full
+ */
+void uo_strhashtbl_create_at(
+    uo_strhashtbl *,
+    size_t initial_capacity);
 
 /**
  * @brief create an instance of uo_strhashtbl
  * 
- * uo_strhashtbl is thread-safe, automatically resizing hash table with string keys.
+ * uo_strhashtbl is automatically resizing hash table with string keys.
  * 
  * @param initial_capacity  minimum initial capacity, note that resize occures when uo_strhashtbl is half full
  * @return uo_strhashtbl *  created uo_strhashtbl instance
  */
 uo_strhashtbl *uo_strhashtbl_create(
     size_t initial_capacity);
+
+/**
+ * @brief free resources used by an uo_strhashtbl instance but do not free the uo_strhashtbl pointer itself
+ * 
+ */
+void uo_strhashtbl_destroy_at(
+    uo_strhashtbl *);
 
 /**
  * @brief free resources used by an uo_strhashtbl instance
@@ -39,7 +65,7 @@ void uo_strhashtbl_destroy(
  * 
  * @return size_t   the number of key value pairs stored to uo_strhashtbl
  */
-size_t uo_strhashtbl_get_count(
+size_t uo_strhashtbl_count(
     uo_strhashtbl *);
 
 /**
@@ -74,18 +100,29 @@ void *uo_strhashtbl_find(
     const char *key);
 
 /**
- * @brief get next key-value pair in the uo_strhashtbl using a key of the previous key-value pair
+ * @brief get linked list of key-value pairs starting from specified key
  * 
- * Use this function for looping through the items in the uo_strhashtbl.
- * This function always returns a key-value pair if the key exists in the uo_strhashtbl.
- * Internally the key-value pairs are linked using circular linked list.
+ * Pass NULL as key to get the first item in the liked list.
  * 
- * @param key           null terminated string key or NULL to get the first key-value pair
- * @return uo_strkvp    next key-value pair
+ * Note that returned linked list of key-value pairs is only guaranteed to point valid memory until
+ * next resize occures on the link list which can happen during any insert or remove operation.
+ * 
+ * @param key   null terminated string key or NULL
  */
-uo_strkvp uo_strhashtbl_find_next_strkvp(
+uo_strkvplist *uo_strhashtbl_list(
     uo_strhashtbl *,
     const char *key);
+
+/**
+ * @brief get next item in the linked list of key-value pairs
+ * 
+ * Pass the uo_strhashtbl as argument to get the first item in the liked list.
+ * 
+ * Note that returned linked list of key-value pairs is only guaranteed to point valid memory until
+ * next resize occures on the link list which can happen during any insert or remove operation.
+ */
+#define uo_strkvplist_next(strkvplist) \
+    ((uo_strkvplist *)uo_linklist_next(strkvplist))
 
 #ifdef __cplusplus
 }

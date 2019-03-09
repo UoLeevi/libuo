@@ -1,8 +1,6 @@
 #include "uo_strhashtbl.h"
-#include "uo_linklist.h"
 
-#include <pthread.h>
-
+#include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,24 +8,32 @@
 #define UO_STRHASHTBL_MIN_CAPACITY 0x10
 #define UO_STRHASHTBL_TAG_REMOVED ((uintptr_t)~0)
 
-struct uo_strhashtbl_item
-{
-    uo_linklist link;
-    uo_strkvp strkvp;
-};
-
 struct uo_strhashtbl
 {
     uo_linklist head;
     size_t count;
     size_t removed_count;
     size_t capacity;
-    struct uo_strhashtbl_item *items;
-    pthread_mutex_t mtx;
+    uo_strkvplist *items;
 };
 
+static inline uint64_t next_power_of_two(
+    uint64_t n)
+{
+    n--;
+    n |= n >> 1;
+    n |= n >> 2;
+    n |= n >> 4;
+    n |= n >> 8;
+    n |= n >> 16;
+    n |= n >> 32;
+    n++;
+
+    return n;
+}
+
 // http://www.cse.yorku.ca/~oz/hash.html#djb2
-unsigned long uo_strhashtbl_hash(
+static unsigned long uo_strhashtbl_hash(
     const unsigned char *str)
 {
     unsigned long hash = 5381;
@@ -39,91 +45,77 @@ unsigned long uo_strhashtbl_hash(
     return hash;
 }
 
+void uo_strhashtbl_create_at(
+    uo_strhashtbl *strhashtbl,
+    size_t initial_capacity)
+{
+    size_t capacity = initial_capacity >= UO_STRHASHTBL_MIN_CAPACITY
+        ? next_power_of_two(initial_capacity)
+        : UO_STRHASHTBL_MIN_CAPACITY;
+
+    strhashtbl->count = 0;
+    strhashtbl->removed_count = 0;
+    strhashtbl->items = calloc(strhashtbl->capacity = capacity, sizeof *strhashtbl->items);
+
+    uo_linklist_reset(strhashtbl);
+}
+
 uo_strhashtbl *uo_strhashtbl_create(
     size_t initial_capacity)
 {
-    size_t capacity = UO_STRHASHTBL_MIN_CAPACITY;
-    while (capacity <= initial_capacity)
-        capacity <<= 1;
-
-    uo_strhashtbl *strhashtbl = calloc(1, sizeof *strhashtbl);
-    strhashtbl->items = calloc(strhashtbl->capacity = capacity, sizeof *strhashtbl->items);
-
-    pthread_mutex_init(&strhashtbl->mtx, 0);
-
+    uo_strhashtbl *strhashtbl = malloc(sizeof *strhashtbl);
+    uo_strhashtbl_create_at(strhashtbl, initial_capacity);
     return strhashtbl;
+}
+
+void uo_strhashtbl_destroy_at(
+    uo_strhashtbl *strhashtbl)
+{
+    free(strhashtbl->items);
 }
 
 void uo_strhashtbl_destroy(
     uo_strhashtbl *strhashtbl)
 {
-    pthread_mutex_destroy(&strhashtbl->mtx);
-
     free(strhashtbl->items);
     free(strhashtbl);
 }
 
-size_t uo_strhashtbl_get_count(
+size_t uo_strhashtbl_count(
     uo_strhashtbl *strhashtbl)
 {
     return strhashtbl->count;
 }
 
-static struct uo_strhashtbl_item *uo_strhashtbl_find_item(
-    const struct uo_strhashtbl_item *items,
+static uo_strkvplist *uo_strhashtbl_find_item(
+    const uo_strkvplist *items,
     size_t capacity, 
     const char *key)
 {
     const unsigned long mask = capacity - 1;
     unsigned long h = uo_strhashtbl_hash((const unsigned char *)key) & mask;
-    const struct uo_strhashtbl_item *item = items + h;
+    const uo_strkvplist *item = items + h;
 
     while (item->strkvp.key && strcmp(item->strkvp.key, key) || (uintptr_t)item->strkvp.value == UO_STRHASHTBL_TAG_REMOVED)
         item = items + (++h & mask);
 
-    return (struct uo_strhashtbl_item *)item;
+    return (uo_strkvplist *)item;
 }
 
 void *uo_strhashtbl_find(
     uo_strhashtbl *strhashtbl,
     const char *key)
 {
-    if (!key)
-        return NULL;
-
-    pthread_mutex_lock(&strhashtbl->mtx);
-
-    void *value = uo_strhashtbl_find_item(strhashtbl->items, strhashtbl->capacity, key)->strkvp.value;
-
-    pthread_mutex_unlock(&strhashtbl->mtx);
-
-    return value;
+    return key ? uo_strhashtbl_find_item(strhashtbl->items, strhashtbl->capacity, key)->strkvp.value : NULL;
 }
 
-uo_strkvp uo_strhashtbl_find_next_strkvp(
+uo_strkvplist *uo_strhashtbl_list(
     uo_strhashtbl *strhashtbl,
     const char *key)
 {
-    if (!strhashtbl->count)
-        return (uo_strkvp) { .key = NULL, .value = NULL };
-
-    if (key)
-    {
-        struct uo_strhashtbl_item *item = uo_strhashtbl_find_item(strhashtbl->items, strhashtbl->capacity, key);
-
-        if (!item)
-            return (uo_strkvp) { .key = NULL, .value = NULL };
-
-        item = uo_linklist_next(item) == strhashtbl
-            ? uo_linklist_next(uo_linklist_next(item))
-            : uo_linklist_next(item);
-
-        return item->strkvp;
-    }
-
-    struct uo_strhashtbl_item *item = uo_linklist_next(strhashtbl);
-
-    return item->strkvp;
+    return key 
+        ? uo_strhashtbl_find_item(strhashtbl->items, strhashtbl->capacity, key)
+        : uo_linklist_next(strhashtbl);
 }
 
 static void uo_strhashtbl_resize(
@@ -131,12 +123,12 @@ static void uo_strhashtbl_resize(
     const size_t capacity)
 {
     strhashtbl->capacity = capacity;
-    struct uo_strhashtbl_item *new_items = calloc(capacity, sizeof *strhashtbl->items);
+    uo_strkvplist *new_items = calloc(capacity, sizeof *strhashtbl->items);
 
-    struct uo_strhashtbl_item *item = uo_linklist_next(strhashtbl);
+    uo_strkvplist *item = uo_linklist_next(strhashtbl);
     uo_linklist_remove(strhashtbl);
 
-    struct uo_strhashtbl_item *new_item = uo_strhashtbl_find_item(new_items, capacity, item->strkvp.key);
+    uo_strkvplist *new_item = uo_strhashtbl_find_item(new_items, capacity, item->strkvp.key);
 
     uo_linklist_insert_after(strhashtbl, new_item);
     uo_linklist_insert_before(strhashtbl, new_item);
@@ -167,17 +159,12 @@ void uo_strhashtbl_insert(
     if (!key)
         return;
 
-    pthread_mutex_lock(&strhashtbl->mtx);
-
-    struct uo_strhashtbl_item *item = uo_strhashtbl_find_item(strhashtbl->items, strhashtbl->capacity, key);
+    uo_strkvplist *item = uo_strhashtbl_find_item(strhashtbl->items, strhashtbl->capacity, key);
 
     item->strkvp.value = (void *)value;
 
     if (item->strkvp.key)
-    {
-        pthread_mutex_unlock(&strhashtbl->mtx);
         return;
-    }
 
     item->strkvp.key = key;
 
@@ -191,8 +178,6 @@ void uo_strhashtbl_insert(
         uo_strhashtbl_resize(strhashtbl, strhashtbl->capacity << 1);
         strhashtbl->removed_count = 0;
     }
-
-    pthread_mutex_unlock(&strhashtbl->mtx);
 }
 
 void *uo_strhashtbl_remove(
@@ -202,15 +187,10 @@ void *uo_strhashtbl_remove(
     if (!key)
         return NULL;
 
-    pthread_mutex_lock(&strhashtbl->mtx);
-
-    struct uo_strhashtbl_item *item = uo_strhashtbl_find_item(strhashtbl->items, strhashtbl->capacity, key);
+    uo_strkvplist *item = uo_strhashtbl_find_item(strhashtbl->items, strhashtbl->capacity, key);
 
     if (!item->strkvp.key)
-    {
-        pthread_mutex_unlock(&strhashtbl->mtx);
         return NULL;
-    }
 
     void *value = item->strkvp.value;
     item->strkvp.key = NULL;
@@ -233,8 +213,5 @@ void *uo_strhashtbl_remove(
         strhashtbl->removed_count = 0;
     }
 
-    pthread_mutex_unlock(&strhashtbl->mtx);
-
     return value;
 }
-

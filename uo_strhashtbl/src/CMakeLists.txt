@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 project(uo_strhashtbl VERSION 0.2.0)
 
-set(THREADS_PREFER_PTHREAD_FLAG ON)
-find_package(Threads REQUIRED)
-
 if(NOT TARGET uo::uo_linklist)
     find_package(uo_linklist CONFIG REQUIRED)
 endif()
@@ -12,9 +9,8 @@ add_library(uo_strhashtbl
     uo_strhashtbl.c)
 
 target_link_libraries(uo_strhashtbl
-    PRIVATE
-        uo::uo_linklist
-        Threads::Threads)
+    PUBLIC
+        uo::uo_linklist)
 
 target_compile_features(uo_strhashtbl
     PUBLIC
