@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(uo_strhashtbl VERSION 0.2.0)
+project(uo_strhashtbl VERSION 0.3.0)
 
 if(NOT TARGET uo::uo_linklist)
     find_package(uo_linklist CONFIG REQUIRED)

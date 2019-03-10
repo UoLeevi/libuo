@@ -16,11 +16,7 @@ typedef struct uo_strkvp
     void *value;
 } uo_strkvp;
 
-typedef struct uo_strkvplist
-{
-    uo_linklist link;
-    uo_strkvp strkvp;
-} uo_strkvplist;
+uo_def_link(uo_strkvp); // typedef uo_strkvp_link
 
 typedef struct uo_strhashtbl uo_strhashtbl;
 
@@ -69,12 +65,22 @@ size_t uo_strhashtbl_count(
     uo_strhashtbl *);
 
 /**
+ * @brief get the value held by an item which was previously inserted using a key
+ * 
+ * @param key       null terminated string key
+ * @return void *   value held by the item or NULL if no such key exists in the uo_strhashtbl 
+ */
+void *uo_strhashtbl_get(
+    uo_strhashtbl *,
+    const char *key);
+
+/**
  * @brief insert new item to uo_strhashtbl or update an existing item
  * 
  * @param key       null terminated string key
  * @param value     pointer to value to be stored
  */
-void uo_strhashtbl_insert(
+void uo_strhashtbl_set(
     uo_strhashtbl *, 
     const char *key, 
     const void *value);
@@ -90,39 +96,11 @@ void *uo_strhashtbl_remove(
     const char *key);
 
 /**
- * @brief get the value held by an item which was previously inserted using a key
+ * @brief get the head of the linked list with key-value pairs
  * 
- * @param key       null terminated string key
- * @return void *   value held by the item or NULL if no such key exists in the uo_strhashtbl 
  */
-void *uo_strhashtbl_find(
-    uo_strhashtbl *,
-    const char *key);
-
-/**
- * @brief get linked list of key-value pairs starting from specified key
- * 
- * Pass NULL as key to get the first item in the liked list.
- * 
- * Note that returned linked list of key-value pairs is only guaranteed to point valid memory until
- * next resize occures on the link list which can happen during any insert or remove operation.
- * 
- * @param key   null terminated string key or NULL
- */
-uo_strkvplist *uo_strhashtbl_list(
-    uo_strhashtbl *,
-    const char *key);
-
-/**
- * @brief get next item in the linked list of key-value pairs
- * 
- * Pass the uo_strhashtbl as argument to get the first item in the liked list.
- * 
- * Note that returned linked list of key-value pairs is only guaranteed to point valid memory until
- * next resize occures on the link list which can happen during any insert or remove operation.
- */
-#define uo_strkvplist_next(strkvplist) \
-    ((uo_strkvplist *)uo_linklist_next(strkvplist))
+uo_strkvp_link *uo_strhashtbl_list(
+    uo_strhashtbl *);
 
 #ifdef __cplusplus
 }

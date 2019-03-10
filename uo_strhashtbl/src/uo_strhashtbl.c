@@ -14,7 +14,7 @@ struct uo_strhashtbl
     size_t count;
     size_t removed_count;
     size_t capacity;
-    uo_strkvplist *items;
+    uo_strkvp_link *links;
 };
 
 static inline uint64_t next_power_of_two(
@@ -55,9 +55,9 @@ void uo_strhashtbl_create_at(
 
     strhashtbl->count = 0;
     strhashtbl->removed_count = 0;
-    strhashtbl->items = calloc(strhashtbl->capacity = capacity, sizeof *strhashtbl->items);
+    strhashtbl->links = calloc(strhashtbl->capacity = capacity, sizeof *strhashtbl->links);
 
-    uo_linklist_reset(strhashtbl);
+    uo_linklist_selflink(strhashtbl);
 }
 
 uo_strhashtbl *uo_strhashtbl_create(
@@ -71,51 +71,41 @@ uo_strhashtbl *uo_strhashtbl_create(
 void uo_strhashtbl_destroy_at(
     uo_strhashtbl *strhashtbl)
 {
-    free(strhashtbl->items);
+    free(strhashtbl->links);
 }
 
 void uo_strhashtbl_destroy(
     uo_strhashtbl *strhashtbl)
 {
-    free(strhashtbl->items);
+    free(strhashtbl->links);
     free(strhashtbl);
 }
 
-size_t uo_strhashtbl_count(
+inline size_t uo_strhashtbl_count(
     uo_strhashtbl *strhashtbl)
 {
     return strhashtbl->count;
 }
 
-static uo_strkvplist *uo_strhashtbl_find_item(
-    const uo_strkvplist *items,
-    size_t capacity, 
+static uo_strkvp_link *uo_strhashtbl_find_link(
+    const uo_strkvp_link *links,
+    size_t capacity,
     const char *key)
 {
     const unsigned long mask = capacity - 1;
     unsigned long h = uo_strhashtbl_hash((const unsigned char *)key) & mask;
-    const uo_strkvplist *item = items + h;
+    const uo_strkvp_link *link = links + h;
 
-    while (item->strkvp.key && strcmp(item->strkvp.key, key) || (uintptr_t)item->strkvp.value == UO_STRHASHTBL_TAG_REMOVED)
-        item = items + (++h & mask);
+    while (link->item.key && strcmp(link->item.key, key) || (uintptr_t)link->item.value == UO_STRHASHTBL_TAG_REMOVED)
+        link = links + (++h & mask);
 
-    return (uo_strkvplist *)item;
+    return (uo_strkvp_link *)link;
 }
 
-void *uo_strhashtbl_find(
-    uo_strhashtbl *strhashtbl,
-    const char *key)
+inline uo_strkvp_link *uo_strhashtbl_list(
+    uo_strhashtbl *strhashtbl)
 {
-    return key ? uo_strhashtbl_find_item(strhashtbl->items, strhashtbl->capacity, key)->strkvp.value : NULL;
-}
-
-uo_strkvplist *uo_strhashtbl_list(
-    uo_strhashtbl *strhashtbl,
-    const char *key)
-{
-    return key 
-        ? uo_strhashtbl_find_item(strhashtbl->items, strhashtbl->capacity, key)
-        : uo_linklist_next(strhashtbl);
+    return (uo_strkvp_link *)&strhashtbl->head;
 }
 
 static void uo_strhashtbl_resize(
@@ -123,35 +113,40 @@ static void uo_strhashtbl_resize(
     const size_t capacity)
 {
     strhashtbl->capacity = capacity;
-    uo_strkvplist *new_items = calloc(capacity, sizeof *strhashtbl->items);
+    uo_strkvp_link *new_links = calloc(capacity, sizeof *strhashtbl->links);
 
-    uo_strkvplist *item = uo_linklist_next(strhashtbl);
-    uo_linklist_remove(strhashtbl);
+    uo_linklist head = strhashtbl->head;
 
-    uo_strkvplist *new_item = uo_strhashtbl_find_item(new_items, capacity, item->strkvp.key);
+    uo_strkvp_link *link = (uo_strkvp_link *)&head;
+    uo_strkvp_link *new_link;
 
-    uo_linklist_insert_after(strhashtbl, new_item);
-    uo_linklist_insert_before(strhashtbl, new_item);
-
-    new_item->strkvp = item->strkvp;
-    item = uo_linklist_next(item);
+    uo_linklist_unlink(strhashtbl);
+    uo_linklist_selflink(strhashtbl);
 
     size_t count = strhashtbl->count;
 
-    for (size_t i = 1; i < count; ++i)
+    for (size_t i = 0; i < count; ++i)
     {
-        uo_linklist_insert_before(strhashtbl, uo_strhashtbl_find_item(new_items, capacity, item->strkvp.key));
-        new_item = uo_linklist_next(new_item);
-
-        new_item->strkvp = item->strkvp;
-        item = uo_linklist_next(item);
+        link = uo_strkvp_link_next(link);
+        new_link = uo_strhashtbl_find_link(new_links, capacity, link->item.key);
+        new_link->item = link->item;
+        uo_linklist_link(strhashtbl, new_link);
     }
 
-    free(strhashtbl->items);
-    strhashtbl->items = new_items;
+    free(strhashtbl->links);
+    strhashtbl->links = new_links;
 }
 
-void uo_strhashtbl_insert(
+void *uo_strhashtbl_get(
+    uo_strhashtbl *strhashtbl,
+    const char *key)
+{
+    return key 
+        ? uo_strhashtbl_find_link(strhashtbl->links, strhashtbl->capacity, key)->item.value
+        : NULL;
+}
+
+void uo_strhashtbl_set(
     uo_strhashtbl *strhashtbl, 
     const char *key, 
     const void *value)
@@ -159,19 +154,15 @@ void uo_strhashtbl_insert(
     if (!key)
         return;
 
-    uo_strkvplist *item = uo_strhashtbl_find_item(strhashtbl->items, strhashtbl->capacity, key);
+    uo_strkvp_link *link = uo_strhashtbl_find_link(strhashtbl->links, strhashtbl->capacity, key);
+    link->item.value = (void *)value;
 
-    item->strkvp.value = (void *)value;
-
-    if (item->strkvp.key)
+    if (link->item.key)
         return;
 
-    item->strkvp.key = key;
+    link->item.key = key;
 
-    if (!uo_linklist_prev(strhashtbl))
-        uo_linklist_insert_after(strhashtbl, item);
-        
-    uo_linklist_insert_before(strhashtbl, item);
+    uo_linklist_link(strhashtbl, link);
 
     if (++strhashtbl->count == strhashtbl->capacity >> 1)
     {
@@ -187,16 +178,16 @@ void *uo_strhashtbl_remove(
     if (!key)
         return NULL;
 
-    uo_strkvplist *item = uo_strhashtbl_find_item(strhashtbl->items, strhashtbl->capacity, key);
+    uo_strkvp_link *link = uo_strhashtbl_find_link(strhashtbl->links, strhashtbl->capacity, key);
 
-    if (!item->strkvp.key)
+    if (!link->item.key)
         return NULL;
 
-    void *value = item->strkvp.value;
-    item->strkvp.key = NULL;
-    item->strkvp.value = (void *)UO_STRHASHTBL_TAG_REMOVED;
+    void *value = link->item.value;
+    link->item.key = NULL;
+    link->item.value = (void *)UO_STRHASHTBL_TAG_REMOVED;
 
-    uo_linklist_remove(item);
+    uo_linklist_unlink(link);
 
     size_t removed_count = ++strhashtbl->removed_count;
     size_t count = --strhashtbl->count;
