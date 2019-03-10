@@ -19,20 +19,23 @@ int main(
 {
     bool passed = true;
 
-    int_linkpool_init();
-    testfunc_linkpool_init();
+    passed &= !int_linkpool_is_init();
 
-    passed &= int_linkpool_count == 0;
+    passed &= int_linkpool_init();
+
+    passed &= int_linkpool_is_init();
+    passed &= int_linkpool_is_empty();
 
     int_link *i0 = int_linkpool_rent();
     int_link *i1 = int_linkpool_rent();
     int_link *i2 = int_linkpool_rent();
 
-    passed &= int_linkpool_count == UO__LINKPOOL_DEFAULT_GROW - 3;
+    passed &= !int_linkpool_is_empty();
 
     i0->item = 12345;
-
     passed &= i0->item == 12345;
+
+    passed &= testfunc_linkpool_init();
 
     testfunc_link *f0 = testfunc_linkpool_rent();
     testfunc_link *f1 = testfunc_linkpool_rent();
@@ -49,7 +52,7 @@ int main(
     int_linkpool_return(i1);
     int_linkpool_return(i2);
 
-    passed &= int_linkpool_count == UO__LINKPOOL_DEFAULT_GROW;
+    passed &= !int_linkpool_is_empty();
 
     int_linkpool_quit();
     testfunc_linkpool_quit();
