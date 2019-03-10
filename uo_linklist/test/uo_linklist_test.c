@@ -14,132 +14,116 @@ int main(
 {
     bool passed = true;
 
+    uo_linklist head;
     uo_linklist link1;
     uo_linklist link2;
     uo_linklist link3;
-    uo_linklist link4;
 
+    uo_linklist_selflink(&head);
     uo_linklist_reset(&link1);
     uo_linklist_reset(&link2);
     uo_linklist_reset(&link3);
-    uo_linklist_reset(&link4);
 
-    uo_linklist_insert_after(&link1, &link2);
-    passed &= !link1.prev;
-    passed &= link1.next == &link2;
-    passed &= link2.prev == &link1;
-    passed &= !link2.next;
+    passed &= uo_linklist_is_empty(&head);
+    passed &= !uo_linklist_is_linked(&link1);
+    passed &= !uo_linklist_is_linked(&link1);
+    passed &= !uo_linklist_is_linked(&link3);
 
-    uo_linklist_insert_after(&link2, &link3);
-    passed &= !link1.prev;
+    uo_linklist_link(&head, &link1);
+    passed &= !uo_linklist_is_empty(&head);
+    passed &= head.next == &link1;
+    passed &= head.prev == &link1;
+    passed &= link1.next == &head;
+    passed &= link1.prev == &head;
+
+    uo_linklist_link(&head, &link2);
+    passed &= head.next == &link1;
+    passed &= head.prev == &link2;
     passed &= link1.next == &link2;
+    passed &= link1.prev == &head;
+    passed &= link2.next == &head;
     passed &= link2.prev == &link1;
+
+    uo_linklist_link(&head, &link3);
+    passed &= head.next == &link1;
+    passed &= head.prev == &link3;
+    passed &= link1.next == &link2;
+    passed &= link1.prev == &head;
     passed &= link2.next == &link3;
-    passed &= link3.prev == &link2;
-    passed &= !link4.next;
-
-    uo_linklist_insert_after(&link3, &link4);
-    passed &= !link1.prev;
-    passed &= link1.next == &link2;
     passed &= link2.prev == &link1;
-    passed &= link2.next == &link3;
+    passed &= link3.next == &head;
     passed &= link3.prev == &link2;
-    passed &= link3.next == &link4;
-    passed &= link4.prev == &link3;
-    passed &= !link4.next;
 
-    uo_linklist_remove(&link4);
-    passed &= !link1.prev;
+    uo_linklist_unlink(&link3);
+    passed &= head.next == &link1;
+    passed &= head.prev == &link2;
     passed &= link1.next == &link2;
+    passed &= link1.prev == &head;
+    passed &= link2.next == &head;
     passed &= link2.prev == &link1;
-    passed &= link2.next == &link3;
-    passed &= link3.prev == &link2;
-    passed &= !link3.next;
-    passed &= !link4.prev;
-    passed &= !link4.next;
+    passed &= !uo_linklist_is_linked(&link3);
 
-    uo_linklist_remove(&link3);
-    passed &= !link1.prev;
-    passed &= link1.next == &link2;
-    passed &= link2.prev == &link1;
-    passed &= !link2.next;
-    passed &= !link3.prev;
-    passed &= !link3.next;
-    passed &= !link4.prev;
-    passed &= !link4.next;
+    uo_linklist_unlink(&link2);
+    passed &= head.next == &link1;
+    passed &= head.prev == &link1;
+    passed &= link1.next == &head;
+    passed &= link1.prev == &head;
+    passed &= !uo_linklist_is_linked(&link2);
+    passed &= !uo_linklist_is_linked(&link3);
 
-    uo_linklist_remove(&link2);
-    passed &= !link1.prev;
-    passed &= !link1.next;
-    passed &= !link2.prev;
-    passed &= !link2.next;
-    passed &= !link3.prev;
-    passed &= !link3.next;
-    passed &= !link4.prev;
-    passed &= !link4.next;
+    uo_linklist_unlink(&link1);
+    passed &= uo_linklist_is_empty(&head);
+    passed &= !uo_linklist_is_linked(&link1);
+    passed &= !uo_linklist_is_linked(&link2);
+    passed &= !uo_linklist_is_linked(&link3);
 
-    uo_linklist_remove(&link1);
-    passed &= !link1.prev;
-    passed &= !link1.next;
-    passed &= !link2.prev;
-    passed &= !link2.next;
-    passed &= !link3.prev;
-    passed &= !link3.next;
-    passed &= !link4.prev;
-    passed &= !link4.next;
+    uo_linklist_unlink(&head);
+    passed &= !uo_linklist_is_linked(&head);
+    passed &= !uo_linklist_is_linked(&link1);
+    passed &= !uo_linklist_is_linked(&link2);
+    passed &= !uo_linklist_is_linked(&link3);
 
-    uo_linklist_insert_after(&link1, &link2);
-    uo_linklist_insert_after(&link2, &link3);
-    uo_linklist_insert_after(&link3, &link4);
-    uo_linklist_insert_after(&link4, &link1);
-    passed &= link1.prev == &link4;
-    passed &= link1.next == &link2;
-    passed &= link2.prev == &link1;
-    passed &= link2.next == &link3;
-    passed &= link3.prev == &link2;
-    passed &= link3.next == &link4;
-    passed &= link4.prev == &link3;
-    passed &= link4.next == &link1;
-
-    uo_linklist_remove(&link4);
-    passed &= link1.prev == &link3;
-    passed &= link1.next == &link2;
-    passed &= link2.prev == &link1;
-    passed &= link2.next == &link3;
-    passed &= link3.prev == &link2;
-    passed &= link3.next == &link1;
-    passed &= !link4.prev;
-    passed &= !link4.next;
-
-    uo_linklist_remove(&link3);
+    uo_linklist_selflink(&head);
+    uo_linklist_link(&head, &link1);
+    uo_linklist_link(&link1, &link2);
+    uo_linklist_link(&link2, &link3);
+    passed &= head.prev == &link1;
+    passed &= head.next == &link3;
     passed &= link1.prev == &link2;
-    passed &= link1.next == &link2;
-    passed &= link2.prev == &link1;
+    passed &= link1.next == &head;
+    passed &= link2.prev == &link3;
     passed &= link2.next == &link1;
-    passed &= !link3.prev;
-    passed &= !link3.next;
-    passed &= !link4.prev;
-    passed &= !link4.next;
+    passed &= link3.prev == &head;
+    passed &= link3.next == &link2;
 
-    uo_linklist_remove(&link2);
-    passed &= !link1.prev;
-    passed &= !link1.next;
-    passed &= !link2.prev;
-    passed &= !link2.next;
-    passed &= !link3.prev;
-    passed &= !link3.next;
-    passed &= !link4.prev;
-    passed &= !link4.next;
+    uo_linklist_unlink(&link3);
+    passed &= head.prev == &link1;
+    passed &= head.next == &link2;
+    passed &= link1.prev == &link2;
+    passed &= link1.next == &head;
+    passed &= link2.prev == &head;
+    passed &= link2.next == &link1;
+    passed &= !uo_linklist_is_linked(&link3);
 
-    uo_linklist_remove(&link1);
-    passed &= !link1.prev;
-    passed &= !link1.next;
-    passed &= !link2.prev;
-    passed &= !link2.next;
-    passed &= !link3.prev;
-    passed &= !link3.next;
-    passed &= !link4.prev;
-    passed &= !link4.next;
+    uo_linklist_unlink(&link2);
+    passed &= head.prev == &link1;
+    passed &= head.next == &link1;
+    passed &= link1.prev == &head;
+    passed &= link1.next == &head;
+    passed &= !uo_linklist_is_linked(&link2);
+    passed &= !uo_linklist_is_linked(&link3);
+
+    uo_linklist_unlink(&link1);
+    passed &= uo_linklist_is_empty(&head);
+    passed &= !uo_linklist_is_linked(&link1);
+    passed &= !uo_linklist_is_linked(&link2);
+    passed &= !uo_linklist_is_linked(&link3);
+
+    uo_linklist_unlink(&head);
+    passed &= !uo_linklist_is_linked(&head);
+    passed &= !uo_linklist_is_linked(&link1);
+    passed &= !uo_linklist_is_linked(&link2);
+    passed &= !uo_linklist_is_linked(&link3);
 
     return passed ? 0 : 1;
 }

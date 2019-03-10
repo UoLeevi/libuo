@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(uo_linklist_test VERSION 0.2.0)
+project(uo_linklist_test VERSION 0.3.0)
 
 enable_testing()
 if(NOT TARGET uo::uo_linklist)

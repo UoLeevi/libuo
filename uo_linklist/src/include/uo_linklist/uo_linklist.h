@@ -7,19 +7,19 @@ extern "C" {
 
 #include <assert.h>
 #include <stddef.h>
+#include <stdbool.h>
+#include <stdalign.h>
 
 /**
- * @brief list for linking memory addresses
+ * @brief uo_linklist is structure for chaining structs in a doubly linked list.
  * 
- * Use this struct as the first member of another struct to make the parent 
- * struct a "link" that can be used in a linklist. To access the parent struct, 
- * just convert the uo_linklist pointer to a pointer of the parent type.
+ * When used as a linked list, uo_linklist list consists of:
+ *  - an uo_linklist head which initially should link to itself (initialize using uo_linklist_selflink)
+ *  - zero or more uo_linklist links which should be zero-filled before they were inserted to the list
  * 
- * All uo_linklist structs should be zero initialized before use.
- * uo_linklist next and prev are NULL when they do point to another link.
- * i.e. Empty linklist has next and prev set to NULL.
- * 
- * Circular linklists are permitted but linklist should never be inserted to itself.
+ * uo_linklist list, that has a properly initialized head, is always a circular doubly linked list such:
+ *  - for the head and all uo_linklist links, link == link->next->prev && link == link->prev->next
+ *  - this also means that following is never true: link->next == NULL || link->prev == NULL
  */
 typedef struct uo_linklist
 {
@@ -27,56 +27,92 @@ typedef struct uo_linklist
     struct uo_linklist *prev;
 } uo_linklist;
 
-#define uo_def_link(type)                                                       \
+#define uo_link_type(type) \
+    type ## _link
+
+#define uo_link_next(type) \
+    type ## _link_next
+
+#define uo_link_prev(type) \
+    type ## _link_prev
+
+#define uo_get_link(type) \
+    type ## _get_link
+
+#define uo_def_link(type)                                                                     \
 \
-/* @brief typed linked list entry                                            */ \
-typedef struct uo_link_type(type)                                               \
-{                                                                               \
-    uo_linklist link;                                                           \
-    type item;                                                                  \
-} uo_link_type(type);
+/* @brief typed linked list entry                                                          */ \
+typedef struct uo_link_type(type)                                                             \
+{                                                                                             \
+    uo_linklist;                                                                              \
+    type item;                                                                                \
+} uo_link_type(type);                                                                         \
+\
+static inline uo_link_type(type) *uo_link_next(type)(                                         \
+    uo_link_type(type) *link)                                                                 \
+{                                                                                             \
+    return (uo_link_type(type) *)link->next;                                                  \
+}                                                                                             \
+\
+static inline uo_link_type(type) *uo_link_prev(type)(                                         \
+    uo_link_type(type) *link)                                                                 \
+{                                                                                             \
+    return (uo_link_type(type) *)link->prev;                                                  \
+}                                                                                             \
+\
+static inline uo_link_type(type) *uo_get_link(type)(                                          \
+    type *item)                                                                               \
+{                                                                                             \
+    return (uo_link_type(type) *)((char *)item - offsetof(uo_link_type(type), item));         \
+}
 
 /**
- * @brief get next link
+ * @brief initialize a head
  * 
  */
-#define uo_linklist_next(link) \
-    ((void *)(((uo_linklist *)(link))->next))
+#define uo_linklist_selflink(head) \
+    uo__linklist_selflink((uo_linklist *)(head))
 
 /**
- * @brief get previous link
- * 
- */
-#define uo_linklist_prev(link) \
-    ((void *)(((uo_linklist *)(link))->prev))
-
-/**
- * @brief zero initialize a link
+ * @brief zero-fill a link
  * 
  */
 #define uo_linklist_reset(link) \
     uo__linklist_reset((uo_linklist *)(link))
 
 /**
- * @brief insert link after position marked by another link
+ * @brief test if list is empty
  * 
  */
-#define uo_linklist_insert_before(pos, link) \
-    uo__linklist_insert_before((uo_linklist *)(pos), (uo_linklist *)(link))
+#define uo_linklist_is_empty(head) \
+    uo__linklist_is_empty((uo_linklist *)(head))
+
+/**
+ * @brief test if link is linked to a list
+ * 
+ */
+#define uo_linklist_is_linked(link) \
+    uo__linklist_is_linked((uo_linklist *)(link))
 
 /**
  * @brief insert link before position marked by another link
  * 
  */
-#define uo_linklist_insert_after(pos, link) \
-    uo__linklist_insert_after((uo_linklist *)(pos), (uo_linklist *)(link))
+#define uo_linklist_link(pos, link) \
+    uo__linklist_link((uo_linklist *)(pos), (uo_linklist *)(link))
 
 /**
  * @brief remove link from linklist
  * 
  */
-#define uo_linklist_remove(link) \
-    uo__linklist_remove((uo_linklist *)(link))
+#define uo_linklist_unlink(link) \
+    uo__linklist_unlink((uo_linklist *)(link))
+
+static inline void uo__linklist_selflink(
+    uo_linklist *head)
+{
+    head->next = head->prev = head;
+}
 
 static inline void uo__linklist_reset(
     uo_linklist *link)
@@ -84,55 +120,33 @@ static inline void uo__linklist_reset(
     link->next = link->prev = NULL;
 }
 
-static inline void uo__linklist_insert_before(
+static inline bool uo__linklist_is_empty(
+    uo_linklist *head)
+{
+    return head == head->next;
+}
+
+static inline bool uo__linklist_is_linked(
+    uo_linklist *link)
+{
+    return link->next != NULL;
+}
+
+static inline void uo__linklist_link(
     uo_linklist *pos,
     uo_linklist *link)
 {
-    assert(!link->next);
+    assert(!uo__linklist_is_linked(link));
 
-    link->next = pos;
-
-    if (pos->prev)
-    {
-        assert(!link->prev);
-
-        pos->prev->next = link;
-        link->prev = pos->prev;
-    }
-
-    pos->prev = link;
+    (link->prev = pos->prev)->next = link;
+    (link->next = pos)->prev = link;
 }
 
-static inline void uo__linklist_insert_after(
-    uo_linklist *pos,
+static inline void uo__linklist_unlink(
     uo_linklist *link)
 {
-    assert(!link->prev);
-
-    link->prev = pos;
-
-    if (pos->next)
-    {
-        assert(!link->next);
-
-        pos->next->prev = link;
-        link->next = pos->next;
-    }
-
-    pos->next = link;
-}
-
-static inline void uo__linklist_remove(
-    uo_linklist *link)
-{
-    uo_linklist *link_next = link->next;
-    uo_linklist *link_prev = link->prev;
-
-    if (link_next)
-        link_next->prev = link_next != link_prev ? link_prev : NULL;
-
-    if (link_prev)
-        link_prev->next = link_prev != link_next ? link_next : NULL;
+    link->next->prev = link->prev;
+    link->prev->next = link->next;
 
     uo_linklist_reset(link);
 }
