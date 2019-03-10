@@ -51,13 +51,13 @@ typedef struct uo_link_type(type)                                               
 static inline uo_link_type(type) *uo_link_next(type)(                                         \
     uo_link_type(type) *link)                                                                 \
 {                                                                                             \
-    return (uo_link_type(type) *)link->next;                                                  \
+    return (uo_link_type(type) *)((uo_linklist *)link)->next;                                 \
 }                                                                                             \
 \
 static inline uo_link_type(type) *uo_link_prev(type)(                                         \
     uo_link_type(type) *link)                                                                 \
 {                                                                                             \
-    return (uo_link_type(type) *)link->prev;                                                  \
+    return (uo_link_type(type) *)((uo_linklist *)link)->prev;                                 \
 }                                                                                             \
 \
 static inline uo_link_type(type) *uo_get_link(type)(                                          \
