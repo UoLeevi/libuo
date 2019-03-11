@@ -71,10 +71,10 @@ void *uo_http_conn_get_user_data(
     void *user_data = NULL;
 
     if (http_conn->user_data)
-        user_data = uo_strhashtbl_find(http_conn->user_data, key);
+        user_data = uo_strhashtbl_get(http_conn->user_data, key);
 
     if (!user_data && *http_conn->shared_user_data)
-        user_data = uo_strhashtbl_find(*http_conn->shared_user_data, key);
+        user_data = uo_strhashtbl_get(*http_conn->shared_user_data, key);
 
     return user_data;
 }
@@ -87,7 +87,7 @@ void uo_http_conn_set_user_data(
     if (!http_conn->user_data)
         http_conn->user_data = uo_strhashtbl_create(0);
 
-    uo_strhashtbl_insert(http_conn->user_data, key, user_data);
+    uo_strhashtbl_set(http_conn->user_data, key, user_data);
 }
 
 void uo_http_conn_destroy(

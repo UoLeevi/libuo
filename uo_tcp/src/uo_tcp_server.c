@@ -19,6 +19,8 @@ extern void uo_tcp_conn_open(
 static void *uo_tcp_server_accept(
     void *arg)
 {
+    uo_cb_thrd_init();
+
     uo_tcp_server *tcp_server = arg;
 
     while (true)
@@ -36,6 +38,8 @@ static void *uo_tcp_server_accept(
 
         uo_tcp_conn_open(sockfd, &tcp_server->evt_handlers, tcp_server->user_data);
     }
+
+    uo_cb_thrd_quit();
 
     return NULL;
 }
@@ -160,7 +164,7 @@ void *uo_tcp_server_get_user_data(
     if (!tcp_server->user_data)
         return NULL;
 
-    return uo_strhashtbl_find(tcp_server->user_data, key);
+    return uo_strhashtbl_get(tcp_server->user_data, key);
 }
 
 void uo_tcp_server_set_user_data(
@@ -171,7 +175,7 @@ void uo_tcp_server_set_user_data(
     if (!tcp_server->user_data)
         tcp_server->user_data = uo_strhashtbl_create(0);
 
-    uo_strhashtbl_insert(tcp_server->user_data, key, user_data);
+    uo_strhashtbl_set(tcp_server->user_data, key, user_data);
 }
 
 void uo_tcp_server_destroy(

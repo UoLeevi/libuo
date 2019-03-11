@@ -216,7 +216,7 @@ void *uo_http_client_get_user_data(
     if (!http_client->user_data)
         return NULL;
 
-    return uo_strhashtbl_find(http_client->user_data, key);
+    return uo_strhashtbl_get(http_client->user_data, key);
 }
 
 void uo_http_client_set_user_data(
@@ -227,7 +227,7 @@ void uo_http_client_set_user_data(
     if (!http_client->user_data)
         http_client->user_data = uo_strhashtbl_create(0);
 
-    uo_strhashtbl_insert(http_client->user_data, key, user_data);
+    uo_strhashtbl_set(http_client->user_data, key, user_data);
 }
 
 

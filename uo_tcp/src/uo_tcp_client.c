@@ -125,7 +125,7 @@ void *uo_tcp_client_get_user_data(
     if (!tcp_client->user_data)
         return NULL;
 
-    return uo_strhashtbl_find(tcp_client->user_data, key);
+    return uo_strhashtbl_get(tcp_client->user_data, key);
 }
 
 void uo_tcp_client_set_user_data(
@@ -136,7 +136,7 @@ void uo_tcp_client_set_user_data(
     if (!tcp_client->user_data)
         tcp_client->user_data = uo_strhashtbl_create(0);
 
-    uo_strhashtbl_insert(tcp_client->user_data, key, user_data);
+    uo_strhashtbl_set(tcp_client->user_data, key, user_data);
 }
 
 void uo_tcp_client_destroy(

@@ -32,7 +32,7 @@ bool uo_http_msg_set_header(
     if (!http_msg->headers)
         http_msg->headers = uo_strhashtbl_create(0x20);
 
-    uo_strhashtbl_insert(http_msg->headers, header_name, header_value);
+    uo_strhashtbl_set(http_msg->headers, header_name, header_value);
 
     return true;
 }
@@ -369,7 +369,7 @@ bool uo_http_msg_parse_headers(
 
         header_value = strtok_r(p, "\r", &saveptr);
 
-        uo_strhashtbl_insert(headers, header_name, header_value);
+        uo_strhashtbl_set(headers, header_name, header_value);
 
         header_name = strtok_r(NULL, "\n:", &saveptr);
     }
@@ -389,13 +389,13 @@ bool uo_http_msg_parse_body(
 {
     uo_buf buf = *http_msg->buf;
 
-    char *header_transfer_encoding = uo_strhashtbl_find(http_msg->headers, "transfer-encoding");
+    char *header_transfer_encoding = uo_strhashtbl_get(http_msg->headers, "transfer-encoding");
     if (header_transfer_encoding)
     {
         // TODO
     }
 
-    char *header_content_length = uo_strhashtbl_find(http_msg->headers, "content-length");
+    char *header_content_length = uo_strhashtbl_get(http_msg->headers, "content-length");
     if (header_content_length)
     {
         char *endptr;
@@ -470,7 +470,7 @@ char *uo_http_msg_get_header(
     uo_http_msg *http_msg,
     const char *header_name)
 {
-    return uo_strhashtbl_find(http_msg->headers, header_name);
+    return uo_strhashtbl_get(http_msg->headers, header_name);
 }
 
 uo_http_method uo_http_req_get_method(
@@ -582,16 +582,13 @@ void uo_http_msg_write_to_buf(
     if (http_msg->headers)
     {
         uo_strhashtbl *headers = http_msg->headers;
+        uo_strkvp_link *headers_list = uo_strhashtbl_list(http_msg->headers);
+        uo_strkvp_link *header_link = uo_strkvp_link_next(headers_list);
 
-        size_t header_count = uo_strhashtbl_count(headers);
-
-        uo_strkvplist *header_list = (uo_strkvplist *)headers;
-
-        while (header_count--)
+        while (header_link != headers_list)
         {
-            header_list = uo_strkvplist_next(header_list);
-            uo_strkvp header = header_list->strkvp;
-            uo_buf_printf_append(dst, "%s: %s\r\n", header.key, header.value);
+            uo_buf_printf_append(dst, "%s: %s\r\n", header_link->item.key, header_link->item.value);
+            header_link = uo_strkvp_link_next(header_link);
         }
     }
 

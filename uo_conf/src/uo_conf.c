@@ -38,7 +38,7 @@ uo_conf *uo_conf_create(
     {
         char *value = strtok(NULL, "\r\n");
 
-        uo_strhashtbl_insert(strhashtbl, key, value);
+        uo_strhashtbl_set(strhashtbl, key, value);
         
         key = strtok(NULL, "\r\n\t ");
     }
@@ -61,7 +61,7 @@ char *uo_conf_get(
     uo_conf *conf,
     const char *key)
 {
-    return uo_strhashtbl_find(conf->strhashtbl, key);
+    return uo_strhashtbl_get(conf->strhashtbl, key);
 }
 
 void uo_conf_destroy(

@@ -114,7 +114,7 @@ static void tcp_server_evt_handler_after_send(
 
     if (http_conn->http_req->headers)
     {
-        char *header_connection = uo_strhashtbl_find(http_conn->http_req->headers, "connection");
+        char *header_connection = uo_strhashtbl_get(http_conn->http_req->headers, "connection");
         should_close &= header_connection && strcmp(header_connection, "close") == 0;
     }
 
@@ -191,7 +191,7 @@ static void uo_http_server_process_request_handlers(
             default: handlers = NULL; // method not implemented
         }
 
-        if (handlers && (handler = uo_strhashtbl_find(handlers, uo_http_req_get_uri(http_req))))
+        if (handlers && (handler = uo_strhashtbl_get(handlers, uo_http_req_get_uri(http_req))))
             uo_cb_prepend(cb, handler);
     }
 
@@ -322,7 +322,7 @@ bool uo_http_server_add_request_handler(
         default: return false; // method not implemented
     }
 
-    uo_strhashtbl_insert(handlers, uri, handler);
+    uo_strhashtbl_set(handlers, uri, handler);
 
     return true;
 }
@@ -340,7 +340,7 @@ void *uo_http_server_get_user_data(
     if (!http_server->user_data)
         return NULL;
 
-    return uo_strhashtbl_find(http_server->user_data, key);
+    return uo_strhashtbl_get(http_server->user_data, key);
 }
 
 void uo_http_server_set_user_data(
@@ -351,7 +351,7 @@ void uo_http_server_set_user_data(
     if (!http_server->user_data)
         http_server->user_data = uo_strhashtbl_create(0);
 
-    uo_strhashtbl_insert(http_server->user_data, key, user_data);
+    uo_strhashtbl_set(http_server->user_data, key, user_data);
 }
 
 void uo_http_server_destroy(

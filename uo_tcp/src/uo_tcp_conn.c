@@ -202,10 +202,10 @@ void *uo_tcp_conn_get_user_data(
     void *user_data = NULL;
 
     if (tcp_conn->user_data)
-        user_data = uo_strhashtbl_find(tcp_conn->user_data, key);
+        user_data = uo_strhashtbl_get(tcp_conn->user_data, key);
 
     if (!user_data && tcp_conn->shared_user_data)
-        user_data = uo_strhashtbl_find(tcp_conn->shared_user_data, key);
+        user_data = uo_strhashtbl_get(tcp_conn->shared_user_data, key);
 
     return user_data;
 }
@@ -218,7 +218,7 @@ void uo_tcp_conn_set_user_data(
     if (!tcp_conn->user_data)
         tcp_conn->user_data = uo_strhashtbl_create(0);
 
-    uo_strhashtbl_insert(tcp_conn->user_data, key, user_data);
+    uo_strhashtbl_set(tcp_conn->user_data, key, user_data);
 }
 
 void uo_tcp_conn_next_recv(

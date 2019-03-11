@@ -43,8 +43,12 @@ typedef struct uo_ioop
     static DWORD WINAPI uo_io_accept_async_io(
         LPVOID lpParam)
     {
+        uo_cb_thrd_init();
+
         while (!is_quitting)
             SleepEx(INFINITE, TRUE);
+
+        uo_cb_thrd_quit();
     }
 
     static VOID CALLBACK uo_io_cb_invoke(
@@ -178,6 +182,8 @@ typedef struct uo_ioop
     static void *uo_io_accept_async_io(
         void *arg)
     {
+        uo_cb_thrd_init();
+
         struct epoll_event epevts[UO_IO_EPOLL_MAXEVENTS];
 
         while (true)
@@ -197,6 +203,8 @@ typedef struct uo_ioop
                 uo_cb_invoke_async(ioop->cb);
             }
         }
+
+        uo_cb_thrd_quit();
     }
 
 #endif
