@@ -1,5 +1,5 @@
 #!/bin/bash
 
 cd build
-ctest
+ctest -R "_test$"
 cd ..
