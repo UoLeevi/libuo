@@ -74,6 +74,9 @@ static bool uo_linkpool_init(type)(void)                                        
 /* @brief free the linkpool resources held by current thread                               */ \
 static void uo_linkpool_quit(type)(void)                                                      \
 {                                                                                             \
+    if (!uo_linkpool_head(type).next)                                                         \
+        return;                                                                               \
+\
     size_t count = uo_stack_count(&uo_linkpool_stack(type));                                  \
 \
     for (size_t i = 0; i < count; ++i)                                                        \

@@ -51,20 +51,34 @@ typedef struct uo_link_type(type)                                               
 static inline uo_link_type(type) *uo_link_next(type)(                                         \
     uo_link_type(type) *link)                                                                 \
 {                                                                                             \
-    return (uo_link_type(type) *)((uo_linklist *)link)->next;                                 \
+    return (uo_link_type(type) *)uo_linklist_next(link);                                      \
 }                                                                                             \
 \
 static inline uo_link_type(type) *uo_link_prev(type)(                                         \
     uo_link_type(type) *link)                                                                 \
 {                                                                                             \
-    return (uo_link_type(type) *)((uo_linklist *)link)->prev;                                 \
+    return (uo_link_type(type) *)uo_linklist_prev(link);                                      \
 }                                                                                             \
 \
 static inline uo_link_type(type) *uo_get_link(type)(                                          \
     type *item)                                                                               \
 {                                                                                             \
-    return (uo_link_type(type) *)((char *)item - offsetof(uo_link_type(type), item));         \
+    return (uo_link_type(type) *)((char *)(void *)item - offsetof(uo_link_type(type), item)); \
 }
+
+/**
+ * @brief get next link in the linklist
+ * 
+ */
+#define uo_linklist_next(link) \
+    (((uo_linklist *)(link))->next)
+
+/**
+ * @brief get previous link in the linklist
+ * 
+ */
+#define uo_linklist_prev(link) \
+    (((uo_linklist *)(link))->prev)
 
 /**
  * @brief initialize a head
