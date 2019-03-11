@@ -1,3 +1,3 @@
 cd build
-ctest -VV
+ctest -V -R "_test$"
 cd ..

@@ -7,16 +7,23 @@ find_package(Threads REQUIRED)
 if(NOT TARGET uo::uo_stack)
     find_package(uo_stack CONFIG REQUIRED)
 endif()
+if(NOT TARGET uo::uo_linklist)
+    find_package(uo_linklist CONFIG REQUIRED)
+endif()
+if(NOT TARGET uo::uo_linkpool)
+    find_package(uo_linkpool CONFIG REQUIRED)
+endif()
 
 add_library(uo_cb
     uo_cb.c
     uo_cb_queue.c
-    uo_cb_thrd_pool.c)
+    uo_cb_thrdpool.c)
 
 target_link_libraries(uo_cb
-    PUBLIC
-        uo::uo_stack
     PRIVATE
+        uo::uo_stack
+        uo::uo_linklist
+        uo::uo_linkpool
         Threads::Threads
         m)
 

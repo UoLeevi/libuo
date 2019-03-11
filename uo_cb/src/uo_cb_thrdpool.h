@@ -1,5 +1,5 @@
-#ifndef UO_CB_THRD_POOL_H
-#define UO_CB_THRD_POOL_H
+#ifndef UO_CB_THRDPOOL_H
+#define UO_CB_THRDPOOL_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -7,7 +7,7 @@ extern "C" {
 
 #include "uo_cb.h"
 
-bool uo_cb_thrd_pool_init(void);
+bool uo_cb_thrdpool_init(void);
 
 #ifdef __cplusplus
 }

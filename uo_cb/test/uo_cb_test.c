@@ -19,8 +19,6 @@ void first(
     for (int i = 0; i < 0x8; ++i)
         atomic_fetch_add(&counter, (uintptr_t)uo_cb_stack_pop(cb));
 
-    assert(cb->stack.count == 0x1 || cb->stack.count == 0x9);
-
     uo_cb_invoke(cb);
 }
 
@@ -29,8 +27,6 @@ void second(
 {
     for (int i = 0; i < 0x8; ++i)
         atomic_fetch_add(&counter, (uintptr_t)uo_cb_stack_pop(cb));
-
-    assert(cb->stack.count == 0x1);
 
     uo_cb_invoke(cb);
 }
@@ -64,8 +60,6 @@ int main(
     uo_cb_stack_push(cb, (void *)(uintptr_t)0x6);
     uo_cb_stack_push(cb, (void *)(uintptr_t)0x7);
 
-    pass &= cb->stack.count == 0x8;
-
     uo_cb_append(cb, first);
 
     uo_cb *cb_clone = uo_cb_clone(cb);
@@ -78,9 +72,6 @@ int main(
     uo_cb_stack_push(cb, (void *)(uintptr_t)0xD);
     uo_cb_stack_push(cb, (void *)(uintptr_t)0xE);
     uo_cb_stack_push(cb, (void *)(uintptr_t)0xF);
-
-    pass &= cb_clone->stack.count == 0x8;
-    pass &= cb->stack.count == 0x10;
 
     uo_cb_append(cb, second);
 

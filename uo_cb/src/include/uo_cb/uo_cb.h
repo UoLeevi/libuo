@@ -5,23 +5,11 @@
 extern "C" {
 #endif
 
-#include "uo_stack.h"
-
 #include <stddef.h>
 #include <stdbool.h>
 
 typedef struct uo_cb uo_cb;
-typedef void uo_cb_func(uo_cb *);
-
-struct uo_cb 
-{
-    uo_stack stack;
-    struct
-    {
-        uo_cb_func **items;
-        size_t count;
-    } func_list;
-};
+typedef void (*uo_cb_func)(uo_cb *);
 
 /**
  * @brief initialization of uo_cb library
@@ -33,6 +21,26 @@ struct uo_cb
  * @return false    on error
  */
 bool uo_cb_init(void);
+
+/**
+ * @brief initialization of uo_cb library for current thread
+ * 
+ * This function is required to be called from each additional thread before using other 
+ * functions in this library. After a successful call to this function, the following 
+ * calls are ignored and return true.
+ * 
+ * @return true     on success
+ * @return false    on error
+ */
+bool uo_cb_thrd_init(void);
+
+/**
+ * @brief release of thread specific resources held uo_cb library
+ * 
+ * This function is should to be called from each additional thread before the thread exits 
+ * to release the thread specific resources held by uo_cb library.
+ */
+void uo_cb_thrd_quit(void);
 
 /**
  * @brief create a callback
@@ -80,8 +88,8 @@ void uo_cb_invoke_async(
  * 
  */
 #define uo_cb_prepend(cb, before) _Generic((before), \
-    uo_cb_func *: uo_cb_prepend_func, \
-         uo_cb *: uo_cb_prepend_cb)(cb, before)
+    uo_cb_func: uo_cb_prepend_func, \
+       uo_cb *: uo_cb_prepend_cb)(cb, before)
 
 /**
  * @brief add function to the beginning of the function list
@@ -89,7 +97,7 @@ void uo_cb_invoke_async(
  */
 void uo_cb_prepend_func(
     uo_cb *,
-    uo_cb_func *);
+    uo_cb_func);
 
 /**
  * @brief add functions of a another callback to the beginning of the function list and also combine the stacks
@@ -110,8 +118,8 @@ void uo_cb_prepend_cb(
  * 
  */
 #define uo_cb_append(cb, after) _Generic((after), \
-    uo_cb_func *: uo_cb_append_func, \
-         uo_cb *: uo_cb_append_cb)(cb, after)
+    uo_cb_func: uo_cb_append_func, \
+       uo_cb *: uo_cb_append_cb)(cb, after)
 
 /**
  * @brief add function to the end of the function list
@@ -119,7 +127,7 @@ void uo_cb_prepend_cb(
  */
 void uo_cb_append_func(
     uo_cb *,
-    uo_cb_func *);
+    uo_cb_func);
 
 /**
  * @brief add functions of a another callback to the end of the function list and also combine the stacks
@@ -139,44 +147,32 @@ void uo_cb_append_cb(
  * @brief push a pointer to the top of the stack of the callback
  * 
  */
-static inline void uo_cb_stack_push(
-    uo_cb *cb,
-    void *item)
-{
-    uo_stack_push(&cb->stack, item);
-}
+void uo_cb_stack_push(
+    uo_cb *,
+    void *item);
 
 /**
  * @brief pop a pointer from the top of the stack of the callback
  * 
  */
-static inline void *uo_cb_stack_pop(
-    uo_cb *cb)
-{
-    return uo_stack_pop(&cb->stack);
-}
+void *uo_cb_stack_pop(
+    uo_cb *);
 
 /**
  * @brief get a pointer from the top of the stack of the callback
  * 
  */
-static inline void *uo_cb_stack_peek(
-    uo_cb *cb)
-{
-    return uo_stack_peek(&cb->stack);
-}
+void *uo_cb_stack_peek(
+    uo_cb *);
 
 /**
  * @brief get a pointer from the the stack of the callback by index
  * 
  * @param index     use negative index to index starting from one past the last item of the stack
  */
-static inline void *uo_cb_stack_index(
-    uo_cb *cb,
-    int index)
-{
-    return uo_stack_index(&cb->stack, index);
-}
+void *uo_cb_stack_index(
+    uo_cb *,
+    int index);
 
 #ifdef __cplusplus
 }
