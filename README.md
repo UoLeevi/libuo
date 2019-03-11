@@ -26,7 +26,7 @@
 **`uo_cb`** - callbacks for asynchronous workloads  
 
 ### Dynamic memory
-**`uo_linkpool`** - strongly typed thread local memory pools for faster allocation and deallocation  
+**`uo_linkpool`** - strongly typed, thread local memory pools for faster allocation and deallocation  
 
 ### Data structures
 **`uo_stack`** - stack data structure with additional support for indexing and inserts  
