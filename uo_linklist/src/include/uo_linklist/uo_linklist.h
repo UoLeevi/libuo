@@ -44,7 +44,7 @@ typedef struct uo_linklist
 /* @brief typed linked list entry                                                          */ \
 typedef struct uo_link_type(type)                                                             \
 {                                                                                             \
-    uo_linklist;                                                                              \
+    uo_linklist link;                                                                         \
     type item;                                                                                \
 } uo_link_type(type);                                                                         \
 \
