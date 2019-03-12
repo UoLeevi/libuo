@@ -1,15 +1,14 @@
 cmake_minimum_required(VERSION 3.12)
 project(uo_stack VERSION 0.2.0)
 
-add_library(uo_stack
-    uo_stack.c)
+add_library(uo_stack INTERFACE)
 
 target_compile_features(uo_stack
-    PUBLIC
+    INTERFACE
         c_std_11)
 
 target_include_directories(uo_stack
-    PUBLIC
+    INTERFACE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/uo_stack>
         $<INSTALL_INTERFACE:include/uo_stack>)
 
