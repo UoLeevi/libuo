@@ -16,7 +16,7 @@ extern "C" {
 /**
  * @brief stack data structure that supports automatic resizing
  * 
- * For convenience, uo_stack has also support for accessing and inserting stack items by using an index.
+ * For convenience, uo_stack also has support for accessing and inserting stack items by using an index.
  */
 typedef struct uo_stack
 {
@@ -25,7 +25,7 @@ typedef struct uo_stack
     size_t capacity;
 } uo_stack;
 
-// ideally this would be defined in some other header or library
+// ideally, this would be defined in some other header or library
 static inline uint64_t next_power_of_two(
     uint64_t n)
 {
@@ -42,10 +42,10 @@ static inline uint64_t next_power_of_two(
 }
 
 /**
- * @brief create an instance of uo_stack at specific memory location
+ * @brief create an instance of uo_stack at a specific memory location
  * 
- * @param stack             pointer to memory location where to create the uo_stack at
- * @param initial_capacity  minimum initial capacity, note that resize occures when uo_stack is full
+ * @param stack             pointer to memory location where to create the uo_stack
+ * @param initial_capacity  minimum initial capacity, note that resize occurs when uo_stack is full
  */
 static inline void uo_stack_create_at(
     uo_stack *stack,
@@ -62,8 +62,8 @@ static inline void uo_stack_create_at(
 /**
  * @brief create an instance of uo_stack
  * 
- * @param initial_capacity  minimum initial capacity, note that resize occures when uo_stack is full
- * @return uo_stack *  created uo_stack instance
+ * @param initial_capacity  minimum initial capacity, note that resize occurs when uo_stack is full
+ * @return uo_stack *       created uo_stack instance
  */
 static inline uo_stack *uo_stack_create(
     size_t initial_capacity)
@@ -105,7 +105,7 @@ static inline size_t uo_stack_count(
 }
 
 /**
- * @brief push an item on to the stack
+ * @brief push an item onto the stack
  * 
  */
 static inline void uo_stack_push(
@@ -121,7 +121,7 @@ static inline void uo_stack_push(
 }
 
 /**
- * @brief push an array of pointers on to the stack
+ * @brief push an array of pointers onto the stack
  * 
  */
 static inline void uo_stack_push_arr(
@@ -141,7 +141,7 @@ static inline void uo_stack_push_arr(
 /**
  * @brief pop the item on top of the stack
  * 
- * The stack is required to have count greater than zero when this function is called.
+ * The stack's count is required be greater than zero when this function is called.
  * 
  * @return void *   the item that was removed
  */
@@ -171,7 +171,7 @@ static inline void *uo_stack_peek(
 
 
 /**
- * @brief get an item from the stack by index
+ * @brief get an item from the stack by using an index
  * 
  * @param index     use negative index to index starting from one past the last item of the stack
  */
@@ -183,7 +183,7 @@ static inline void *uo_stack_index(
 }
 
 /**
- * @brief insert an item on to stack at specified index
+ * @brief insert an item onto stack at specified index
  * 
  * Note that this function is implemented by moving the array items after the index by one
  * which makes this function slower than uo_stack_push.
@@ -206,7 +206,7 @@ static inline void uo_stack_insert(
 }
 
 /**
- * @brief insert an array of pointers on to the stack at specified index
+ * @brief insert an array of pointers onto the stack at specified index
  * 
  * Note that this function is implemented by moving the array items after the index by the number of added items
  * which makes this function slower than uo_stack_push_arr.
