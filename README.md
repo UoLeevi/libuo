@@ -20,14 +20,17 @@
 **`uo_base64`** - base64 and base64url encoding and decoding
 
 ### Asynchronous I/O
-**`uo_io`** - Asychronous socket I/O for Windows and Linux  
+**`uo_io`** - asychronous socket I/O for Windows and Linux  
 
 ### Concurrency
-**`uo_cb`** - Callbacks for asynchronous workloads  
+**`uo_cb`** - callbacks for asynchronous workloads  
+
+### Dynamic memory
+**`uo_linkpool`** - strongly typed, thread local memory pools for faster allocation and deallocation  
 
 ### Data structures
-**`uo_stack`** - stack data structure with additional support for indexing and inserts
-**`uo_linklist`** - linked list without dynamic memory allocation  
+**`uo_stack`** - stack data structure with additional support for indexing and inserts  
+**`uo_linklist`** - doubly linked list for fast inserts and removes  
 **`uo_strhashtbl`** - hash table for storing values with string keys  
 **`uo_queue`** - "blocking" queue for multithreaded synchronized data access 
 
