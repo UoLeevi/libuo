@@ -32,10 +32,10 @@ int main(
 
     passed &= uo_strhashtbl_count(strhashtbl) == 0x1000;
 
-    uo_strkvp_link *link = uo_strhashtbl_list(strhashtbl);
+    uo_strkvp_linklist *link = uo_strhashtbl_list(strhashtbl);
     for (size_t i = 0; i < 0x1000; ++i)
     {
-        link = uo_strkvp_link_next(link);
+        link = uo_strkvp_linklist_next(link);
         passed &= strcmp(link->item.value, lorem + i) == 0;
     }
 
@@ -56,12 +56,12 @@ int main(
     link = uo_strhashtbl_list(strhashtbl);
 
     for (size_t i = 0; i < 0x100; ++i)
-        link = uo_strkvp_link_prev(link);
+        link = uo_strkvp_linklist_prev(link);
 
     for (size_t i = (0x1000 - 0x100); i < 0x1000 - 1; ++i)
     {
         passed &= strcmp(link->item.value, lorem + i) == 0;
-        link = uo_strkvp_link_next(link);
+        link = uo_strkvp_linklist_next(link);
     }
 
     uo_strhashtbl_destroy(strhashtbl);

@@ -14,7 +14,7 @@ struct uo_strhashtbl
     size_t count;
     size_t removed_count;
     size_t capacity;
-    uo_strkvp_link *links;
+    uo_strkvp_linklist *links;
 };
 
 static inline uint64_t next_power_of_two(
@@ -87,25 +87,25 @@ inline size_t uo_strhashtbl_count(
     return strhashtbl->count;
 }
 
-static uo_strkvp_link *uo_strhashtbl_find_link(
-    const uo_strkvp_link *links,
+static uo_strkvp_linklist *uo_strhashtbl_find_link(
+    const uo_strkvp_linklist *links,
     size_t capacity,
     const char *key)
 {
     const unsigned long mask = capacity - 1;
     unsigned long h = uo_strhashtbl_hash((const unsigned char *)key) & mask;
-    const uo_strkvp_link *link = links + h;
+    const uo_strkvp_linklist *link = links + h;
 
     while (link->item.key && strcmp(link->item.key, key) || (uintptr_t)link->item.value == UO_STRHASHTBL_TAG_REMOVED)
         link = links + (++h & mask);
 
-    return (uo_strkvp_link *)link;
+    return (uo_strkvp_linklist *)link;
 }
 
-inline uo_strkvp_link *uo_strhashtbl_list(
+inline uo_strkvp_linklist *uo_strhashtbl_list(
     uo_strhashtbl *strhashtbl)
 {
-    return (uo_strkvp_link *)&strhashtbl->head;
+    return (uo_strkvp_linklist *)&strhashtbl->head;
 }
 
 static void uo_strhashtbl_resize(
@@ -113,12 +113,12 @@ static void uo_strhashtbl_resize(
     const size_t capacity)
 {
     strhashtbl->capacity = capacity;
-    uo_strkvp_link *new_links = calloc(capacity, sizeof *strhashtbl->links);
+    uo_strkvp_linklist *new_links = calloc(capacity, sizeof *strhashtbl->links);
 
     uo_linklist head = strhashtbl->head;
 
-    uo_strkvp_link *link = (uo_strkvp_link *)&head;
-    uo_strkvp_link *new_link;
+    uo_strkvp_linklist *link = (uo_strkvp_linklist *)&head;
+    uo_strkvp_linklist *new_link;
 
     uo_linklist_unlink(strhashtbl);
     uo_linklist_selflink(strhashtbl);
@@ -127,7 +127,7 @@ static void uo_strhashtbl_resize(
 
     for (size_t i = 0; i < count; ++i)
     {
-        link = uo_strkvp_link_next(link);
+        link = uo_strkvp_linklist_next(link);
         new_link = uo_strhashtbl_find_link(new_links, capacity, link->item.key);
         new_link->item = link->item;
         uo_linklist_link(strhashtbl, new_link);
@@ -154,7 +154,7 @@ void uo_strhashtbl_set(
     if (!key)
         return;
 
-    uo_strkvp_link *link = uo_strhashtbl_find_link(strhashtbl->links, strhashtbl->capacity, key);
+    uo_strkvp_linklist *link = uo_strhashtbl_find_link(strhashtbl->links, strhashtbl->capacity, key);
     link->item.value = (void *)value;
 
     if (link->item.key)
@@ -178,7 +178,7 @@ void *uo_strhashtbl_remove(
     if (!key)
         return NULL;
 
-    uo_strkvp_link *link = uo_strhashtbl_find_link(strhashtbl->links, strhashtbl->capacity, key);
+    uo_strkvp_linklist *link = uo_strhashtbl_find_link(strhashtbl->links, strhashtbl->capacity, key);
 
     if (!link->item.key)
         return NULL;

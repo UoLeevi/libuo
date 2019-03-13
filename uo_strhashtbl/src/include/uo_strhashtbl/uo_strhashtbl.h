@@ -16,7 +16,7 @@ typedef struct uo_strkvp
     void *value;
 } uo_strkvp;
 
-uo_def_link(uo_strkvp); // typedef uo_strkvp_link
+uo_def_linklist(uo_strkvp); // typedef uo_strkvp_link
 
 typedef struct uo_strhashtbl uo_strhashtbl;
 
@@ -99,7 +99,7 @@ void *uo_strhashtbl_remove(
  * @brief get the head of the linked list with key-value pairs
  * 
  */
-uo_strkvp_link *uo_strhashtbl_list(
+uo_strkvp_linklist *uo_strhashtbl_list(
     uo_strhashtbl *);
 
 #ifdef __cplusplus

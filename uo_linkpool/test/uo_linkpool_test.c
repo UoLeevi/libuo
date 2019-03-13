@@ -26,9 +26,9 @@ int main(
     passed &= int_linkpool_is_init();
     passed &= int_linkpool_is_empty();
 
-    int_link *i0 = int_linkpool_rent();
-    int_link *i1 = int_linkpool_rent();
-    int_link *i2 = int_linkpool_rent();
+    int_linklist *i0 = int_linkpool_rent();
+    int_linklist *i1 = int_linkpool_rent();
+    int_linklist *i2 = int_linkpool_rent();
 
     passed &= !int_linkpool_is_empty();
 
@@ -37,8 +37,8 @@ int main(
 
     passed &= testfunc_linkpool_init();
 
-    testfunc_link *f0 = testfunc_linkpool_rent();
-    testfunc_link *f1 = testfunc_linkpool_rent();
+    testfunc_linklist *f0 = testfunc_linkpool_rent();
+    testfunc_linklist *f1 = testfunc_linkpool_rent();
     testfunc_linkpool_return(f0);
     f0 = testfunc_linkpool_rent();
 

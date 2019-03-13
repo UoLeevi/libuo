@@ -81,7 +81,7 @@ uo_cb *uo_cb_clone(
 
     while (link != &cb->funclist)
     {
-        uo_cb_append_func(cb_clone, ((uo_cb_func_link *)link)->item);
+        uo_cb_append_func(cb_clone, ((uo_cb_func_linklist *)link)->item);
         link = link->next;
     }
 
@@ -95,21 +95,21 @@ void uo_cb_destroy(
 
     while (!uo_linklist_is_empty(&cb->funclist))
     {
-        uo_cb_func_link *cb_func_link = (uo_cb_func_link *)uo_linklist_next(&cb->funclist);
-        uo_linklist_unlink(cb_func_link);
-        uo_cb_func_linkpool_return(cb_func_link);
+        uo_cb_func_linklist *cb_func_linklist = (uo_cb_func_linklist *)uo_linklist_next(&cb->funclist);
+        uo_linklist_unlink(cb_func_linklist);
+        uo_cb_func_linkpool_return(cb_func_linklist);
     }
 
-    uo_cb_linkpool_return(uo_cb_get_link(cb));
+    uo_cb_linkpool_return(uo_cb_get_linklist(cb));
 }
 
 void uo_cb_prepend_func(
     uo_cb *cb,
     uo_cb_func cb_func)
 {
-    uo_cb_func_link *cb_func_link = uo_cb_func_linkpool_rent();
-    cb_func_link->item = cb_func;
-    uo_linklist_link(cb->funclist.next, cb_func_link);
+    uo_cb_func_linklist *cb_func_linklist = uo_cb_func_linkpool_rent();
+    cb_func_linklist->item = cb_func;
+    uo_linklist_link(cb->funclist.next, cb_func_linklist);
 }
 
 void uo_cb_prepend_cb(
@@ -122,7 +122,7 @@ void uo_cb_prepend_cb(
 
     while (link != &cb_before->funclist)
     {
-        uo_cb_prepend_func(cb, ((uo_cb_func_link *)link)->item);
+        uo_cb_prepend_func(cb, ((uo_cb_func_linklist *)link)->item);
         link = link->prev;
     }
 }
@@ -131,9 +131,9 @@ void uo_cb_append_func(
     uo_cb *cb,
     uo_cb_func cb_func)
 {
-    uo_cb_func_link *cb_func_link = uo_cb_func_linkpool_rent();
-    cb_func_link->item = cb_func;
-    uo_linklist_link(&cb->funclist, cb_func_link);
+    uo_cb_func_linklist *cb_func_linklist = uo_cb_func_linkpool_rent();
+    cb_func_linklist->item = cb_func;
+    uo_linklist_link(&cb->funclist, cb_func_linklist);
 }
 
 void uo_cb_append_cb(
@@ -146,7 +146,7 @@ void uo_cb_append_cb(
 
     while (link != &cb_after->funclist)
     {
-        uo_cb_append_func(cb, ((uo_cb_func_link *)link)->item);
+        uo_cb_append_func(cb, ((uo_cb_func_linklist *)link)->item);
         link = link->next;
     }
 }
@@ -156,10 +156,10 @@ void uo_cb_invoke(
 {
     if (!uo_linklist_is_empty(&cb->funclist))
     {
-        uo_cb_func_link *cb_func_link = (uo_cb_func_link *)uo_linklist_next(&cb->funclist);
-        uo_linklist_unlink(cb_func_link);
-        uo_cb_func cb_func = cb_func_link->item;
-        uo_cb_func_linkpool_return(cb_func_link);
+        uo_cb_func_linklist *cb_func_linklist = (uo_cb_func_linklist *)uo_linklist_next(&cb->funclist);
+        uo_linklist_unlink(cb_func_linklist);
+        uo_cb_func cb_func = cb_func_linklist->item;
+        uo_cb_func_linkpool_return(cb_func_linklist);
         cb_func(cb);
     }
     else

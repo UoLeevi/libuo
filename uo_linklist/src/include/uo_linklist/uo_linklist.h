@@ -27,43 +27,44 @@ typedef struct uo_linklist
     struct uo_linklist *prev;
 } uo_linklist;
 
-#define uo_link_type(type) \
-    type ## _link
+#define uo__linklist_type(type) \
+    type ## _linklist
 
-#define uo_link_next(type) \
-    type ## _link_next
+#define uo__linklist_next_f(type) \
+    type ## _linklist_next
 
-#define uo_link_prev(type) \
-    type ## _link_prev
+#define uo__linklist_prev_f(type) \
+    type ## _linklist_prev
 
-#define uo_get_link(type) \
-    type ## _get_link
+#define uo__get_linklist_f(type) \
+    type ## _get_linklist
 
-#define uo_def_link(type)                                                                     \
+#define uo_def_linklist(type)                                                                 \
 \
 /* @brief typed linked list entry                                                          */ \
-typedef struct uo_link_type(type)                                                             \
+typedef struct uo__linklist_type(type)                                                        \
 {                                                                                             \
     uo_linklist link;                                                                         \
     type item;                                                                                \
-} uo_link_type(type);                                                                         \
+} uo__linklist_type(type);                                                                    \
 \
-static inline uo_link_type(type) *uo_link_next(type)(                                         \
-    uo_link_type(type) *link)                                                                 \
+static inline uo__linklist_type(type) *uo__linklist_next_f(type)(                             \
+    uo__linklist_type(type) *link)                                                            \
 {                                                                                             \
-    return (uo_link_type(type) *)uo_linklist_next(link);                                      \
+    return (uo__linklist_type(type) *)uo_linklist_next(link);                                 \
 }                                                                                             \
 \
-static inline uo_link_type(type) *uo_link_prev(type)(                                         \
-    uo_link_type(type) *link)                                                                 \
+static inline uo__linklist_type(type) *uo__linklist_prev_f(type)(                             \
+    uo__linklist_type(type) *link)                                                            \
 {                                                                                             \
-    return (uo_link_type(type) *)uo_linklist_prev(link);                                      \
+    return (uo__linklist_type(type) *)uo_linklist_prev(link);                                 \
 }                                                                                             \
 \
-static inline uo_link_type(type) *uo_get_link(type)(                                          \
+static inline uo__linklist_type(type) *uo__get_linklist_f(type)(                              \
     type *item)                                                                               \
 {                                                                                             \
-    return (uo_link_type(type) *)((char *)(void *)item - offsetof(uo_link_type(type), item)); \
+    void *link = (char *)(void *)item - offsetof(uo__linklist_type(type), item);              \
+    return (uo__linklist_type(type) *)link;                                                   \
 }
 
 /**

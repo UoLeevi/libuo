@@ -582,13 +582,13 @@ void uo_http_msg_write_to_buf(
     if (http_msg->headers)
     {
         uo_strhashtbl *headers = http_msg->headers;
-        uo_strkvp_link *headers_list = uo_strhashtbl_list(http_msg->headers);
-        uo_strkvp_link *header_link = uo_strkvp_link_next(headers_list);
+        uo_strkvp_linklist *headers_list = uo_strhashtbl_list(http_msg->headers);
+        uo_strkvp_linklist *header_link = uo_strkvp_linklist_next(headers_list);
 
         while (header_link != headers_list)
         {
             uo_buf_printf_append(dst, "%s: %s\r\n", header_link->item.key, header_link->item.value);
-            header_link = uo_strkvp_link_next(header_link);
+            header_link = uo_strkvp_linklist_next(header_link);
         }
     }
 

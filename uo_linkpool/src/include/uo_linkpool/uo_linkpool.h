@@ -15,31 +15,31 @@ extern "C" {
 
 #define UO__LINKPOOL_DEFAULT_GROW 0x10
 
-#define uo_linkpool_stack(type) \
+#define uo__linkpool_stack(type) \
     type ## _linkpool_stack
 
-#define uo_linkpool_head(type) \
+#define uo__linkpool_head(type) \
     type ## _linkpool_head
 
-#define uo_linkpool_is_init(type) \
+#define uo__linkpool_is_init_f(type) \
     type ## _linkpool_is_init
 
-#define uo_linkpool_init(type) \
+#define uo__linkpool_init_f(type) \
     type ## _linkpool_init
 
-#define uo_linkpool_quit(type) \
+#define uo__linkpool_quit_f(type) \
     type ## _linkpool_quit
 
-#define uo_linkpool_is_empty(type) \
+#define uo__linkpool_is_empty_f(type) \
     type ## _linkpool_is_empty
 
-#define uo_linkpool_grow(type) \
+#define uo__linkpool_grow_f(type) \
     type ## _linkpool_grow
 
-#define uo_linkpool_rent(type) \
+#define uo__linkpool_rent_f(type) \
     type ## _linkpool_rent
 
-#define uo_linkpool_return(type) \
+#define uo__linkpool_return_f(type) \
     type ## _linkpool_return
 
 /**
@@ -49,79 +49,79 @@ extern "C" {
  */
 #define uo_def_linkpool(type)                                                                 \
 \
-uo_def_link(type);                                                                            \
+uo_def_linklist(type);                                                                        \
 \
-static _Thread_local uo_stack uo_linkpool_stack(type);                                        \
-static _Thread_local uo_linklist uo_linkpool_head(type);                                      \
+static _Thread_local uo_stack uo__linkpool_stack(type);                                       \
+static _Thread_local uo_linklist uo__linkpool_head(type);                                     \
 \
 /* @brief test if the linkpool has been initialized for current thread                     */ \
-static inline bool uo_linkpool_is_init(type)(void)                                            \
+static inline bool uo__linkpool_is_init_f(type)(void)                                         \
 {                                                                                             \
-    return uo_linklist_is_linked(&uo_linkpool_head(type));                                    \
+    return uo_linklist_is_linked(&uo__linkpool_head(type));                                   \
 }                                                                                             \
 \
 /* @brief initialize the linkpool for current thread                                       */ \
-static bool uo_linkpool_init(type)(void)                                                      \
+static bool uo__linkpool_init_f(type)(void)                                                   \
 {                                                                                             \
-    if (uo_linkpool_head(type).next)                                                          \
+    if (uo__linkpool_head(type).next)                                                         \
         return true;                                                                          \
 \
-    uo_linklist_selflink(&uo_linkpool_head(type));                                            \
-    uo_stack_create_at(&uo_linkpool_stack(type), 0);                                          \
+    uo_linklist_selflink(&uo__linkpool_head(type));                                           \
+    uo_stack_create_at(&uo__linkpool_stack(type), 0);                                         \
     return true;                                                                              \
 }                                                                                             \
 \
 /* @brief free the linkpool resources held by current thread                               */ \
-static void uo_linkpool_quit(type)(void)                                                      \
+static void uo__linkpool_quit_f(type)(void)                                                   \
 {                                                                                             \
-    if (!uo_linkpool_head(type).next)                                                         \
+    if (!uo__linkpool_head(type).next)                                                        \
         return;                                                                               \
 \
-    size_t count = uo_stack_count(&uo_linkpool_stack(type));                                  \
+    size_t count = uo_stack_count(&uo__linkpool_stack(type));                                 \
 \
     for (size_t i = 0; i < count; ++i)                                                        \
-        free(uo_stack_pop(&uo_linkpool_stack(type)));                                         \
+        free(uo_stack_pop(&uo__linkpool_stack(type)));                                        \
 \
-    uo_linklist_reset(&uo_linkpool_head(type));                                               \
-    uo_stack_destroy_at(&uo_linkpool_stack(type));                                            \
+    uo_linklist_reset(&uo__linkpool_head(type));                                              \
+    uo_stack_destroy_at(&uo__linkpool_stack(type));                                           \
 }                                                                                             \
 \
 /* @brief test if the linkpool is empty for current thread                                 */ \
-static inline bool uo_linkpool_is_empty(type)(void)                                           \
+static inline bool uo__linkpool_is_empty_f(type)(void)                                        \
 {                                                                                             \
-    return uo_linklist_is_empty(&uo_linkpool_head(type));                                     \
+    return uo_linklist_is_empty(&uo__linkpool_head(type));                                    \
 }                                                                                             \
 \
 /* @brief allocate new nodes to the linkpool                                               */ \
-static void uo_linkpool_grow(type)(                                                           \
+static void uo__linkpool_grow_f(type)(                                                        \
     size_t count)                                                                             \
 {                                                                                             \
-    assert(uo_linkpool_is_init(type));                                                        \
+    assert(uo__linkpool_is_init_f(type));                                                     \
 \
-    uo_link_type(type) *items = calloc(count, sizeof *items);                                 \
-    uo_stack_push(&uo_linkpool_stack(type), items);                                           \
+    uo__linklist_type(type) *items = calloc(count, sizeof *items);                             \
+    uo_stack_push(&uo__linkpool_stack(type), items);                                          \
 \
     for (size_t i = 0; i < count; ++i)                                                        \
-        uo_linklist_link(&uo_linkpool_head(type), (uo_linklist *)(items + i));                \
+        uo_linklist_link(&uo__linkpool_head(type), (uo_linklist *)(items + i));               \
 }                                                                                             \
 \
 /* @brief take an linked list item off the linkpool                                        */ \
-static inline uo_link_type(type) *uo_linkpool_rent(type)(void)                                \
+static inline uo__linklist_type(type) *uo__linkpool_rent_f(type)(void)                        \
 {                                                                                             \
-    if (uo_linkpool_is_empty(type))                                                           \
-        uo_linkpool_grow(type)(UO__LINKPOOL_DEFAULT_GROW);                                    \
+    if (uo__linkpool_is_empty_f(type))                                                        \
+        uo__linkpool_grow_f(type)(UO__LINKPOOL_DEFAULT_GROW);                                 \
 \
-    uo_linklist *link = uo_linkpool_head(type).prev;                                          \
+    uo_linklist *link = uo__linkpool_head(type).prev;                                         \
     uo_linklist_unlink(link);                                                                 \
 \
-    return (uo_link_type(type) *)link;                                                        \
+    return (uo__linklist_type(type) *)link;                                                   \
 }                                                                                             \
 \
 /* @brief return an linked list item back to the linkpool                                  */ \
-static inline void uo_linkpool_return(type)(                                                  \
-    uo_link_type(type) *link)                                                                 \
+static inline void uo__linkpool_return_f(type)(                                               \
+    uo__linklist_type(type) *link)                                                            \
 {                                                                                             \
-    uo_linklist_link(&uo_linkpool_head(type), (uo_linklist *)link);                           \
+    uo_linklist_link(&uo__linkpool_head(type), (uo_linklist *)link);                          \
 }
 
 #ifdef __cplusplus
