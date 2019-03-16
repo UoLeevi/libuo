@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(uo_cb VERSION 0.3)
+project(uo_cb VERSION 0.5.0)
 
 add_subdirectory(src)
 
