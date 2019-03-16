@@ -27,16 +27,13 @@ void uo_finstack_destroy(
 /**
  * @brief add resource to the uo_finstack stack
  * 
- * @param ptr               resource to be added to the finstack
- * @param ptr_finstack     pointer to the finstack function for the resource
+ * @param ptr           resource to be added to the finstack
+ * @param finalizer     pointer to the finalizer function for the resource
  */
-#define uo_finstack_add(finstack, ptr, ptr_finstack) \
-    uo__finstack_add(finstack, ptr, (void (*)(void *))(ptr_finstack))
-
-void uo__finstack_add(
+void uo_finstack_add(
     uo_finstack *,
     void *ptr,
-    void (*ptr_finstack)(void *));
+    void (*finalizer)(void *));
 
 /**
  * @brief finalize all the resources added to the uo_finstack instance

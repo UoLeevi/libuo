@@ -1,8 +1,16 @@
 cmake_minimum_required(VERSION 3.12)
-project(uo_buf VERSION 0.2.0)
+project(uo_buf VERSION 0.5.0)
+
+if(NOT TARGET uo::uo_util)
+    find_package(uo_util CONFIG REQUIRED)
+endif()
 
 add_library(uo_buf
     uo_buf.c)
+
+target_link_libraries(uo_buf
+    PRIVATE
+        uo::uo_util)
 
 target_compile_features(uo_buf
     PUBLIC

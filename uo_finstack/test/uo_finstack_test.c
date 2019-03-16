@@ -25,7 +25,7 @@ int main(
     uo_finstack_finalize(finstack);
     passed &= counter == 1;
 
-    uo_finstack_add(finstack, finstack, uo_finstack_destroy);
+    uo_finstack_add(finstack, finstack, (void (*)(void *))uo_finstack_destroy);
     uo_finstack_add(finstack, NULL, test_finalizer);
     passed &= counter == 1;
 

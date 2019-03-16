@@ -1,5 +1,5 @@
 #include "uo_tcp_client.h"
-#include "uo_strhashtbl.h"
+#include "uo_hashtbl.h"
 #include "uo_err.h"
 #include "uo_sock.h"
 
@@ -41,7 +41,7 @@ void uo_tcp_client_connect(
 
     freeaddrinfo(res);
 
-    uo_tcp_conn_open(sockfd, &tcp_client->evt_handlers, tcp_client->user_data);
+    uo_tcp_conn_open(sockfd, &tcp_client->evt_handlers, &tcp_client->user_data);
 
     return;
 
@@ -67,6 +67,8 @@ uo_tcp_client *uo_tcp_client_create(
     tcp_client->evt_handlers.after_recv   = uo_cb_create();
     tcp_client->evt_handlers.before_close = uo_cb_create();
     tcp_client->evt_handlers.after_close  = uo_cb_create();
+
+    uo_strhashtbl_create_at(&tcp_client->user_data, 0);
 
     tcp_client->hostname = hostname;
     tcp_client->port = port;
@@ -122,10 +124,7 @@ void *uo_tcp_client_get_user_data(
     uo_tcp_client *tcp_client,
     const char *key)
 {
-    if (!tcp_client->user_data)
-        return NULL;
-
-    return uo_strhashtbl_get(tcp_client->user_data, key);
+    return uo_strhashtbl_get(&tcp_client->user_data, key);
 }
 
 void uo_tcp_client_set_user_data(
@@ -133,10 +132,7 @@ void uo_tcp_client_set_user_data(
     const char *key,
     const void *user_data)
 {
-    if (!tcp_client->user_data)
-        tcp_client->user_data = uo_strhashtbl_create(0);
-
-    uo_strhashtbl_set(tcp_client->user_data, key, user_data);
+    uo_strhashtbl_set(&tcp_client->user_data, key, user_data);
 }
 
 void uo_tcp_client_destroy(
@@ -150,8 +146,7 @@ void uo_tcp_client_destroy(
     uo_cb_destroy(tcp_client->evt_handlers.before_close);
     uo_cb_destroy(tcp_client->evt_handlers.after_close);
 
-    if (tcp_client->user_data)
-        uo_strhashtbl_destroy(tcp_client->user_data);
+    uo_strhashtbl_destroy_at(&tcp_client->user_data);
 
     free(tcp_client);
 }

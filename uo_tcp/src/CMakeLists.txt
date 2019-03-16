@@ -10,8 +10,8 @@ endif()
 if(NOT TARGET uo::uo_io)
     find_package(uo_io CONFIG REQUIRED)
 endif()
-if(NOT TARGET uo::uo_strhashtbl)
-    find_package(uo_strhashtbl CONFIG REQUIRED)
+if(NOT TARGET uo::uo_hashtbl)
+    find_package(uo_hashtbl CONFIG REQUIRED)
 endif()
 if(NOT TARGET uo::uo_buf)
     find_package(uo_buf CONFIG REQUIRED)
@@ -36,9 +36,9 @@ target_link_libraries(uo_tcp
     PUBLIC
         uo::uo_cb
         uo::uo_buf
+        uo::uo_hashtbl
     PRIVATE
         uo::uo_io
-        uo::uo_strhashtbl
         uo::uo_err
         uo::uo_mem
         uo::uo_sock

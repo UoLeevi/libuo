@@ -6,6 +6,7 @@ extern "C"
 {
 #endif
 
+#include "uo_hashtbl.h"
 #include "uo_cb.h"
 #include "uo_buf.h"
 
@@ -15,7 +16,6 @@ extern "C"
 
 typedef struct uo_tcp_server uo_tcp_server;
 typedef struct uo_tcp_client uo_tcp_client;
-typedef struct uo_strhashtbl uo_strhashtbl;
 
 /**
  * @brief uo_tcp_conn_evt_handlers struct contains callbacks for TCP connection events
@@ -57,7 +57,7 @@ typedef union uo_tcp_conn_evt_arg
 
 typedef struct uo_tcp_conn
 {
-    uo_strhashtbl *user_data;
+    uo_strhashtbl user_data;
     uo_strhashtbl *shared_user_data;
     uo_buf rbuf;
     uo_buf wbuf;

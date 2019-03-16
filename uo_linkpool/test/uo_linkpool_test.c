@@ -19,11 +19,10 @@ int main(
 {
     bool passed = true;
 
-    passed &= !int_linkpool_is_init();
-
     passed &= int_linkpool_init();
-
-    passed &= int_linkpool_is_init();
+    passed &= !int_linkpool_is_thrd_init();
+    passed &= int_linkpool_thrd_init();
+    passed &= int_linkpool_is_thrd_init();
     passed &= int_linkpool_is_empty();
 
     int_linklist *i0 = int_linkpool_rent();
@@ -36,6 +35,7 @@ int main(
     passed &= i0->item == 12345;
 
     passed &= testfunc_linkpool_init();
+    passed &= testfunc_linkpool_thrd_init();
 
     testfunc_linklist *f0 = testfunc_linkpool_rent();
     testfunc_linklist *f1 = testfunc_linkpool_rent();
@@ -54,8 +54,8 @@ int main(
 
     passed &= !int_linkpool_is_empty();
 
-    int_linkpool_quit();
-    testfunc_linkpool_quit();
+    int_linkpool_thrd_quit();
+    testfunc_linkpool_thrd_quit();
 
     return passed ? 0 : 1;
 }

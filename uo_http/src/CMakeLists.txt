@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(uo_http VERSION 0.4.0)
+project(uo_http VERSION 0.5.0)
 
 if(NOT TARGET uo::uo_finstack)
     find_package(uo_finstack CONFIG REQUIRED)
@@ -10,8 +10,8 @@ endif()
 if(NOT TARGET uo::uo_mem)
     find_package(uo_mem CONFIG REQUIRED)
 endif()
-if(NOT TARGET uo::uo_strhashtbl)
-    find_package(uo_strhashtbl CONFIG REQUIRED)
+if(NOT TARGET uo::uo_hashtbl)
+    find_package(uo_hashtbl CONFIG REQUIRED)
 endif()
 if(NOT TARGET uo::uo_buf)
     find_package(uo_buf CONFIG REQUIRED)
@@ -31,11 +31,11 @@ target_link_libraries(uo_http
     PUBLIC
         uo::uo_buf
         uo::uo_cb
+        uo::uo_hashtbl
     PRIVATE
         uo::uo_finstack
         uo::uo_tcp
-        uo::uo_mem
-        uo::uo_strhashtbl)
+        uo::uo_mem)
 
 target_compile_features(uo_http
     PUBLIC

@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.12)
-project(uo_conf VERSION 0.1.0)
+project(uo_conf VERSION 0.5.0)
 
-if(NOT TARGET uo::uo_strhashtbl)
-    find_package(uo_strhashtbl CONFIG REQUIRED)
+if(NOT TARGET uo::uo_hashtbl)
+    find_package(uo_hashtbl CONFIG REQUIRED)
 endif()
 if(NOT TARGET uo::uo_err)
     find_package(uo_err CONFIG REQUIRED)
@@ -14,7 +14,7 @@ add_library(uo_conf
 target_link_libraries(uo_conf
     PRIVATE
         uo::uo_err
-        uo::uo_strhashtbl)
+        uo::uo_hashtbl)
 
 target_compile_features(uo_conf
     PUBLIC

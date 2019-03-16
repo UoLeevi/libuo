@@ -33,8 +33,8 @@ static void http_client_evt_handler_after_recv_response(
 static void http_client_evt_handler_after_close(
     uo_cb *cb)
 {
-    sem_post(&sem);
     uo_cb_invoke(cb);
+    sem_post(&sem);
 }
 
 static void http_server_evt_handler_after_recv_request(

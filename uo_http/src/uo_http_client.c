@@ -2,7 +2,7 @@
 #include "uo_http_conn.h"
 #include "uo_tcp_client.h"
 #include "uo_tcp.h"
-#include "uo_strhashtbl.h"
+#include "uo_hashtbl.h"
 #include "uo_mem.h"
 #include "uo_buf.h"
 #include "uo_macro.h"
@@ -79,12 +79,11 @@ static void tcp_client_evt_handler_after_recv(
 {
     uo_tcp_conn *tcp_conn = uo_cb_stack_index(cb, 0);
     uo_http_conn *http_conn = uo_tcp_conn_get_user_data(tcp_conn, "http_conn");
-    uo_http_msg *http_res = http_conn->http_res;
+    uo_http_msg *http_res = &http_conn->http_res;
 
-    if (http_res->start_line_len
-        || uo_http_msg_parse_start_line(http_res))
+    if (http_res->flags.start_line || uo_http_msg_parse_start_line(http_res))
     {
-        if (http_res->headers && uo_http_msg_parse_body(http_res))
+        if (http_res->flags.headers && uo_http_msg_parse_body(http_res))
         {
             uo_cb_stack_pop(cb);
             uo_cb_stack_push(cb, http_conn);
@@ -131,10 +130,10 @@ static void uo_http_client_before_send_request(
     uo_cb *cb)
 {
     uo_http_conn *http_conn = uo_cb_stack_index(cb, 0);
-    uo_http_msg *http_req = http_conn->http_req;
+    uo_http_msg *http_req = &http_conn->http_req;
 
-    if (!http_req->start_line_len)
-        uo_http_req_set_request_line(http_req, UO_HTTP_GET, "/", UO_HTTP_1_1);
+    if (!http_req->flags.start_line)
+        uo_http_req_set_request_line(http_req, UO_HTTP_GET, "/", UO_HTTP_VER_1_1);
 
     uo_tcp_conn *tcp_conn = http_conn->tcp_conn;
     uo_http_msg_write_to_buf(http_req, &tcp_conn->wbuf);

@@ -10,6 +10,8 @@
 
 #include <semaphore.h>
 
+const char *lorem = "Lorem ipsum dolor sit amet, choro clita percipit cum te, nulla liber appellantur ad quo. Ubique bonorum fabulas at ius, ubique nostrum ut sea, ne nec dictas possim inciderint. Duo ad epicuri salutatus prodesset, pro sanctus phaedrum antiopam ne, ea mel paulo homero accusata. Elitr viderer habemus nec no, ut ius ancillae periculis, per te eruditi indoctum petentium. Iriure eleifend liberavisse pro in, dolore integre ex pro. Usu corpora quaestio efficiantur te. Mollis inermis consulatu nec no, his ei amet referrentur, no ius quidam delicata. Omnis aliquam recteque ne nam. Eum te ludus postea patrioque. Aeque sensibus mei eu, ne.";
+
 static bool pass;
 static sem_t sem;
 
@@ -18,7 +20,7 @@ static void tcp_client_evt_handler_before_send(
 {
     uo_tcp_conn *tcp_conn = uo_cb_stack_index(cb, 0);
 
-    uo_buf_printf_append(&tcp_conn->wbuf, "hello");
+    uo_buf_printf_append(&tcp_conn->wbuf, "%s", lorem);
 
     uo_cb_invoke(cb);
 }
@@ -30,7 +32,7 @@ static void tcp_client_evt_handler_after_recv(
 
     if (tcp_conn->evt_arg.after_recv.is_msg_fully_received)
     {
-        pass &= memcmp(tcp_conn->rbuf, "hello", 5) == 0;
+        pass &= memcmp(tcp_conn->rbuf, lorem, sizeof lorem) == 0;
 
         uo_tcp_conn_next_close(tcp_conn);
     }
@@ -41,8 +43,8 @@ static void tcp_client_evt_handler_after_recv(
 static void tcp_client_evt_handler_after_close(
     uo_cb *cb)
 {
-    sem_post(&sem);
     uo_cb_invoke(cb);
+    sem_post(&sem);
 }
 
 static void tcp_server_evt_handler_before_send(
@@ -58,8 +60,8 @@ static void tcp_server_evt_handler_before_send(
 static void tcp_server_evt_handler_after_close(
     uo_cb *cb)
 {
-    sem_post(&sem);
     uo_cb_invoke(cb);
+    sem_post(&sem);
 }
 
 int main(

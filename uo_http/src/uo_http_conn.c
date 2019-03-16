@@ -2,7 +2,7 @@
 #include "uo_http_client.h"
 #include "uo_http_server.h"
 #include "uo_tcp_conn.h"
-#include "uo_strhashtbl.h"
+#include "uo_hashtbl.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -20,8 +20,10 @@ uo_http_conn *uo_http_conn_create_for_client(
 
     http_conn->buf = uo_buf_alloc(0x200);
 
-    http_conn->http_req = uo_http_msg_create(&http_conn->buf);
-    http_conn->http_res = uo_http_msg_create(&((uo_tcp_conn *)tcp_conn)->rbuf);
+    uo_http_msg_create_at(&http_conn->http_req, &http_conn->buf, 
+        UO_HTTP_MSG_TYPE_REQUEST, UO_HTTP_MSG_ROLE_SEND);
+    uo_http_msg_create_at(&http_conn->http_res, &tcp_conn->rbuf, 
+        UO_HTTP_MSG_TYPE_RESPONSE, UO_HTTP_MSG_ROLE_RECV);
 
     return http_conn;
 }
@@ -37,8 +39,10 @@ uo_http_conn *uo_http_conn_create_for_server(
 
     http_conn->buf = uo_buf_alloc(0x200);
 
-    http_conn->http_req = uo_http_msg_create(&((uo_tcp_conn *)tcp_conn)->rbuf);
-    http_conn->http_res = uo_http_msg_create(&http_conn->buf);
+    uo_http_msg_create_at(&http_conn->http_req, &tcp_conn->rbuf, 
+        UO_HTTP_MSG_TYPE_REQUEST, UO_HTTP_MSG_ROLE_RECV);
+    uo_http_msg_create_at(&http_conn->http_res, &http_conn->buf, 
+        UO_HTTP_MSG_TYPE_RESPONSE, UO_HTTP_MSG_ROLE_SEND);
 
     return http_conn;
 }
@@ -46,21 +50,28 @@ uo_http_conn *uo_http_conn_create_for_server(
 void uo_http_conn_reset(
     uo_http_conn *http_conn)
 {
-    bool is_client = &http_conn->buf == http_conn->http_req->buf;
+    bool is_client = http_conn->http_req.flags.role == UO_HTTP_MSG_ROLE_SEND;
 
     uo_buf_set_ptr_abs(http_conn->buf, 0);
-    uo_http_msg_destroy(http_conn->http_req);
-    uo_http_msg_destroy(http_conn->http_res);
+    uo_http_msg_destroy_at(&http_conn->http_req);
+    uo_http_msg_destroy_at(&http_conn->http_res);
+
+    memset(&http_conn->http_req, 0, sizeof http_conn->http_req);
+    memset(&http_conn->http_res, 0, sizeof http_conn->http_res);
 
     if (is_client)
     {
-        http_conn->http_req = uo_http_msg_create(&http_conn->buf);
-        http_conn->http_res = uo_http_msg_create(&((uo_tcp_conn *)http_conn->tcp_conn)->rbuf);
+        uo_http_msg_create_at(&http_conn->http_req, &http_conn->buf, 
+            UO_HTTP_MSG_TYPE_REQUEST, UO_HTTP_MSG_ROLE_SEND);
+        uo_http_msg_create_at(&http_conn->http_res, &http_conn->tcp_conn->rbuf, 
+            UO_HTTP_MSG_TYPE_RESPONSE, UO_HTTP_MSG_ROLE_RECV);
     }
     else
     {
-        http_conn->http_req = uo_http_msg_create(&((uo_tcp_conn *)http_conn->tcp_conn)->rbuf);
-        http_conn->http_res = uo_http_msg_create(&http_conn->buf);
+        uo_http_msg_create_at(&http_conn->http_req, &http_conn->tcp_conn->rbuf, 
+            UO_HTTP_MSG_TYPE_REQUEST, UO_HTTP_MSG_ROLE_RECV);
+        uo_http_msg_create_at(&http_conn->http_res, &http_conn->buf, 
+            UO_HTTP_MSG_TYPE_RESPONSE, UO_HTTP_MSG_ROLE_SEND);
     }
 }
 
@@ -68,15 +79,11 @@ void *uo_http_conn_get_user_data(
     uo_http_conn *http_conn,
     const char *key)
 {
-    void *user_data = NULL;
+    void *user_data = uo_strhashtbl_get(&http_conn->user_data, key);
 
-    if (http_conn->user_data)
-        user_data = uo_strhashtbl_get(http_conn->user_data, key);
-
-    if (!user_data && *http_conn->shared_user_data)
-        user_data = uo_strhashtbl_get(*http_conn->shared_user_data, key);
-
-    return user_data;
+    return user_data
+        ? user_data
+        : uo_strhashtbl_get(http_conn->shared_user_data, key);
 }
 
 void uo_http_conn_set_user_data(
@@ -84,10 +91,7 @@ void uo_http_conn_set_user_data(
     const char *key,
     const void *user_data)
 {
-    if (!http_conn->user_data)
-        http_conn->user_data = uo_strhashtbl_create(0);
-
-    uo_strhashtbl_set(http_conn->user_data, key, user_data);
+    uo_strhashtbl_set(&http_conn->user_data, key, user_data);
 }
 
 void uo_http_conn_destroy(
@@ -95,11 +99,10 @@ void uo_http_conn_destroy(
 {
     uo_buf_free(http_conn->buf);
 
-    uo_http_msg_destroy(http_conn->http_res);
-    uo_http_msg_destroy(http_conn->http_req);
+    uo_http_msg_destroy_at(&http_conn->http_res);
+    uo_http_msg_destroy_at(&http_conn->http_req);
 
-    if (http_conn->user_data)
-        uo_strhashtbl_destroy(http_conn->user_data);
+    uo_strhashtbl_destroy_at(&http_conn->user_data);
 
     free(http_conn);
 }

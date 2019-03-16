@@ -31,16 +31,16 @@ typedef struct uo_http_conn_evt_handlers
 
 typedef struct uo_http_conn
 {
-    uo_strhashtbl *user_data;
+    uo_strhashtbl user_data;
+    uo_http_req http_req;
+    uo_http_res http_res;
     union
     {
-        uo_strhashtbl **shared_user_data;
+        uo_strhashtbl *shared_user_data;
         uo_http_client *http_client;
         uo_http_server *http_server;
     };
     uo_http_conn_evt_handlers *evt_handlers;
-    uo_http_msg *http_req;
-    uo_http_msg *http_res;
     uo_tcp_conn *tcp_conn;
     uo_buf buf;
 } uo_http_conn;

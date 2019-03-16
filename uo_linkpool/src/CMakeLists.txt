@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(uo_linkpool VERSION 0.1.0)
+project(uo_linkpool VERSION 0.5.0)
 
 if(NOT TARGET uo::uo_macro)
     find_package(uo_macro CONFIG REQUIRED)
@@ -10,6 +10,9 @@ endif()
 if(NOT TARGET uo::uo_linklist)
     find_package(uo_linklist CONFIG REQUIRED)
 endif()
+if(NOT TARGET uo::uo_queue)
+    find_package(uo_queue CONFIG REQUIRED)
+endif()
 
 add_library(uo_linkpool INTERFACE)
 
@@ -17,7 +20,8 @@ target_link_libraries(uo_linkpool
     INTERFACE
         uo::uo_macro
         uo::uo_stack
-        uo::uo_linklist)
+        uo::uo_linklist
+        uo::uo_queue)
 
 target_compile_features(uo_linkpool
     INTERFACE

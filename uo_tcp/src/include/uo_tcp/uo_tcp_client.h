@@ -34,7 +34,7 @@ extern "C"
  */
 typedef struct uo_tcp_client
 {
-    uo_strhashtbl *user_data;
+    uo_strhashtbl user_data;
     uo_tcp_conn_evt_handlers evt_handlers;
     const char *hostname;
     const char *port;

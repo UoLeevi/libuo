@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(uo_json VERSION 0.1.0)
+project(uo_json VERSION 0.5.0)
 
 if(NOT TARGET uo::uo_mem)
     find_package(uo_mem CONFIG REQUIRED)

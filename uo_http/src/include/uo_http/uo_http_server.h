@@ -50,15 +50,17 @@ typedef struct uo_strhashtbl uo_strhashtbl;
  */
 typedef struct uo_http_server
 {
-    uo_strhashtbl *user_data;
+    uo_strhashtbl user_data;
     uo_http_conn_evt_handlers evt_handlers;
     struct
     {
-        uo_strhashtbl *GET;
-        uo_strhashtbl *POST;
-        uo_strhashtbl *PUT;
-        uo_strhashtbl *DELETE;
-    } request_handlers;
+        // handlers matched using request line without version. 
+        // E.g.
+        //   "GET /asdf"
+        //   "POST /user"
+        uo_strhashtbl prefix;
+        uo_strhashtbl exact;
+    } req_handlers;
     struct
     {
         bool is_serving_static_files;
@@ -119,20 +121,39 @@ bool uo_http_server_set_opt_serve_static_files(
     const char *dirname);
 
 /**
- * @brief add a handler (i.e. callback) for specific request URI and method
+ * @brief add or update a prefix handler (i.e. callback) for specific request line
  * 
- * Only single handler for each URI-method pair is permitted.
+ * Handlers are processed until response status line has been set.
+ * Request handler matching process is as follows:
+ *  1. Check for prexix match for each path segment in request line
+ *  2. Check for exact match
  * 
- * @param method    request method
- * @param uri       request URI
- * @param handler   handler callback
- * @return true     on success
- * @return false    on error
+ * @param method_sp_uri     null terminated string containing HTTP method and partial request URI
+ * @param handler           handler callback
+ * @return true             on success
+ * @return false            on error
  */
-bool uo_http_server_add_request_handler(
+bool uo_http_server_set_req_prefix_handler(
     uo_http_server *,
-    uo_http_method method,
-    const char *uri,
+    const char *method_sp_uri,
+    uo_cb *handler);
+
+/**
+ * @brief add or update an exact handler (i.e. callback) for specific request line
+ * 
+ * Handlers are processed until response status line has been set.
+ * Request handler matching process is as follows:
+ *  1. Check for prexix match for each path segment in request line
+ *  2. Check for exact match
+ * 
+ * @param method_sp_uri     null terminated string containing HTTP method and request URI
+ * @param handler           handler callback
+ * @return true             on success
+ * @return false            on error
+ */
+bool uo_http_server_set_req_exact_handler(
+    uo_http_server *,
+    const char *method_sp_uri,
     uo_cb *handler);
 
 /**

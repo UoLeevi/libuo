@@ -1,7 +1,7 @@
 #include "uo_tcp_conn.h"
 #include "uo_tcp_client.h"
 #include "uo_tcp_server.h"
-#include "uo_strhashtbl.h"
+#include "uo_hashtbl.h"
 #include "uo_io.h"
 #include "uo_sock.h"
 
@@ -11,7 +11,7 @@
 
 #include <unistd.h>
 
-#define UO_TCP_BUF_SIZE 0x1000
+#define UO_TCP_BUF_SIZE 0x200
 
 static void uo_tcp_conn_advance(uo_cb *);
 
@@ -24,8 +24,7 @@ static void uo_tcp_conn_destroy(
     uo_buf_free(tcp_conn->rbuf);
     uo_buf_free(tcp_conn->wbuf);
 
-    if (tcp_conn->user_data)
-        uo_strhashtbl_destroy(tcp_conn->user_data);
+    uo_strhashtbl_destroy_at(&tcp_conn->user_data);
 
     free(tcp_conn);
 }
@@ -199,15 +198,11 @@ void *uo_tcp_conn_get_user_data(
     uo_tcp_conn *tcp_conn,
     const char *key)
 {
-    void *user_data = NULL;
+    void *user_data = uo_strhashtbl_get(&tcp_conn->user_data, key);
 
-    if (tcp_conn->user_data)
-        user_data = uo_strhashtbl_get(tcp_conn->user_data, key);
-
-    if (!user_data && tcp_conn->shared_user_data)
-        user_data = uo_strhashtbl_get(tcp_conn->shared_user_data, key);
-
-    return user_data;
+    return user_data
+        ? user_data
+        : uo_strhashtbl_get(tcp_conn->shared_user_data, key);
 }
 
 void uo_tcp_conn_set_user_data(
@@ -215,10 +210,7 @@ void uo_tcp_conn_set_user_data(
     const char *key,
     const void *user_data)
 {
-    if (!tcp_conn->user_data)
-        tcp_conn->user_data = uo_strhashtbl_create(0);
-
-    uo_strhashtbl_set(tcp_conn->user_data, key, user_data);
+    uo_strhashtbl_set(&tcp_conn->user_data, key, user_data);
 }
 
 void uo_tcp_conn_next_recv(
@@ -250,6 +242,8 @@ void uo_tcp_conn_open(
     tcp_conn->wbuf = uo_buf_alloc(UO_TCP_BUF_SIZE);
     tcp_conn->evt_handlers = evt_handlers;
     tcp_conn->sockfd = sockfd;
+
+    uo_strhashtbl_create_at(&tcp_conn->user_data, 0);
 
     atomic_init(&tcp_conn->state, '\0');
 

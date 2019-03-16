@@ -8,7 +8,7 @@
 struct uo_finstack_item
 {
     void *ptr;
-    void (*ptr_finstack)(void *);
+    void (*finalizer)(void *);
 };
 
 uo_finstack *uo_finstack_create()
@@ -22,14 +22,14 @@ void uo_finstack_destroy(
     uo_stack_destroy(finstack);
 }
 
-void uo__finstack_add(
+void uo_finstack_add(
     uo_finstack *finstack,
     void *ptr,
-    void (*ptr_finstack)(void *))
+    void (*finalizer)(void *))
 {
     struct uo_finstack_item *item = malloc(sizeof *item);
     item->ptr = ptr;
-    item->ptr_finstack = ptr_finstack;
+    item->finalizer = finalizer;
     uo_stack_push(finstack, item);
 }
 
@@ -43,8 +43,8 @@ void uo_finstack_finalize(
     {
         item = uo_stack_pop(finstack);
         
-        if (item->ptr_finstack)
-            item->ptr_finstack(item->ptr);
+        if (item->finalizer)
+            item->finalizer(item->ptr);
 
         free(item);
     }

@@ -104,11 +104,11 @@ target_link_libraries(my-web-app
 void http_server_before_send_response(
     uo_cb *cb)
 {
-    // get HTTP session object
-    uo_http_sess *http_sess = uo_cb_stack_index(cb, 0);
+    // get HTTP connection object
+    uo_http_conn *http_conn = uo_cb_stack_index(cb, 0);
     
     // override response header
-    uo_http_msg_set_header(http_sess->http_response, "server", "libuo http");
+    uo_http_msg_set_header(&http_conn->http_res, "server", "libuo http");
     
     // proceed to the next step in HTTP session handling
     uo_cb_invoke(cb);

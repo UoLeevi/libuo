@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(uo_stack VERSION 0.2.0)
+project(uo_stack VERSION 0.5.0)
 
 add_library(uo_stack INTERFACE)
 

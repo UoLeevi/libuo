@@ -26,8 +26,8 @@ static bool is_init;
 
 static void uo_cb_quit(void)
 {
-    uo_cb_func_linkpool_quit();
-    uo_cb_linkpool_quit();
+    uo_cb_func_linkpool_thrd_quit();
+    uo_cb_linkpool_thrd_quit();
 }
 
 bool uo_cb_init() 
@@ -37,10 +37,13 @@ bool uo_cb_init()
 
     is_init = true;
 
-    atexit(uo_cb_quit);
-
     is_init &= uo_cb_linkpool_init();
     is_init &= uo_cb_func_linkpool_init();
+    is_init &= uo_cb_linkpool_thrd_init();
+    is_init &= uo_cb_func_linkpool_thrd_init();
+
+    atexit(uo_cb_quit);
+
     is_init &= uo_cb_queue_init();
     is_init &= uo_cb_thrdpool_init();
 
@@ -49,17 +52,18 @@ bool uo_cb_init()
 
 bool uo_cb_thrd_init()
 {
+    bool is_init = true;
 
-    uo_cb_linkpool_init();
-    uo_cb_func_linkpool_init();
+    is_init &= uo_cb_linkpool_thrd_init();
+    is_init &= uo_cb_func_linkpool_thrd_init();
 
-    return true;
+    return is_init;
 }
 
 void uo_cb_thrd_quit()
 {
-    uo_cb_func_linkpool_quit();
-    uo_cb_linkpool_quit();
+    uo_cb_func_linkpool_thrd_quit();
+    uo_cb_linkpool_thrd_quit();
 }
 
 uo_cb *uo_cb_create()

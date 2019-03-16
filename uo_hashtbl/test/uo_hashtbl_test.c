@@ -1,4 +1,5 @@
-#include "uo_strhashtbl.h"
+#include "uo_hashtbl.h"
+#include "uo_util.h"
 
 #include <string.h>
 #include <stdint.h>
@@ -14,25 +15,25 @@ int main(
 {
     bool passed = true;
 
-    uo_strhashtbl *strhashtbl = uo_strhashtbl_create(0);
+    uo_strhashtbl *hashtbl = uo_strhashtbl_create(0);
     const char *key1 = "key1";
     const char *value1 = "value1";
-    uo_strhashtbl_set(strhashtbl, key1, value1);
-    passed &= uo_strhashtbl_count(strhashtbl) == 1;
-    passed &= uo_strhashtbl_get(strhashtbl, key1) == value1;
-    passed &= uo_strhashtbl_remove(strhashtbl, key1) == value1;
-    passed &= uo_strhashtbl_count(strhashtbl) == 0;
-    passed &= uo_strhashtbl_get(strhashtbl, key1) == NULL;
+    uo_strhashtbl_set(hashtbl, key1, value1);
+    passed &= hashtbl->count == 1;
+    passed &= uo_strhashtbl_get(hashtbl, key1) == value1;
+    passed &= uo_strhashtbl_remove(hashtbl, key1) == value1;
+    passed &= hashtbl->count == 0;
+    passed &= uo_strhashtbl_get(hashtbl, key1) == NULL;
 
     for (size_t i = 0; i < 0x1000; ++i)
     {
-        passed &= uo_strhashtbl_count(strhashtbl) == i;
-        uo_strhashtbl_set(strhashtbl, lorem + i, lorem + i);
+        passed &= hashtbl->count == i;
+        uo_strhashtbl_set(hashtbl, lorem + i, lorem + i);
     }
 
-    passed &= uo_strhashtbl_count(strhashtbl) == 0x1000;
+    passed &= hashtbl->count == 0x1000;
 
-    uo_strkvp_linklist *link = uo_strhashtbl_list(strhashtbl);
+    uo_strkvp_linklist *link = uo_strhashtbl_list(hashtbl);
     for (size_t i = 0; i < 0x1000; ++i)
     {
         link = uo_strkvp_linklist_next(link);
@@ -41,19 +42,19 @@ int main(
 
     for (size_t i = 0; i < 0x1000; ++i)
     {
-        passed &= uo_strhashtbl_remove(strhashtbl, lorem + i) == lorem + i;
-        uo_strhashtbl_set(strhashtbl, lorem + i, lorem + i);
+        passed &= uo_strhashtbl_remove(hashtbl, lorem + i) == lorem + i;
+        uo_strhashtbl_set(hashtbl, lorem + i, lorem + i);
     }
 
     for (size_t i = 0; i < (0x1000 - 0x100); ++i)
     {
-        passed &= uo_strhashtbl_count(strhashtbl) == 0x1000 - i;
-        passed &= uo_strhashtbl_remove(strhashtbl, lorem + i) == lorem + i;
+        passed &= hashtbl->count == 0x1000 - i;
+        passed &= uo_strhashtbl_remove(hashtbl, lorem + i) == lorem + i;
     }
 
-    passed &= uo_strhashtbl_count(strhashtbl) == 0x100;
+    passed &= hashtbl->count == 0x100;
 
-    link = uo_strhashtbl_list(strhashtbl);
+    link = uo_strhashtbl_list(hashtbl);
 
     for (size_t i = 0; i < 0x100; ++i)
         link = uo_strkvp_linklist_prev(link);
@@ -64,7 +65,7 @@ int main(
         link = uo_strkvp_linklist_next(link);
     }
 
-    uo_strhashtbl_destroy(strhashtbl);
+    uo_strhashtbl_destroy(hashtbl);
 
     return passed ? 0 : 1;
 }

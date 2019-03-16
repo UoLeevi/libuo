@@ -1,6 +1,6 @@
 #include "uo_conf.h"
 #include "uo_err.h"
-#include "uo_strhashtbl.h"
+#include "uo_hashtbl.h"
 
 #include <string.h>
 #include <ctype.h>

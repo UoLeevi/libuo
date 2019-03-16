@@ -1,25 +1,29 @@
 #include "uo_buf.h"
+#include "uo_util.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
+#define UO_BUF_HEADER_SIZE (sizeof (size_t) * 2)
+#define UO_BUF_GROW_SIZE (UO_BUF_HEADER_SIZE + 0x20)
+
 uo_buf uo_buf_alloc(
     size_t size)
 {
-    unsigned char *mem = malloc(sizeof (size_t) * 2 + size);
+    unsigned char *mem = malloc(UO_BUF_HEADER_SIZE + size);
     ((size_t *)mem)[0] = size;
     ((size_t *)mem)[1] = 0;
-    return mem + sizeof (size_t) * 2;
+    return mem + UO_BUF_HEADER_SIZE;
 }
 
 uo_buf uo_buf_realloc(
     uo_buf buf,
     size_t size)
 {
-    unsigned char *mem = realloc((size_t *)buf - 2, sizeof (size_t) * 2 + size);
+    unsigned char *mem = realloc((size_t *)buf - 2, UO_BUF_HEADER_SIZE + size);
     ((size_t *)mem)[0] = size;
-    return mem + sizeof (size_t) * 2;
+    return mem + UO_BUF_HEADER_SIZE;
 }
 
 uo_buf uo_buf_realloc_2x(
@@ -48,22 +52,47 @@ int uo_buf_printf_append(
     const char *format,
     ...)
 {
-    va_list args[2];
-    va_start(args[0], format);
-    va_copy(args[1], args[0]);
+    int n = uo_buf_get_len_after_ptr(*buf);
 
-    int size = vsnprintf(NULL, 0, format, args[0]);
-    va_end(args[0]);
+    #ifdef _WIN32
+        // vsnprintf not ansi compliant
 
-    while (uo_buf_get_len_after_ptr(*buf) <= size)
-        *buf = uo_buf_realloc_2x(*buf);
+        va_list args[2];
+        va_start(args[0], format);
+        va_copy(args[1], args[0]);
+        int len = vsnprintf(NULL, 0, format, args[0]);
+        va_end(args[0]);
 
-    vsnprintf(uo_buf_get_ptr(*buf), uo_buf_get_len_after_ptr(*buf), format, args[1]);
-    va_end(args[1]);
+        if (len >= n)
+        {
+            size_t size = uo_ceil_pow2(uo_buf_get_len_before_ptr(*buf) + len + UO_BUF_GROW_SIZE + 1);
+            *buf = uo_buf_realloc(*buf, size - UO_BUF_HEADER_SIZE);
+        }
 
-    uo_buf_set_ptr_rel(*buf, size);
+        vsprintf(uo_buf_get_ptr(*buf), format, args[1]);
+        va_end(args[1]);
 
-    return size;
+    #else
+
+        va_list args;
+        va_start(args, format);
+        int len = vsnprintf(uo_buf_get_ptr(*buf), n, format, args);
+        va_end(args);
+
+        if (len >= n)
+        {
+            size_t size = uo_ceil_pow2(uo_buf_get_len_before_ptr(*buf) + len + UO_BUF_GROW_SIZE + 1);
+            *buf = uo_buf_realloc(*buf, size - UO_BUF_HEADER_SIZE);
+            va_start(args, format);
+            vsprintf(uo_buf_get_ptr(*buf), format, args);
+            va_end(args);
+        }
+
+    #endif
+
+    uo_buf_set_ptr_rel(*buf, len);
+
+    return len;
 }
 
 void *uo_buf_memcpy_append(
