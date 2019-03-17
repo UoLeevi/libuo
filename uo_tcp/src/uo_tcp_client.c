@@ -10,10 +10,12 @@
 #include <stdint.h>
 #include <stdio.h>
 
-extern void uo_tcp_conn_open(
+extern uo_tcp_conn *uo_tcp_conn_create_for_client(
     int sockfd,
-    uo_tcp_conn_evt_handlers *evt_handlers,
-    uo_strhashtbl *shared_user_data);
+    uo_tcp_client *);
+
+extern void uo_tcp_conn_open(
+    uo_tcp_conn *);
 
 void uo_tcp_client_connect(
     uo_tcp_client *tcp_client)
@@ -41,7 +43,8 @@ void uo_tcp_client_connect(
 
     freeaddrinfo(res);
 
-    uo_tcp_conn_open(sockfd, &tcp_client->evt_handlers, &tcp_client->user_data);
+    uo_tcp_conn *tcp_conn = uo_tcp_conn_create_for_client(sockfd, tcp_client);
+    uo_tcp_conn_open(tcp_conn);
 
     return;
 

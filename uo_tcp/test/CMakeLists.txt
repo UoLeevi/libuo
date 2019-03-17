@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(uo_tcp_test VERSION 0.5.0)
+project(uo_tcp_test VERSION 0.5.1)
 
 enable_testing()
 

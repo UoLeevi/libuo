@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(uo_http VERSION 0.5.0)
+project(uo_http VERSION 0.5.1)
 
 if(NOT TARGET uo::uo_finstack)
     find_package(uo_finstack CONFIG REQUIRED)

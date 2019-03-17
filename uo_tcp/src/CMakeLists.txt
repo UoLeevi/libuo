@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(uo_tcp VERSION 0.5.0)
+project(uo_tcp VERSION 0.5.1)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
@@ -12,6 +12,9 @@ if(NOT TARGET uo::uo_io)
 endif()
 if(NOT TARGET uo::uo_hashtbl)
     find_package(uo_hashtbl CONFIG REQUIRED)
+endif()
+if(NOT TARGET uo::uo_queue)
+    find_package(uo_queue CONFIG REQUIRED)
 endif()
 if(NOT TARGET uo::uo_buf)
     find_package(uo_buf CONFIG REQUIRED)
@@ -38,6 +41,7 @@ target_link_libraries(uo_tcp
         uo::uo_buf
         uo::uo_hashtbl
     PRIVATE
+        uo::uo_queue
         uo::uo_io
         uo::uo_err
         uo::uo_mem

@@ -20,6 +20,8 @@ uo_http_conn *uo_http_conn_create_for_client(
 
     http_conn->buf = uo_buf_alloc(0x200);
 
+    uo_strhashtbl_create_at(&http_conn->user_data, 0);
+
     uo_http_msg_create_at(&http_conn->http_req, &http_conn->buf, 
         UO_HTTP_MSG_TYPE_REQUEST, UO_HTTP_MSG_ROLE_SEND);
     uo_http_msg_create_at(&http_conn->http_res, &tcp_conn->rbuf, 
@@ -38,6 +40,8 @@ uo_http_conn *uo_http_conn_create_for_server(
     http_conn->tcp_conn = tcp_conn;
 
     http_conn->buf = uo_buf_alloc(0x200);
+
+    uo_strhashtbl_create_at(&http_conn->user_data, 0);
 
     uo_http_msg_create_at(&http_conn->http_req, &tcp_conn->rbuf, 
         UO_HTTP_MSG_TYPE_REQUEST, UO_HTTP_MSG_ROLE_RECV);

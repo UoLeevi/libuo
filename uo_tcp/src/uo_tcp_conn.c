@@ -231,22 +231,45 @@ void uo_tcp_conn_next_close(
     uo_tcp_conn_next_state(tcp_conn, 'c');
 }
 
-void uo_tcp_conn_open(
+uo_tcp_conn *uo_tcp_conn_create_for_client(
     int sockfd,
-    uo_tcp_conn_evt_handlers *evt_handlers,
-    uo_strhashtbl *shared_user_data)
+    uo_tcp_client *tcp_client)
 {
     uo_tcp_conn *tcp_conn = calloc(1, sizeof *tcp_conn);
-    tcp_conn->shared_user_data = shared_user_data;
+    tcp_conn->tcp_client = tcp_client;
+    tcp_conn->evt_handlers = &tcp_client->evt_handlers;
     tcp_conn->rbuf = uo_buf_alloc(UO_TCP_BUF_SIZE);
     tcp_conn->wbuf = uo_buf_alloc(UO_TCP_BUF_SIZE);
-    tcp_conn->evt_handlers = evt_handlers;
     tcp_conn->sockfd = sockfd;
 
     uo_strhashtbl_create_at(&tcp_conn->user_data, 0);
 
     atomic_init(&tcp_conn->state, '\0');
 
+    return tcp_conn;
+}
+
+uo_tcp_conn *uo_tcp_conn_create_for_server(
+    int sockfd,
+    uo_tcp_server *tcp_server)
+{
+    uo_tcp_conn *tcp_conn = calloc(1, sizeof *tcp_conn);
+    tcp_conn->tcp_server = tcp_server;
+    tcp_conn->evt_handlers = &tcp_server->evt_handlers;
+    tcp_conn->rbuf = uo_buf_alloc(UO_TCP_BUF_SIZE);
+    tcp_conn->wbuf = uo_buf_alloc(UO_TCP_BUF_SIZE);
+    tcp_conn->sockfd = sockfd;
+
+    uo_strhashtbl_create_at(&tcp_conn->user_data, 0);
+
+    atomic_init(&tcp_conn->state, '\0');
+
+    return tcp_conn;
+}
+
+void uo_tcp_conn_open(
+    uo_tcp_conn *tcp_conn)
+{
     uo_cb *cb = uo_cb_clone(tcp_conn->evt_handlers->after_open);
     uo_cb_stack_push(cb, tcp_conn);
 

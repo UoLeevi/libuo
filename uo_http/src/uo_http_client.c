@@ -199,6 +199,8 @@ uo_http_client *uo_http_client_create(
     http_client->evt_handlers.before_close       = uo_cb_create();
     http_client->evt_handlers.after_close        = uo_cb_create();
 
+    uo_strhashtbl_create_at(&http_client->user_data, 0);
+
     return http_client;
 }
 
@@ -212,10 +214,7 @@ void *uo_http_client_get_user_data(
     uo_http_client *http_client,
     const char *key)
 {
-    if (!http_client->user_data)
-        return NULL;
-
-    return uo_strhashtbl_get(http_client->user_data, key);
+    return uo_strhashtbl_get(&http_client->user_data, key);
 }
 
 void uo_http_client_set_user_data(
@@ -223,10 +222,7 @@ void uo_http_client_set_user_data(
     const char *key,
     const void *user_data)
 {
-    if (!http_client->user_data)
-        http_client->user_data = uo_strhashtbl_create(0);
-
-    uo_strhashtbl_set(http_client->user_data, key, user_data);
+    uo_strhashtbl_set(&http_client->user_data, key, user_data);
 }
 
 
@@ -235,6 +231,8 @@ void uo_http_client_destroy(
 {
     uo_tcp_client_destroy(http_client->tcp_client);
 
+    uo_strhashtbl_destroy_at(&http_client->user_data);
+
     uo_cb_destroy(http_client->evt_handlers.after_open);
     uo_cb_destroy(http_client->evt_handlers.after_recv_msg);
     uo_cb_destroy(http_client->evt_handlers.before_send_msg);
@@ -242,9 +240,6 @@ void uo_http_client_destroy(
     uo_cb_destroy(http_client->evt_handlers.after_recv_headers);
     uo_cb_destroy(http_client->evt_handlers.before_close);
     uo_cb_destroy(http_client->evt_handlers.after_close);
-
-    if (http_client->user_data)
-        uo_strhashtbl_destroy(http_client->user_data);
 
     free(http_client);
 }

@@ -1,5 +1,6 @@
 #include "uo_tcp_server.h"
 #include "uo_hashtbl.h"
+#include "uo_queue.h"
 #include "uo_err.h"
 #include "uo_sock.h"
 
@@ -11,10 +12,22 @@
 #include <stdint.h>
 #include <stdio.h>
 
-extern void uo_tcp_conn_open(
+extern uo_tcp_conn *uo_tcp_conn_create_for_server(
     int sockfd,
-    uo_tcp_conn_evt_handlers *evt_handlers,
-    uo_strhashtbl *shared_user_data);
+    uo_tcp_server *);
+
+extern void uo_tcp_conn_open(
+    uo_tcp_conn *);
+
+static void uo_tcp_conn_after_close(
+    uo_cb *cb)
+{
+    uo_tcp_conn *tcp_conn = uo_cb_stack_index(cb, 0);
+    uo_tcp_server *tcp_server = tcp_conn->tcp_server;
+    uo_queue_enqueue(tcp_server->closing_conns, (void *)(uintptr_t)tcp_conn->sockfd, true);
+
+    uo_cb_invoke(cb);
+}
 
 static void *uo_tcp_server_accept(
     void *arg)
@@ -23,21 +36,34 @@ static void *uo_tcp_server_accept(
 
     uo_tcp_server *tcp_server = arg;
 
+    int sockfd;
+
     while (true)
     {
-        int sockfd = accept(tcp_server->sockfd, NULL, NULL);
+        sockfd = accept(tcp_server->sockfd, NULL, NULL);
 
         if (tcp_server->is_closing)
             break;
 
-        if ((sockfd ) == -1)
+        if (sockfd == -1)
         {
             uo_err("Error while accepting connection.");
             continue;
         }
 
-        uo_tcp_conn_open(sockfd, &tcp_server->evt_handlers, &tcp_server->user_data);
+        uo_tcp_conn *tcp_conn = uo_tcp_conn_create_for_server(sockfd, tcp_server);
+        uo_tcp_conn_open(tcp_conn);
+
+        uo_inthashtbl_set(&tcp_server->conns, sockfd, tcp_conn);
+
+        while (sockfd = (uintptr_t)uo_queue_dequeue(tcp_server->closing_conns, false))
+            if (sockfd != -1)
+                uo_inthashtbl_remove(&tcp_server->conns, sockfd);
     }
+
+    while (tcp_server->conns.count)
+        if ((sockfd = (uintptr_t)uo_queue_dequeue(tcp_server->closing_conns, true)) != -1)
+            uo_inthashtbl_remove(&tcp_server->conns, sockfd);
 
     uo_cb_thrd_quit();
 
@@ -100,6 +126,11 @@ uo_tcp_server *uo_tcp_server_create(
     tcp_server->evt_handlers.before_close = uo_cb_create();
     tcp_server->evt_handlers.after_close  = uo_cb_create();
 
+    uo_cb_append(tcp_server->evt_handlers.after_close, uo_tcp_conn_after_close);
+
+    tcp_server->closing_conns = uo_queue_create(0x10);
+
+    uo_inthashtbl_create_at(&tcp_server->conns, 0);
     uo_strhashtbl_create_at(&tcp_server->user_data, 0);
 
     tcp_server->thrd = malloc(sizeof(pthread_t));
@@ -179,6 +210,8 @@ void uo_tcp_server_destroy(
 {
     tcp_server->is_closing = true;
 
+    uo_queue_enqueue(tcp_server->closing_conns, (void *)(uintptr_t)-1, true);
+
     struct addrinfo hints = {
         .ai_family = AF_UNSPEC,
         .ai_socktype = SOCK_STREAM,
@@ -213,7 +246,10 @@ void uo_tcp_server_destroy(
     uo_cb_destroy(tcp_server->evt_handlers.before_close);
     uo_cb_destroy(tcp_server->evt_handlers.after_close);
 
+    uo_inthashtbl_destroy_at(&tcp_server->conns);
     uo_strhashtbl_destroy_at(&tcp_server->user_data);
+
+    uo_queue_destroy(tcp_server->closing_conns);
 
     free(tcp_server->thrd);
     free(tcp_server);

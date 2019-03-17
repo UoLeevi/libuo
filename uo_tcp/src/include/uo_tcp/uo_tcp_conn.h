@@ -58,10 +58,15 @@ typedef union uo_tcp_conn_evt_arg
 typedef struct uo_tcp_conn
 {
     uo_strhashtbl user_data;
-    uo_strhashtbl *shared_user_data;
+    union
+    {
+        uo_strhashtbl *shared_user_data;
+        uo_tcp_client *tcp_client;
+        uo_tcp_server *tcp_server;
+    };
+    uo_tcp_conn_evt_handlers *evt_handlers;
     uo_buf rbuf;
     uo_buf wbuf;
-    uo_tcp_conn_evt_handlers *evt_handlers;
     uo_tcp_conn_evt_arg evt_arg;
     int sockfd;
     /**

@@ -51,12 +51,8 @@ static inline bool uo_streq(
     return strcmp(str1, str2) == 0;
 }
 
-static inline bool uo_ptreq(
-    const void *ptr1,
-    const void *ptr2)
-{
-    return ptr1 == ptr2;
-}
+#define uo_eq(lhs, rhs) \
+    ((lhs) == (rhs))
 
 static inline char *uo_temp_substr(
     const char *str,

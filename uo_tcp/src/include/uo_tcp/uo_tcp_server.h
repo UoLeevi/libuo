@@ -11,6 +11,8 @@ extern "C"
 #include <stddef.h>
 #include <stdbool.h>
 
+typedef struct uo_queue uo_queue;
+
 /**
  * @brief TCP server
  * 
@@ -36,6 +38,8 @@ typedef struct uo_tcp_server
 {
     uo_strhashtbl user_data;
     uo_tcp_conn_evt_handlers evt_handlers;
+    uo_inthashtbl conns;
+    uo_queue *closing_conns;
     const char *port;
     void *thrd;
     int sockfd;

@@ -16,7 +16,7 @@ typedef struct uo_strhashtbl uo_strhashtbl;
 
 typedef struct uo_http_client
 {
-    uo_strhashtbl *user_data;
+    uo_strhashtbl user_data;
     uo_http_conn_evt_handlers evt_handlers;
     uo_tcp_client *tcp_client;
 } uo_http_client;

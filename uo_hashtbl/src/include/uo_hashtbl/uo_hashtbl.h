@@ -299,7 +299,7 @@ static void *uo__hashtbl_remove_f(prefix)(                                      
         return NULL;                                                                          \
                                                                                               \
     void *value = link->item.value;                                                           \
-    link->item.key = NULL;                                                                    \
+    link->item.key = (type)0;                                                                 \
     link->item.value = (void *)UO_HASHTBL_TAG_REMOVED;                                        \
                                                                                               \
     uo_linklist_unlink(link);                                                                 \
@@ -323,7 +323,8 @@ static void *uo__hashtbl_remove_f(prefix)(                                      
 }                                                                                             \
 
 uo_def_hashtbl(uo_str, const char *, uo_strhash_djb2, uo_streq);
-uo_def_hashtbl(uo_, const void *, (uintptr_t), uo_ptreq);
+uo_def_hashtbl(uo_, const void *, (uintptr_t), uo_eq);
+uo_def_hashtbl(uo_int, int, (uint64_t), uo_eq);
 
 #ifdef __cplusplus
 }
