@@ -32,8 +32,8 @@ target_link_libraries(uo_http
         uo::uo_buf
         uo::uo_cb
         uo::uo_hashtbl
-    PRIVATE
         uo::uo_finstack
+    PRIVATE
         uo::uo_tcp
         uo::uo_mem)
 

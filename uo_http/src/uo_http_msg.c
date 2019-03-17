@@ -1,6 +1,5 @@
 #include "uo_http_msg.h"
 #include "uo_hashtbl.h"
-#include "uo_finstack.h"
 #include "uo_mem.h"
 
 #include <sys/stat.h>

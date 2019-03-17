@@ -9,6 +9,7 @@ extern "C" {
 #include "uo_http_method.h"
 #include "uo_http_status.h"
 #include "uo_hashtbl.h"
+#include "uo_finstack.h"
 #include "uo_buf.h"
 
 #include <stdbool.h>
@@ -46,7 +47,7 @@ typedef struct uo_http_msg
     uo_buf *buf;
     char *body;
     size_t body_len;
-    void *finstack;
+    uo_finstack *finstack;
     union
     {
         struct // only for HTTP request
