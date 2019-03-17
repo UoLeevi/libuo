@@ -219,18 +219,19 @@ static void uo_http_server_process_req_handlers(
         uo_http_server *http_server = http_conn->http_server;
 
         int nth = ++http_req->temp.req_handler_counter;
-        char *uri = http_req->uri;
-        char *nth_path_seg = uo_strchrnth(uri, '/', nth);
+        char *exact = http_req->method_sp_uri;
+        char *nth_path_seg = uo_strchrnth(exact, '/', nth + 1);
 
         uo_cb *handler;
 
         if (nth_path_seg)
         {
+            char *prefix = uo_temp_substr(exact, nth_path_seg - exact);
             uo_cb_prepend(cb, uo_http_server_process_req_handlers);
-            if (handler = uo_strhashtbl_get(&http_server->req_handlers.prefix, uo_temp_substr(uri, nth_path_seg - uri)))
+            if (handler = uo_strhashtbl_get(&http_server->req_handlers.prefix, prefix))
                 uo_cb_prepend(cb, handler);
         }
-        else if (handler = uo_strhashtbl_get(&http_server->req_handlers.exact, uri))
+        else if (handler = uo_strhashtbl_get(&http_server->req_handlers.exact, exact))
             uo_cb_prepend(cb, handler);
     }
 
@@ -343,7 +344,7 @@ bool uo_http_server_set_opt_serve_static_files(
     return true;
 }
 
-bool uo_http_server_set_req_prefix_handler(
+bool uo__http_server_set_req_prefix_cb_handler(
     uo_http_server *http_server,
     const char *method_sp_uri,
     uo_cb *handler)
@@ -352,12 +353,34 @@ bool uo_http_server_set_req_prefix_handler(
     return true;
 }
 
-bool uo_http_server_set_req_exact_handler(
+bool uo__http_server_set_req_exact_cb_handler(
     uo_http_server *http_server,
     const char *method_sp_uri,
     uo_cb *handler)
 {
     uo_strhashtbl_set(&http_server->req_handlers.exact, method_sp_uri, handler);
+    return true;
+}
+
+bool uo__http_server_set_req_prefix_func_handler(
+    uo_http_server *http_server,
+    const char *method_sp_uri,
+    uo_cb_func handler)
+{
+    uo_cb *cb = uo_cb_create();
+    uo_cb_append(cb, handler);
+    uo_strhashtbl_set(&http_server->req_handlers.prefix, method_sp_uri, cb);
+    return true;
+}
+
+bool uo__http_server_set_req_exact_func_handler(
+    uo_http_server *http_server,
+    const char *method_sp_uri,
+    uo_cb_func handler)
+{
+    uo_cb *cb = uo_cb_create();
+    uo_cb_append(cb, handler);
+    uo_strhashtbl_set(&http_server->req_handlers.exact, method_sp_uri, cb);
     return true;
 }
 

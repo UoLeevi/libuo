@@ -133,7 +133,16 @@ bool uo_http_server_set_opt_serve_static_files(
  * @return true             on success
  * @return false            on error
  */
-bool uo_http_server_set_req_prefix_handler(
+#define uo_http_server_set_req_prefix_handler(http_server, method_sp_uri, handler) _Generic((handler), \
+    uo_cb_func: uo__http_server_set_req_prefix_func_handler, \
+       uo_cb *: uo__http_server_set_req_prefix_cb_handler)(http_server, method_sp_uri, handler)
+
+bool uo__http_server_set_req_prefix_func_handler(
+    uo_http_server *,
+    const char *method_sp_uri,
+    uo_cb_func handler);
+
+bool uo__http_server_set_req_prefix_cb_handler(
     uo_http_server *,
     const char *method_sp_uri,
     uo_cb *handler);
@@ -151,7 +160,16 @@ bool uo_http_server_set_req_prefix_handler(
  * @return true             on success
  * @return false            on error
  */
-bool uo_http_server_set_req_exact_handler(
+#define uo_http_server_set_req_exact_handler(http_server, method_sp_uri, handler) _Generic((handler), \
+    uo_cb_func: uo__http_server_set_req_exact_func_handler, \
+       uo_cb *: uo__http_server_set_req_exact_cb_handler)(http_server, method_sp_uri, handler)
+
+bool uo__http_server_set_req_exact_func_handler(
+    uo_http_server *,
+    const char *method_sp_uri,
+    uo_cb_func handler);
+
+bool uo__http_server_set_req_exact_cb_handler(
     uo_http_server *,
     const char *method_sp_uri,
     uo_cb *handler);

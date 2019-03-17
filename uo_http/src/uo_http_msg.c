@@ -53,6 +53,12 @@ bool uo_http_msg_set_content(
 {
     assert(http_msg->flags.role == UO_HTTP_MSG_ROLE_SEND);
 
+    if (!content_len)
+    {
+        uo_http_msg_set_header(http_msg, "content-length", "0");
+        return http_msg->flags.body = true;
+    }
+
     size_t content_len_str_len = snprintf(NULL, 0, "%lu", content_len);
     size_t content_type_len = strlen(content_type);
 
@@ -130,6 +136,9 @@ bool uo_http_req_set_request_line(
     *p++ = '\r';
     *p++ = '\n';
     *p++ = '\0';
+
+    http_req->ver = version;
+    http_req->method = method;
 
     return http_req->flags.start_line = true;
 }
@@ -210,6 +219,9 @@ bool uo_http_res_set_status_line(
     *p++ = '\0'; // replaced with '\r' before sending the message
     *p++ = '\n';
     *p++ = '\0';
+
+    http_res->ver = version;
+    http_res->status = status;
 
     return http_res->flags.start_line = true;
 }
@@ -546,6 +558,9 @@ bool uo_http_msg_parse_body(
         switch (http_msg->method)
         {
             case UO_HTTP_GET:
+            case UO_HTTP_HEAD:
+            case UO_HTTP_DELETE:
+            case UO_HTTP_CONNECT:
             case UO_HTTP_TRACE:
                 http_msg->temp.parsing_offset = 0;
                 return http_msg->flags.body = true;
