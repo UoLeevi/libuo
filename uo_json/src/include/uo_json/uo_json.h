@@ -22,6 +22,11 @@ char *uo_json_find_value(
 char *uo_json_find_end(
     const char *json);
 
+char *uo_json_decode_utf8(
+    char *dst,
+    const char *src,
+    size_t src_len);
+
 char *uo_json_encode_utf8(
     char *dst,
     const char *src,

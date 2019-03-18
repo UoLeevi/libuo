@@ -1,4 +1,5 @@
 #include "uo_json.h"
+#include "uo_util.h"
 
 #include <string.h>
 #include <ctype.h>
@@ -6,6 +7,61 @@
 #include <inttypes.h>
 #include <stdlib.h>
 #include <stdbool.h>
+
+char *uo_json_decode_utf8(
+    char *dst,
+    const char *src,
+    size_t src_len)
+{
+    const char *json_end = src + src_len - 1;
+    unsigned char c;
+
+    if (src_len < 2 || *src++ != '\"' || *json_end != '\"')
+        return NULL;
+
+    while (src < json_end)
+    {
+        if ((c = *src++) == '\\')
+        {
+            if (src >= json_end)
+                return NULL;
+
+            switch (*src++)
+            {
+                case '"':  *dst++ = '"';  break;
+                case '\\': *dst++ = '\\'; break;
+                case '/':  *dst++ = '/';  break;
+                case 'b':  *dst++ = '\b'; break;
+                case 'f':  *dst++ = '\f'; break;
+                case 'n':  *dst++ = '\n'; break;
+                case 'r':  *dst++ = '\r'; break;
+                case 't':  *dst++ = '\t'; break;
+                
+                case 'u':
+                {
+                    if (src + 4 > json_end)
+                        return NULL;
+
+                    int codepoint;
+                    if (sscanf(src, "%04x", &codepoint) != 1)
+                        return NULL;
+
+                    src += 4;
+
+                    dst = uo_utf8_append(dst, codepoint);
+                    break;
+                }
+
+                default: return NULL;
+            }
+            continue;
+        }
+
+        *dst++ = c;
+    }
+
+    return dst;
+}
 
 char *uo_json_encode_utf8(
     char *dst,

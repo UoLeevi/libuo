@@ -4,13 +4,18 @@ project(uo_json VERSION 0.5.0)
 if(NOT TARGET uo::uo_mem)
     find_package(uo_mem CONFIG REQUIRED)
 endif()
+if(NOT TARGET uo::uo_util)
+    find_package(uo_util CONFIG REQUIRED)
+endif()
 
 add_library(uo_json
     uo_json.c)
 
 target_link_libraries(uo_json
     PUBLIC
-        uo::uo_mem)
+        uo::uo_mem
+    PRIVATE
+        uo::uo_util)
 
 target_compile_features(uo_json
     PUBLIC

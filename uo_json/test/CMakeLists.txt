@@ -38,3 +38,18 @@ target_compile_features(uo_json_parse_test
 
 add_test(NAME uo_json_parse_test
     COMMAND uo_json_parse_test)
+
+
+add_executable(uo_json_decode_test
+    uo_json_decode_test.c)
+
+target_link_libraries(uo_json_decode_test
+    PRIVATE
+        uo::uo_json)
+
+target_compile_features(uo_json_decode_test
+    PUBLIC
+        c_std_11)
+
+add_test(NAME uo_json_decode_test
+    COMMAND uo_json_decode_test)

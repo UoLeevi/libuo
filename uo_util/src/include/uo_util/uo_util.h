@@ -94,6 +94,45 @@ static char *uo_strchrnth(
     return (char *)str;
 }
 
+// https://stackoverflow.com/a/25644105
+// https://en.wikipedia.org/wiki/UTF-8#Description
+static char *uo_utf8_append(
+    char *dst, 
+    uint32_t codepoint)
+{
+    if (codepoint < 0x80)
+    {
+        *dst++ = (char)(codepoint & 0x7f);
+        return dst;
+    }
+
+    if (codepoint < 0x800)
+    {
+        *dst++ = (char)(0xc0 | (codepoint >> 6));
+        *dst++ = (char)(0x80 | (codepoint & 0x3f));
+        return dst;
+    }
+
+    if (codepoint < 0x10000)
+    {
+        *dst++ = (char)(0xe0 | (codepoint >> 12));
+        *dst++ = (char)(0x80 | ((codepoint >> 6) & 0x3f));
+        *dst++ = (char)(0x80 | (codepoint & 0x3f));
+        return dst;
+    }
+
+    if (codepoint < 0x110000) 
+    {
+        *dst++ = (char)(0xf0 | (codepoint >> 18));
+        *dst++ = (char)(0x80 | ((codepoint >> 12) & 0x3f));
+        *dst++ = (char)(0x80 | ((codepoint >> 6) & 0x3f));
+        *dst++ = (char)(0x80 | (codepoint & 0x3f));
+        return dst;
+    }
+
+    return NULL;
+}
+
 #ifdef __cplusplus
 }
 #endif
