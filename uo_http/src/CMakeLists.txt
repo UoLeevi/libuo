@@ -24,6 +24,7 @@ add_library(uo_http
     uo_http_client.c
     uo_http_conn.c
     uo_http_msg.c
+    uo_http_req_handler.c
     uo_http_server.c
     uo_http.c)
 
