@@ -133,6 +133,46 @@ static char *uo_utf8_append(
     return NULL;
 }
 
+static size_t uo_chrfreq(
+    char *str, 
+    char chr, 
+    char esc_chr)
+{
+    assert(chr);
+
+    size_t i = 0;
+    bool is_prev_esc = false;
+    char curr_chr;
+
+    while (curr_chr = *str++)
+    {
+        if (curr_chr == chr)
+            i += !is_prev_esc ? 1 : chr == esc_chr ? -1 : 0;
+
+        is_prev_esc = !is_prev_esc && curr_chr == esc_chr;
+    }
+
+    return i;
+}
+
+/**
+ * @brief get pointer to first character in str1 which is different to str2
+ * 
+ * If str1 and str2 are identical then NULL is returned.
+ */
+static inline char *uo_strdiff(
+    const char *str1,
+    const char *str2)
+{
+    char chr;
+
+    while ((chr = *str1++) == *str2++)
+        if (!chr)
+            return NULL;
+
+    return (char *)str1 - 1;
+}
+
 #ifdef __cplusplus
 }
 #endif

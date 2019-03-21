@@ -58,6 +58,43 @@ bool test_uo_utf8_append(void)
     return passed;
 }
 
+bool test_uo_chrfreq(void)
+{
+    bool passed = true;
+
+    passed &= uo_chrfreq("/asdf/asdf", 'a', 0) == 2;
+    passed &= uo_chrfreq("\"asdf\\\"\"", '\"', '\\') == 2;
+    passed &= uo_chrfreq("/asdf/%s/qwert%%20", '%', '%') == 1;
+    passed &= uo_chrfreq("/asdf/%s/qwert%%%5s", '%', '%') == 2;
+    passed &= uo_chrfreq("/asdf/%s/qwert%%%%5s", '%', '%') == 1;
+
+    return passed;
+}
+
+bool test_uo_strdiff(void)
+{
+    bool passed = true;
+
+    char *str1;
+    char *str2;
+
+    str1 = "";
+    str2 = "a";
+    passed &= uo_strdiff(str1, str1) == NULL;
+    passed &= uo_strdiff(str1, str2) == str1 + strlen(str1);
+
+    str1 = "/asdf/asdf";
+    str2 = "/asd";
+    passed &= uo_strdiff(str1, str1) == NULL;
+    passed &= uo_strdiff(str1, str2) == str1 + strlen(str2);
+
+    str1 = "/qwer/{asdf}/zxcv";
+    str2 = "/qwer/asdf/zxcv";
+    passed &= *uo_strdiff(str1, str2) == '{';
+
+    return passed;
+}
+
 int main(
     int argc, 
     char const **argv)
@@ -68,6 +105,8 @@ int main(
     passed &= test_uo_temp_substr();
     passed &= test_uo_temp_strcat();
     passed &= test_uo_utf8_append();
+    passed &= test_uo_chrfreq();
+    passed &= test_uo_strdiff();
 
     return passed ? 0 : 1;
 }
