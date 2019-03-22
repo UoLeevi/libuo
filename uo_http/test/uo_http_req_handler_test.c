@@ -46,8 +46,10 @@ int main(
     passed &= strcmp(uo_strhashtbl_get(params, "var1"), "123") == 0;
     uo_http_req_handler_destroy(http_req_handler1);
 
-    uo_http_req_handler *http_req_handler2 = uo_http_req_handler_create("/qwer/{var2}", cb);
-    passed &= uo_http_req_handler_try(http_req_handler2, "/qwer/test", params, finstack) == true;
+    uo_http_req_handler *http_req_handler2 = uo_http_req_handler_create("/qwer/{var2}/", cb);
+    passed &= uo_http_req_handler_try(http_req_handler2, "/qwer/test", params, finstack) == false;
+    passed &= uo_http_req_handler_try(http_req_handler2, "/qwer/test/asdf", params, finstack) == false;
+    passed &= uo_http_req_handler_try(http_req_handler2, "/qwer/test/", params, finstack) == true;
     passed &= strcmp(uo_strhashtbl_get(params, "var2"), "test") == 0;
     uo_http_req_handler_destroy(http_req_handler2);
 
@@ -58,6 +60,25 @@ int main(
     passed &= strcmp(uo_strhashtbl_get(params, "var4"), "val4") == 0;
     passed &= strcmp(uo_strhashtbl_get(params, "var5"), "val5") == 0;
     uo_http_req_handler_destroy(http_req_handler3);
+
+    uo_http_req_handler *http_req_handler4 = uo_http_req_handler_create("/asdf/qwer/*", cb);
+    passed &= uo_http_req_handler_try(http_req_handler4, "/asdf/qwer/zxcv", params, finstack) == true;
+    passed &= uo_http_req_handler_try(http_req_handler4, "/asdf/qwer/", params, finstack) == true;
+    passed &= uo_http_req_handler_try(http_req_handler4, "/asdf/qwer", params, finstack) == false;
+    uo_http_req_handler_destroy(http_req_handler4);
+
+    uo_http_req_handler *http_req_handler5 = uo_http_req_handler_create("/asdf/qwer/", cb);
+    passed &= uo_http_req_handler_try(http_req_handler5, "/asdf/qwer/zxcv", params, finstack) == false;
+    passed &= uo_http_req_handler_try(http_req_handler5, "/asdf/qwer/", params, finstack) == true;
+    passed &= uo_http_req_handler_try(http_req_handler5, "/asdf/qwer", params, finstack) == false;
+    uo_http_req_handler_destroy(http_req_handler5);
+
+    uo_http_req_handler *http_req_handler6 = uo_http_req_handler_create("/asdf/{var6}/qwer/*", cb);
+    passed &= uo_http_req_handler_try(http_req_handler6, "/asdf/qwer/zxcv", params, finstack) == false;
+    passed &= uo_http_req_handler_try(http_req_handler6, "/asdf/qwer/", params, finstack) == false;
+    passed &= uo_http_req_handler_try(http_req_handler6, "/asdf/qwer/qwer/", params, finstack) == true;
+    passed &= uo_http_req_handler_try(http_req_handler6, "/asdf/qwer/qwer/asdf", params, finstack) == true;
+    uo_http_req_handler_destroy(http_req_handler6);
 
     uo_finstack_finalize(finstack);
 

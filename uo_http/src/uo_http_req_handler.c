@@ -1,26 +1,13 @@
-#include "uo_cb.h"
-#include "uo_hashtbl.h"
-#include "uo_finstack.h"
-#include "uo_linklist.h"
-#include "uo_util.h"
+#include "uo_http_req_handler.h"
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <stddef.h>
 #include <stdbool.h>
 #include <string.h>
 
-typedef struct uo_http_req_handler
-{
-    uo_linklist link;
-    char *req_pattern;
-    size_t param_count;
-    uo_cb *cb;
-} uo_http_req_handler;
-
 uo_http_req_handler *uo_http_req_handler_create(
     const char *req_pattern,
-    uo_cb *cb)
+    const uo_cb *cb)
 {
     uo_http_req_handler *http_req_handler = calloc(1, sizeof *http_req_handler);
     http_req_handler->cb = uo_cb_clone(cb);
@@ -40,8 +27,6 @@ uo_http_req_handler *uo_http_req_handler_create(
         *p++ = '\0';
         ++param_count;
     }
-
-    assert(param_count);
 
     http_req_handler->param_count = param_count;
 
@@ -64,6 +49,13 @@ bool uo_http_req_handler_try(
 {
     char *req_pattern = http_req_handler->req_pattern;
     size_t i = http_req_handler->param_count;
+
+    if (i == 0)
+    {
+        // request line is checked for exact match or prefix match
+        char *p = uo_strdiff(req_pattern, method_sp_uri);
+        return !p || *p == '*';
+    }
 
     // temporary array for pattern parameter name start, value start and value end pointers
     char *param_ptrs[i * 3];
@@ -93,6 +85,13 @@ bool uo_http_req_handler_try(
 
         // store matched pattern parameter end pointer
         param_ptrs[i * 3 + 2] = (char *)method_sp_uri;
+    }
+
+    {
+        // chech if the request line end either a exact match or a prefix match
+        char *p = uo_strdiff(req_pattern, method_sp_uri);
+        if (p && *p != '*')
+            return false;
     }
 
     // req_handler matches the request method and URI

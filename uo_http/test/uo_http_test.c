@@ -48,7 +48,7 @@ static void http_client_evt_handler_before_send_request(
             break;
 
         case 2:
-            uo_http_req_set_request_line(http_req, UO_HTTP_GET, "/asdf/qwer", UO_HTTP_VER_1_1);
+            uo_http_req_set_request_line(http_req, UO_HTTP_GET, "/asdf/qwer/zxcv", UO_HTTP_VER_1_1);
             break;
 
         default:
@@ -134,7 +134,8 @@ static void http_server_req_handler_prefix(
     uo_http_res *http_res = &http_conn->http_res;
 
     bool *passed = uo_http_conn_get_user_data(http_conn, "passed");
-    *passed &= strcmp(http_req->method_sp_uri, "GET /asdf/qwer") == 0;
+    *passed &= strcmp(http_req->method_sp_uri, "GET /asdf/qwer/zxcv") == 0;
+    *passed &= strcmp(uo_http_conn_get_req_data(http_conn, "var1"), "qwer") == 0;
     uo_http_res_set_status_line(http_res, UO_HTTP_400, http_req->ver);
     uo_http_res_set_content(http_res, "bad request", "text/plain", 11);
 
@@ -172,8 +173,8 @@ int main(
     passed &= uo_http_init();
 
     uo_http_server *http_server = uo_http_server_create("12345");
-    uo_http_server_set_req_exact_handler(http_server, "PUT /qwer/asdf", http_server_req_handler_exact);
-    uo_http_server_set_req_prefix_handler(http_server, "GET /asdf", http_server_req_handler_prefix);
+    uo_http_server_add_req_handler(http_server, "PUT /qwer/asdf", http_server_req_handler_exact);
+    uo_http_server_add_req_handler(http_server, "GET /asdf/{var1}/*", http_server_req_handler_prefix);
     uo_http_server_set_user_data(http_server, "sem", &sem_s);
     uo_http_server_set_user_data(http_server, "passed", &passed_s);
     uo_http_server_set_opt_serve_static_files(http_server, "test_content");

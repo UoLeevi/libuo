@@ -52,15 +52,7 @@ typedef struct uo_http_server
 {
     uo_strhashtbl user_data;
     uo_http_conn_evt_handlers evt_handlers;
-    struct
-    {
-        // handlers matched using request line without version. 
-        // E.g.
-        //   "GET /asdf"
-        //   "POST /user"
-        uo_strhashtbl prefix;
-        uo_strhashtbl exact;
-    } req_handlers;
+    uo_linklist req_handlers;
     struct
     {
         bool is_serving_static_files;
@@ -121,58 +113,37 @@ bool uo_http_server_set_opt_serve_static_files(
     const char *dirname);
 
 /**
- * @brief add or update a prefix handler (i.e. callback) for specific request line
+ * @brief add a request handler (i.e. callback) for specific request line that matches a pattern
  * 
- * Handlers are processed until response status line has been set.
- * Request handler matching process is as follows:
- *  1. Check for prexix match for each path segment in request line
- *  2. Check for exact match
+ * Mathcing handlers are processed until response status line has been set.
+ * Request patterns are of form <HTTP method> <URI with patter parameters>[*]
+ * E.g.
+ *  GET /
+ *  GET /about
+ *  GET /posts/{title}/
+ *  POST /user/*
+ *  POST /notes/{note_uuid}/{tag_uuid}/
+ *  PUT /{year}-{month}-{day}/complex-endpoint/*
  * 
- * @param method_sp_uri     null terminated string containing HTTP method and partial request URI
- * @param handler           handler callback
- * @return true             on success
- * @return false            on error
+ * @param req_pattern     null terminated string containing HTTP method and request URI 
+ *                        with possible pattern variables and optional ending asterix
+ * @param handler         handler callback
+ * @return true           on success
+ * @return false          on error
  */
-#define uo_http_server_set_req_prefix_handler(http_server, method_sp_uri, handler) _Generic((handler), \
-    uo_cb_func: uo__http_server_set_req_prefix_func_handler, \
-       uo_cb *: uo__http_server_set_req_prefix_cb_handler)(http_server, method_sp_uri, handler)
+#define uo_http_server_add_req_handler(http_server, req_pattern, handler) _Generic((handler), \
+    uo_cb_func: uo__http_server_add_req_func_handler, \
+       uo_cb *: uo__http_server_add_req_cb_handler)(http_server, req_pattern, handler)
 
-bool uo__http_server_set_req_prefix_func_handler(
+void uo__http_server_add_req_func_handler(
     uo_http_server *,
-    const char *method_sp_uri,
+    const char *req_pattern,
     uo_cb_func handler);
 
-bool uo__http_server_set_req_prefix_cb_handler(
+void uo__http_server_add_req_cb_handler(
     uo_http_server *,
-    const char *method_sp_uri,
-    uo_cb *handler);
-
-/**
- * @brief add or update an exact handler (i.e. callback) for specific request line
- * 
- * Handlers are processed until response status line has been set.
- * Request handler matching process is as follows:
- *  1. Check for prexix match for each path segment in request line
- *  2. Check for exact match
- * 
- * @param method_sp_uri     null terminated string containing HTTP method and request URI
- * @param handler           handler callback
- * @return true             on success
- * @return false            on error
- */
-#define uo_http_server_set_req_exact_handler(http_server, method_sp_uri, handler) _Generic((handler), \
-    uo_cb_func: uo__http_server_set_req_exact_func_handler, \
-       uo_cb *: uo__http_server_set_req_exact_cb_handler)(http_server, method_sp_uri, handler)
-
-bool uo__http_server_set_req_exact_func_handler(
-    uo_http_server *,
-    const char *method_sp_uri,
-    uo_cb_func handler);
-
-bool uo__http_server_set_req_exact_cb_handler(
-    uo_http_server *,
-    const char *method_sp_uri,
-    uo_cb *handler);
+    const char *req_pattern,
+    const uo_cb *handler);
 
 /**
  * @brief free up the resources owned by the HTTP server instance

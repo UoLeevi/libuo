@@ -32,6 +32,7 @@ typedef struct uo_http_conn_evt_handlers
 typedef struct uo_http_conn
 {
     uo_strhashtbl user_data;
+    uo_strhashtbl req_data;
     uo_http_req http_req;
     uo_http_res http_res;
     union
@@ -59,6 +60,16 @@ uo_http_conn *uo_http_conn_create_for_server(
 
 void uo_http_conn_reset(
     uo_http_conn *);
+
+/**
+ * @brief get a pointer to the request data that has been scanned from request URI
+ * 
+ * @param key       null terminated string key
+ * @return char *   a pointer to the request data
+ */
+char *uo_http_conn_get_req_data(
+    uo_http_conn *http_conn,
+    const char *key);
 
 /**
  * @brief get a pointer to the user data that has been set using uo_http_conn_set_user_data

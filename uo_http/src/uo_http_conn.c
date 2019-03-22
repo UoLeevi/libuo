@@ -21,6 +21,7 @@ uo_http_conn *uo_http_conn_create_for_client(
     http_conn->buf = uo_buf_alloc(0x200);
 
     uo_strhashtbl_create_at(&http_conn->user_data, 0);
+    uo_strhashtbl_create_at(&http_conn->req_data, 0);
 
     uo_http_msg_create_at(&http_conn->http_req, &http_conn->buf, 
         UO_HTTP_MSG_TYPE_REQUEST, UO_HTTP_MSG_ROLE_SEND);
@@ -42,6 +43,7 @@ uo_http_conn *uo_http_conn_create_for_server(
     http_conn->buf = uo_buf_alloc(0x200);
 
     uo_strhashtbl_create_at(&http_conn->user_data, 0);
+    uo_strhashtbl_create_at(&http_conn->req_data, 0);
 
     uo_http_msg_create_at(&http_conn->http_req, &tcp_conn->rbuf, 
         UO_HTTP_MSG_TYPE_REQUEST, UO_HTTP_MSG_ROLE_RECV);
@@ -60,6 +62,9 @@ void uo_http_conn_reset(
     uo_http_msg_destroy_at(&http_conn->http_req);
     uo_http_msg_destroy_at(&http_conn->http_res);
 
+    uo_strhashtbl_destroy_at(&http_conn->req_data);
+    uo_strhashtbl_create_at(&http_conn->req_data, 0);
+
     memset(&http_conn->http_req, 0, sizeof http_conn->http_req);
     memset(&http_conn->http_res, 0, sizeof http_conn->http_res);
 
@@ -77,6 +82,13 @@ void uo_http_conn_reset(
         uo_http_msg_create_at(&http_conn->http_res, &http_conn->buf, 
             UO_HTTP_MSG_TYPE_RESPONSE, UO_HTTP_MSG_ROLE_SEND);
     }
+}
+
+char *uo_http_conn_get_req_data(
+    uo_http_conn *http_conn,
+    const char *key)
+{
+    return uo_strhashtbl_get(&http_conn->req_data, key);
 }
 
 void *uo_http_conn_get_user_data(

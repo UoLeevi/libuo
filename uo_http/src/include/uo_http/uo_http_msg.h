@@ -68,7 +68,7 @@ typedef struct uo_http_msg
     union // used to store tempory state
     {
         ptrdiff_t parsing_offset;
-        int req_handler_counter;
+        uo_linklist *prev_handler;
     } temp;
     struct
     {

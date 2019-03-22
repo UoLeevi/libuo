@@ -1,5 +1,6 @@
 #include "uo_http_server.h"
 #include "uo_http_conn.h"
+#include "uo_http_req_handler.h"
 #include "uo_tcp_server.h"
 #include "uo_tcp.h"
 #include "uo_hashtbl.h"
@@ -218,21 +219,20 @@ static void uo_http_server_process_req_handlers(
         uo_http_req *http_req = &http_conn->http_req;
         uo_http_server *http_server = http_conn->http_server;
 
-        int nth = ++http_req->temp.req_handler_counter;
-        char *exact = http_req->method_sp_uri;
-        char *nth_path_seg = uo_strchrnth(exact, '/', nth + 1);
+        const char *method_sp_uri = http_req->method_sp_uri;
+        uo_linklist *link = http_req->temp.prev_handler;
 
-        uo_cb *handler;
-
-        if (nth_path_seg)
+        while ((link = link->next) != &http_server->req_handlers)
         {
-            char *prefix = uo_temp_substr(exact, nth_path_seg - exact);
-            uo_cb_prepend(cb, uo_http_server_process_req_handlers);
-            if (handler = uo_strhashtbl_get(&http_server->req_handlers.prefix, prefix))
-                uo_cb_prepend(cb, handler);
+            uo_http_req_handler *http_req_handler = (uo_http_req_handler *)link;
+
+            if (uo_http_req_handler_try(http_req_handler, method_sp_uri, &http_conn->req_data, http_req->finstack))
+            {
+                uo_cb_prepend(cb, uo_http_server_process_req_handlers);
+                uo_cb_prepend(cb, http_req_handler->cb);
+                break;
+            }
         }
-        else if (handler = uo_strhashtbl_get(&http_server->req_handlers.exact, exact))
-            uo_cb_prepend(cb, handler);
     }
 
     uo_cb_invoke(cb);
@@ -249,6 +249,9 @@ static void tcp_server_evt_handler_after_recv(
     {
         if (http_req->flags.headers && uo_http_msg_parse_body(http_req))
         {
+            // request is fully parsed
+            http_req->temp.prev_handler = &http_conn->http_server->req_handlers;
+
             uo_cb_stack_pop(cb);
             uo_cb_stack_push(cb, http_conn);
             uo_cb_prepend(cb, uo_http_conn_pass_cb_to_tcp_server);
@@ -263,6 +266,9 @@ static void tcp_server_evt_handler_after_recv(
 
             if (uo_http_msg_parse_body(http_req))
             {
+                // request is fully parsed
+                http_req->temp.prev_handler = &http_conn->http_server->req_handlers;
+
                 uo_cb_prepend(cb, uo_http_server_process_req_handlers);
                 uo_cb_prepend(cb, http_conn->evt_handlers->after_recv_msg);
             }
@@ -323,9 +329,7 @@ uo_http_server *uo_http_server_create(
     http_server->evt_handlers.after_close        = uo_cb_create();
 
     uo_strhashtbl_create_at(&http_server->user_data, 0);
-
-    uo_strhashtbl_create_at(&http_server->req_handlers.prefix, 0);
-    uo_strhashtbl_create_at(&http_server->req_handlers.exact, 0);
+    uo_linklist_selflink(&http_server->req_handlers);
 
     return http_server;
 }
@@ -344,44 +348,24 @@ bool uo_http_server_set_opt_serve_static_files(
     return true;
 }
 
-bool uo__http_server_set_req_prefix_cb_handler(
+void uo__http_server_add_req_cb_handler(
     uo_http_server *http_server,
-    const char *method_sp_uri,
-    uo_cb *handler)
+    const char *req_pattern,
+    const uo_cb *handler)
 {
-    uo_strhashtbl_set(&http_server->req_handlers.prefix, method_sp_uri, handler);
-    return true;
+    uo_http_req_handler *http_req_handler = uo_http_req_handler_create(req_pattern, handler);
+    uo_linklist_link(&http_server->req_handlers, http_req_handler);
 }
 
-bool uo__http_server_set_req_exact_cb_handler(
+void uo__http_server_add_req_func_handler(
     uo_http_server *http_server,
-    const char *method_sp_uri,
-    uo_cb *handler)
-{
-    uo_strhashtbl_set(&http_server->req_handlers.exact, method_sp_uri, handler);
-    return true;
-}
-
-bool uo__http_server_set_req_prefix_func_handler(
-    uo_http_server *http_server,
-    const char *method_sp_uri,
+    const char *req_pattern,
     uo_cb_func handler)
 {
     uo_cb *cb = uo_cb_create();
     uo_cb_append(cb, handler);
-    uo_strhashtbl_set(&http_server->req_handlers.prefix, method_sp_uri, cb);
-    return true;
-}
-
-bool uo__http_server_set_req_exact_func_handler(
-    uo_http_server *http_server,
-    const char *method_sp_uri,
-    uo_cb_func handler)
-{
-    uo_cb *cb = uo_cb_create();
-    uo_cb_append(cb, handler);
-    uo_strhashtbl_set(&http_server->req_handlers.exact, method_sp_uri, cb);
-    return true;
+    uo__http_server_add_req_cb_handler(http_server, req_pattern, cb);
+    uo_cb_destroy(cb);
 }
 
 void uo_http_server_start(
@@ -409,11 +393,7 @@ void uo_http_server_destroy(
     uo_http_server *http_server)
 {
     uo_tcp_server_destroy(http_server->tcp_server);
-
     uo_strhashtbl_destroy_at(&http_server->user_data);
-    uo_strhashtbl_destroy_at(&http_server->req_handlers.prefix);
-    uo_strhashtbl_destroy_at(&http_server->req_handlers.exact);
-
     uo_cb_destroy(http_server->evt_handlers.after_open);
     uo_cb_destroy(http_server->evt_handlers.after_recv_headers);
     uo_cb_destroy(http_server->evt_handlers.after_recv_msg);
@@ -421,6 +401,15 @@ void uo_http_server_destroy(
     uo_cb_destroy(http_server->evt_handlers.after_send_msg);
     uo_cb_destroy(http_server->evt_handlers.before_close);
     uo_cb_destroy(http_server->evt_handlers.after_close);
+
+    uo_linklist *head = &http_server->req_handlers;
+    uo_linklist *link;
+
+    while (head != (link = head->next))
+    {
+        uo_linklist_unlink(link);
+        uo_http_req_handler_destroy((uo_http_req_handler *)link);
+    }
 
     free(http_server);
 }
