@@ -52,6 +52,7 @@ bool test_uo_utf8_append(void)
     p = uo_utf8_append(p, 0x0001A9); // Ʃ
     p = uo_utf8_append(p, 0x002615); // ☕
     p = uo_utf8_append(p, 0x010000); // 𐀀
+    *p = '\0'; 
 
     passed &= strcmp("A¥Ʃ☕𐀀", utf8) == 0;
 
