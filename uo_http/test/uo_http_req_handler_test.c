@@ -54,8 +54,8 @@ int main(
     uo_http_req_handler_destroy(http_req_handler2);
 
     uo_http_req_handler *http_req_handler3 = uo_http_req_handler_create("/qwer/{var3}/{var4}/asdf/{var5}", cb);
-    passed &= uo_http_req_handler_try(http_req_handler2, "/qwer/val_/val_/asdf", params, finstack) == false;
-    passed &= uo_http_req_handler_try(http_req_handler2, "/qwer/val3/val4/asdf/val5", params, finstack) == true;
+    passed &= uo_http_req_handler_try(http_req_handler3, "/qwer/val_/val_/asdf", params, finstack) == false;
+    passed &= uo_http_req_handler_try(http_req_handler3, "/qwer/val3/val4/asdf/val5", params, finstack) == true;
     passed &= strcmp(uo_strhashtbl_get(params, "var3"), "val3") == 0;
     passed &= strcmp(uo_strhashtbl_get(params, "var4"), "val4") == 0;
     passed &= strcmp(uo_strhashtbl_get(params, "var5"), "val5") == 0;
