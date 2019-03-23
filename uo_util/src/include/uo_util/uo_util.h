@@ -9,6 +9,7 @@ extern "C" {
 #include <stddef.h>
 #include <stdbool.h>
 #include <string.h>
+#include <ctype.h>
 #include <assert.h>
 
 #define UO_TEMPSTR_LEN 0x1000
@@ -171,6 +172,53 @@ static inline char *uo_strdiff(
             return NULL;
 
     return (char *)str1 - 1;
+}
+
+static char *uo_uri_decode(
+    char *dst,
+    const char *src,
+    size_t src_len)
+{
+    // decode URI
+    // https://stackoverflow.com/a/14530993
+
+    const char *src_end = src + src_len;
+
+    char a, b;
+    while (src != src_end)
+    {
+        if (*src == '+') 
+        {
+            *dst++ = ' ';
+            src++;
+        }
+        else if ((*src == '%') &&
+            ((a = src[1]) && (b = src[2])) &&
+            (isxdigit(a) && isxdigit(b)))
+        {
+            if (a >= 'a') 
+                a -= 'a' - 'A';
+
+            if (a >= 'A')
+                a -= ('A' - 0xA);
+            else 
+                a -= '0';
+
+            if (b >= 'a')
+                b -= 'a' - 'A';
+            if (b >= 'A')
+                b -= ('A' - 0xA);
+            else 
+                b -= '0';
+
+            *dst++ = 0x10 * a + b;
+            src += 3;
+        }
+        else
+            *dst++ = *src++;
+    }
+
+    return dst;
 }
 
 #ifdef __cplusplus

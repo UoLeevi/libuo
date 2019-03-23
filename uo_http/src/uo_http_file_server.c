@@ -156,8 +156,8 @@ static bool uo_http_file_server_try_set_cache_entry(
 
     if (dup_cache_entry)
     {
-        http_file_server->cache_space += dup_cache_entry->size;
         pthread_mutex_lock(&dup_cache_entry->mtx);
+        http_file_server->cache_space += dup_cache_entry->size;
         uo_http_file_cache_entry_destroy(dup_cache_entry);
     }
 
@@ -262,47 +262,11 @@ void uo_http_file_server_serve(
 
     char *p = uo_buf_get_ptr(filename_buf);
     size_t uri_len = strlen(uri);
-    const char *uri_end = uri + uri_len;
 
     uo_buf_memcpy_append(&filename_buf, uri, uri_len);
+    p = uo_uri_decode(p, uri, uri_len);
 
-    // decode URI
-    // https://stackoverflow.com/a/14530993
-    char a, b;
-    while (uri != uri_end)
-    {
-        if (*uri == '+') 
-        {
-            *p++ = ' ';
-            uri++;
-        }
-        else if ((*uri == '%') &&
-            ((a = uri[1]) && (b = uri[2])) &&
-            (isxdigit(a) && isxdigit(b)))
-        {
-            if (a >= 'a') 
-                a -= 'a' - 'A';
-
-            if (a >= 'A')
-                a -= ('A' - 0xA);
-            else 
-                a -= '0';
-
-            if (b >= 'a')
-                b -= 'a' - 'A';
-            if (b >= 'A')
-                b -= ('A' - 0xA);
-            else 
-                b -= '0';
-
-            *p++ = 0x10 * a + b;
-            uri += 3;
-        }
-        else
-            *p++ = *uri++;
-    }
-
-    if (uri_end[-1] == '/')
+    if (uri[uri_len - 1] == '/')
         uo_buf_memcpy_append(&filename_buf, "index.html", 11);
     else
         *p = '\0';

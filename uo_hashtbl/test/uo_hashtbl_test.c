@@ -65,6 +65,13 @@ int main(
         link = uo_strkvp_linklist_next(link);
     }
 
+    passed &= uo_strhashtbl_get(hashtbl, "") == NULL;
+    passed &= uo_strhashtbl_remove(hashtbl, "") == NULL;
+    uo_strhashtbl_set(hashtbl, "", "");
+    passed &= strcmp(uo_strhashtbl_get(hashtbl, ""), "") == 0;
+    passed &= strcmp(uo_strhashtbl_remove(hashtbl, ""), "") == 0;
+    passed &= uo_strhashtbl_get(hashtbl, "") == NULL;
+
     uo_strhashtbl_destroy(hashtbl);
 
     return passed ? 0 : 1;
