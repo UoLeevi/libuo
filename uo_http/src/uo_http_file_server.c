@@ -20,6 +20,7 @@
 typedef struct uo_http_file_cache_entry
 {
     char *filename;
+    char *uri;
     const char *filetype;
     char *data;
     time_t mtime;
@@ -45,6 +46,7 @@ uo_http_file_server *uo_http_file_server_create(
 }
 
 static uo_http_file_cache_entry *uo_http_file_cache_entry_create(
+    const char *uri,
     const char *filename)
 {
     struct stat sb;
@@ -69,6 +71,7 @@ static uo_http_file_cache_entry *uo_http_file_cache_entry_create(
     uo_http_file_cache_entry *cache_entry = calloc(1, sizeof *cache_entry);
     cache_entry->data = p;
     cache_entry->filename = strdup(filename);
+    cache_entry->uri = strdup(uri);
     cache_entry->mtime = sb.st_mtime;
     cache_entry->size = sb.st_size;
     p[sb.st_size] = '\0';
@@ -100,6 +103,7 @@ static void uo_http_file_cache_entry_destroy(
     uo_http_file_cache_entry *cache_entry)
 {
     free(cache_entry->filename);
+    free(cache_entry->uri);
     free(cache_entry->data);
     pthread_mutex_unlock(&cache_entry->mtx);
     pthread_mutex_destroy(&cache_entry->mtx);
@@ -147,12 +151,11 @@ static uo_http_file_cache_entry *uo_http_file_server_get_cache_entry(
 
 static bool uo_http_file_server_try_set_cache_entry(
     uo_http_file_server *http_file_server,
-    const char *uri,
     uo_http_file_cache_entry *cache_entry)
 {
     pthread_mutex_lock(http_file_server->mtx);
 
-    uo_http_file_cache_entry *dup_cache_entry = uo_strhashtbl_remove(&http_file_server->cache, uri);
+    uo_http_file_cache_entry *dup_cache_entry = uo_strhashtbl_remove(&http_file_server->cache, cache_entry->uri);
 
     if (dup_cache_entry)
     {
@@ -167,7 +170,7 @@ static bool uo_http_file_server_try_set_cache_entry(
         return false;
     }
 
-    uo_strhashtbl_set(&http_file_server->cache, uri, cache_entry);
+    uo_strhashtbl_set(&http_file_server->cache, cache_entry->uri, cache_entry);
     http_file_server->cache_space -= cache_entry->size;
     pthread_mutex_unlock(http_file_server->mtx);
     return true;
@@ -256,7 +259,7 @@ void uo_http_file_server_serve(
 
     // no cache entry was found so create one
 
-    uo_buf filename_buf = uo_buf_alloc(0x200);
+    uo_buf filename_buf = uo_buf_alloc(0x100);
     const char *dirname = http_file_server->dirname;
     uo_buf_memcpy_append(&filename_buf, dirname, strlen(dirname));
 
@@ -271,7 +274,7 @@ void uo_http_file_server_serve(
     else
         *p = '\0';
 
-    cache_entry = uo_http_file_cache_entry_create(filename_buf);
+    cache_entry = uo_http_file_cache_entry_create(uri, filename_buf);
     uo_buf_free(filename_buf);
 
     if (cache_entry)
@@ -279,7 +282,7 @@ void uo_http_file_server_serve(
         uo_http_res_set_status_line(http_res, UO_HTTP_200, UO_HTTP_VER_1_1);
         uo_http_res_set_content(http_res, cache_entry->data, cache_entry->filetype, cache_entry->size);
 
-        if (!uo_http_file_server_try_set_cache_entry(http_file_server, uri, cache_entry))
+        if (!uo_http_file_server_try_set_cache_entry(http_file_server, cache_entry))
         {
             pthread_mutex_lock(&cache_entry->mtx);
             uo_http_file_cache_entry_destroy(cache_entry);
