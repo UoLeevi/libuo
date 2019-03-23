@@ -177,7 +177,7 @@ int main(
     uo_http_server_add_req_handler(http_server, "GET /asdf/{var1}/*", http_server_req_handler_prefix);
     uo_http_server_set_user_data(http_server, "sem", &sem_s);
     uo_http_server_set_user_data(http_server, "passed", &passed_s);
-    uo_http_server_set_opt_serve_static_files(http_server, "test_content");
+    uo_http_server_set_opt_serve_static_files(http_server, "test_content", 0xA00000);
     uo_cb_append(http_server->evt_handlers.after_recv_msg, http_server_evt_handler_after_recv_request);
     uo_cb_append(http_server->evt_handlers.after_close, http_server_evt_handler_after_close);
     uo_http_server_start(http_server);

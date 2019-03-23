@@ -112,10 +112,6 @@ bool uo_http_res_set_status_line(
     uo_http_status,
     uo_http_ver);
 
-bool uo_http_res_set_content_from_file(
-    uo_http_res *,
-    const char *filename);
-
 bool uo_http_msg_parse_start_line(
     uo_http_msg *);
 

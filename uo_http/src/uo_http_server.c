@@ -12,82 +12,6 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <ctype.h>
-
-#include <sys/stat.h>
-
-static void uo_http_res_404(
-    uo_http_res *http_res)
-{
-    uo_http_res_set_status_line(http_res, UO_HTTP_404, UO_HTTP_VER_1_1);
-    uo_http_msg_set_content(http_res, "404 Not Found", "text/plain", UO_STRLEN("404 Not Found"));
-}
-
-static void uo_http_server_serve_static_file(
-    uo_http_conn *http_conn,
-    const char *dirname)
-{
-    uo_http_req *http_req = &http_conn->http_req;
-    uo_http_res *http_res = &http_conn->http_res;
-
-    uo_buf filename_buf = uo_buf_alloc(0x200);
-    uo_buf_memcpy_append(&filename_buf, dirname, strlen(dirname));
-
-    char *uri = http_req->uri;
-    char *p = uo_buf_get_ptr(filename_buf);
-    size_t uri_len = strlen(uri);
-    char *uri_end = uri + uri_len;
-
-    uo_buf_memcpy_append(&filename_buf, uri, uri_len);
-
-    // decode URI
-    // https://stackoverflow.com/a/14530993
-    char a, b;
-    while (uri != uri_end)
-    {
-        if (*uri == '+') 
-        {
-            *p++ = ' ';
-            uri++;
-        }
-        else if ((*uri == '%') &&
-            ((a = uri[1]) && (b = uri[2])) &&
-            (isxdigit(a) && isxdigit(b)))
-        {
-            if (a >= 'a') 
-                a -= 'a' - 'A';
-
-            if (a >= 'A')
-                a -= ('A' - 0xA);
-            else 
-                a -= '0';
-
-            if (b >= 'a')
-                b -= 'a' - 'A';
-            if (b >= 'A')
-                b -= ('A' - 0xA);
-            else 
-                b -= '0';
-
-            *p++ = 0x10 * a + b;
-            uri += 3;
-        }
-        else
-            *p++ = *uri++;
-    }
-
-    if (uri_end[-1] == '/')
-        uo_buf_memcpy_append(&filename_buf, "index.html", 11);
-    else
-        *p = '\0';
-
-    if (uo_http_res_set_content_from_file(http_res, filename_buf))
-        uo_http_res_set_status_line(http_res, UO_HTTP_200, UO_HTTP_VER_1_1);
-    else
-        uo_http_res_404(http_res);
-
-    uo_buf_free(filename_buf);
-}
 
 static void uo_http_conn_pass_cb_to_tcp_server(
     uo_cb *cb)
@@ -182,10 +106,13 @@ static void uo_http_server_before_send_response(
     {
         uo_http_server *http_server = http_conn->http_server;
 
-        if (http_server->opt.is_serving_static_files)
-            uo_http_server_serve_static_file(http_conn, http_server->opt.param.dirname);
+        if (http_conn->http_req.method == UO_HTTP_GET && http_server->file_server)
+            uo_http_file_server_serve(http_server->file_server, http_conn);
         else
-            uo_http_res_404(http_res);
+        {
+            uo_http_res_set_status_line(http_res, UO_HTTP_400, UO_HTTP_VER_1_1);
+            uo_http_msg_set_content(http_res, "400 Bad Request", "text/plain", UO_STRLEN("400 Bad Request"));
+        }
     }
 
     uo_http_msg_write_to_buf(http_res, &tcp_conn->wbuf);
@@ -337,16 +264,12 @@ uo_http_server *uo_http_server_create(
 
 bool uo_http_server_set_opt_serve_static_files(
     uo_http_server *http_server,
-    const char *dirname)
+    const char *dirname,
+    size_t cache_size)
 {
-    struct stat sb;
-    if (stat(dirname, &sb) == -1 || !S_ISDIR(sb.st_mode))
-        return false;
-
-    http_server->opt.param.dirname = dirname;
-    http_server->opt.is_serving_static_files = true;
-
-    return true;
+    return (http_server->file_server = uo_http_file_server_create(dirname, cache_size)) 
+        ? true
+        : false;
 }
 
 void uo__http_server_add_req_cb_handler(
@@ -411,6 +334,9 @@ void uo_http_server_destroy(
         uo_linklist_unlink(link);
         uo_http_req_handler_destroy((uo_http_req_handler *)link);
     }
+
+    if (http_server->file_server)
+        uo_http_file_server_destroy(http_server->file_server);
 
     free(http_server);
 }

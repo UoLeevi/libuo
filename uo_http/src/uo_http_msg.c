@@ -2,8 +2,6 @@
 #include "uo_hashtbl.h"
 #include "uo_mem.h"
 
-#include <sys/stat.h>
-
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -223,77 +221,6 @@ bool uo_http_res_set_status_line(
     http_res->status = status;
 
     return http_res->flags.start_line = true;
-}
-
-static void uo_http_res_set_content_type_header_based_on_filename(
-    uo_http_res *http_res,
-    const char *filename)
-{
-    assert(http_res->flags.role == UO_HTTP_MSG_ROLE_SEND);
-
-    const char *file_extension = strrchr(filename, '.');
-    if (!file_extension)
-        return;
-
-    size_t file_extension_len = strlen(file_extension);
-    if (file_extension_len == 1)
-        return;
-
-    // https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Complete_list_of_MIME_types
-    char *filetype = NULL;
-    switch (tolower(file_extension[1]))
-    {
-        case 'h': filetype = "text/html; charset=utf-8";              break;
-        case 'j': filetype = "application/javascript; charset=utf-8"; break;
-        case 'c': filetype = "text/css; charset=utf-8";               break;
-        case 's': filetype = "image/svg+xml; charset=utf-8";          break;
-        default:  filetype = "application/octet-stream";              break;
-    }
-
-    if (filetype)
-        uo_http_msg_set_header(http_res, "content-type", filetype);
-}
-
-bool uo_http_res_set_content_from_file(
-    uo_http_res *http_res,
-    const char *filename)
-{
-    assert(http_res->flags.role == UO_HTTP_MSG_ROLE_SEND);
-
-    struct stat sb;
-    if (stat(filename, &sb) == -1 || !S_ISREG(sb.st_mode))
-        return false;
-
-    FILE *fp = fopen(filename, "rb");
-    if (!fp)
-        return false;
-
-    size_t content_len_str_len = snprintf(NULL, 0, "%lu", sb.st_size);
-
-    char *p = malloc(sb.st_size + content_len_str_len + 2);
-    uo_finstack_add(http_res->finstack, p, free);
-
-    if (fread(p, sizeof *p, sb.st_size, fp) != sb.st_size || ferror(fp))
-        goto err_fclose;
-
-    fclose(fp);
-
-    http_res->body = p;
-    http_res->body_len = sb.st_size;
-    p += sb.st_size;
-    *p++ = '\0';
-
-    sprintf(p, "%lu", sb.st_size);
-    uo_http_msg_set_header(http_res, "content-length", p);
-
-    uo_http_res_set_content_type_header_based_on_filename(http_res, filename);
-
-    return http_res->flags.body = true;
-
-err_fclose:
-    fclose(fp);
-
-    return false;
 }
 
 bool uo_http_msg_parse_start_line(

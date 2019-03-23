@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include "uo_http_conn.h"
+#include "uo_http_file_server.h"
 #include "uo_cb.h"
 
 #include <stdbool.h>
@@ -53,15 +54,8 @@ typedef struct uo_http_server
     uo_strhashtbl user_data;
     uo_http_conn_evt_handlers evt_handlers;
     uo_linklist req_handlers;
-    struct
-    {
-        bool is_serving_static_files;
-        struct
-        {
-            const char *dirname;
-        } param;
-    } opt;
     uo_tcp_server *tcp_server;
+    uo_http_file_server *file_server;
 } uo_http_server;
 
 /**
@@ -104,13 +98,15 @@ void uo_http_server_start(
 /**
  * @brief set option to serve static files from directory
  * 
- * @param dirname   a path to the base directory for the files to serve
- * @return true     on success
- * @return false    on error
+ * @param dirname       a path to the base directory for the files to serve
+ * @param cache_size    maximum cache size in bytes
+ * @return true         on success
+ * @return false        on error
  */
 bool uo_http_server_set_opt_serve_static_files(
     uo_http_server *,
-    const char *dirname);
+    const char *dirname,
+    size_t cache_size);
 
 /**
  * @brief add a request handler (i.e. callback) for specific request line that matches a pattern
