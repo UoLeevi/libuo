@@ -14,6 +14,9 @@
 #include <pthread.h>
 #include <sys/stat.h>
 
+// TODO
+// create mechanism to make cache entries expire after some time has passed and file has not been accessed
+
 typedef struct uo_http_file_cache_entry
 {
     char *filename;
@@ -39,16 +42,6 @@ uo_http_file_server *uo_http_file_server_create(
     http_file_server->cache_space = cache_size;
     http_file_server->dirname = strdup(dirname);
     return http_file_server;
-}
-
-void uo_http_file_server_destroy(
-    uo_http_file_server *http_file_server)
-{
-    uo_strhashtbl_destroy_at(&http_file_server->cache);
-    pthread_mutex_destroy(http_file_server->mtx);
-    free(http_file_server->mtx);
-    free((void *)http_file_server->dirname);
-    free(http_file_server);
 }
 
 static uo_http_file_cache_entry *uo_http_file_cache_entry_create(
@@ -113,7 +106,7 @@ static void uo_http_file_cache_entry_destroy(
     free(cache_entry);
 }
 
-static bool uo_http_file_cache_entry_refresh(
+static bool uo_http_file_cache_entry_try_refresh(
     uo_http_file_cache_entry *cache_entry,
     struct stat *sb_new)
 {
@@ -191,6 +184,27 @@ static uo_http_file_cache_entry *uo_http_file_server_remove_cache_entry(
     return cache_entry;
 }
 
+void uo_http_file_server_destroy(
+    uo_http_file_server *http_file_server)
+{
+    uo_strkvp_linklist *head = uo_strhashtbl_list(&http_file_server->cache);
+
+    while (head != uo_strkvp_linklist_next(head)) 
+    {
+        uo_strkvp_linklist *strkvp_linklist = uo_strkvp_linklist_next(head);
+        uo_linklist_unlink(&strkvp_linklist->link);
+        uo_http_file_cache_entry *cache_entry = strkvp_linklist->item.value;
+        pthread_mutex_lock(&cache_entry->mtx);
+        uo_http_file_cache_entry_destroy(cache_entry);
+    }
+
+    uo_strhashtbl_destroy_at(&http_file_server->cache);
+    pthread_mutex_destroy(http_file_server->mtx);
+    free(http_file_server->mtx);
+    free((void *)http_file_server->dirname);
+    free(http_file_server);
+}
+
 void uo_http_file_server_serve(
     uo_http_file_server *http_file_server,
     uo_http_conn *http_conn)
@@ -208,21 +222,24 @@ void uo_http_file_server_serve(
         if (stat(cache_entry->filename, &sb) == -1)
         {
             // the file is no longer valid
-            uo_http_file_cache_entry_destroy(cache_entry);
             uo_http_file_server_remove_cache_entry(http_file_server, uri);
+            uo_http_file_cache_entry_destroy(cache_entry);
             uo_http_res_set_status_line(http_res, UO_HTTP_404, UO_HTTP_VER_1_1);
             uo_http_msg_set_content(http_res, "404 Not Found", "text/plain", UO_STRLEN("404 Not Found"));
         }
         else if (sb.st_mtime != cache_entry->mtime)
         {
             // the file has been modified
-            if (uo_http_file_cache_entry_refresh(cache_entry, &sb))
+            if (uo_http_file_cache_entry_try_refresh(cache_entry, &sb))
+            {
                 uo_http_res_set_content(http_res, cache_entry->data, cache_entry->filetype, cache_entry->size);
+                pthread_mutex_unlock(&cache_entry->mtx);
+            }
             else
             {
                 // error while reloading the file
-                uo_http_file_cache_entry_destroy(cache_entry);
                 uo_http_file_server_remove_cache_entry(http_file_server, uri);
+                uo_http_file_cache_entry_destroy(cache_entry);
                 uo_http_res_set_status_line(http_res, UO_HTTP_404, UO_HTTP_VER_1_1);
                 uo_http_msg_set_content(http_res, "404 Not Found", "text/plain", UO_STRLEN("404 Not Found"));
             }

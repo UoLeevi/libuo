@@ -36,7 +36,7 @@ static void http_client_evt_handler_before_send_request(
     uo_http_req *http_req = &http_conn->http_req;
 
     size_t number = (uintptr_t)uo_http_conn_get_user_data(http_conn, "number");
-    switch (number)
+    switch (number % 3)
     {
         case 0:
             uo_http_req_set_request_line(http_req, UO_HTTP_GET, "/", UO_HTTP_VER_1_1);
@@ -67,7 +67,7 @@ static void http_client_evt_handler_after_recv_response(
     bool *passed = uo_http_conn_get_user_data(http_conn, "passed");
 
     size_t number = (uintptr_t)uo_http_conn_get_user_data(http_conn, "number");
-    switch (number)
+    switch (number % 3)
     {
         case 0:
             *passed &= http_res->status == UO_HTTP_200;
@@ -193,11 +193,15 @@ int main(
     uo_http_client_connect(http_client);
     uo_http_client_connect(http_client);
     uo_http_client_connect(http_client);
+    uo_http_client_connect(http_client);
 
     struct timespec ts;
 
     clock_gettime(CLOCK_REALTIME, &ts);
     ts.tv_sec += 5;
+
+    while (sem_timedwait(&sem_c, &ts) == -1 && errno == EINTR)
+        continue;
 
     while (sem_timedwait(&sem_c, &ts) == -1 && errno == EINTR)
         continue;
