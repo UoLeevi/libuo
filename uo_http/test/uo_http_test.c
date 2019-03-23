@@ -159,7 +159,7 @@ int main(
 {
     bool passed = true;
     bool passed_s = true;
-    bool passed_c[3] = { false, false, false };
+    bool passed_c[4] = { false, false, false, false };
 
     sem_t sem_c;
     sem_t sem_s;
@@ -224,6 +224,7 @@ int main(
     passed &= passed_c[0];
     passed &= passed_c[1];
     passed &= passed_c[2];
+    passed &= passed_c[3];
     passed &= passed_s;
 
     return passed ? 0 : 1;
