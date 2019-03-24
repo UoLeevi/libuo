@@ -198,7 +198,7 @@ int main(
     struct timespec ts;
 
     clock_gettime(CLOCK_REALTIME, &ts);
-    ts.tv_sec += 500;
+    ts.tv_sec += 5;
 
     while (sem_timedwait(&sem_c, &ts) == -1 && errno == EINTR)
         continue;
