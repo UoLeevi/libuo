@@ -101,6 +101,7 @@ bool uo_http_msg_set_content_ref(
     http_msg->body_len = content_len;
 
     http_msg->body = (char *)content_ref;
+    uo_refcount_inc(refcount);
     uo_refstack_push_refcount(&http_msg->refstack, refcount);
 
     char *p = malloc(content_len_str_len + content_type_len + 2);
