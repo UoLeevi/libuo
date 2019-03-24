@@ -16,6 +16,23 @@ if(NOT TARGET uo::uo_util)
     find_package(uo_util CONFIG REQUIRED)
 endif()
 
+
+add_executable(uo_http_req_handler_test
+    uo_http_req_handler_test.c)
+
+target_link_libraries(uo_http_req_handler_test
+    PRIVATE
+        uo::uo_http
+        uo::uo_util)
+
+target_compile_features(uo_http_req_handler_test
+    PUBLIC
+        c_std_11)
+
+add_test(NAME uo_http_req_handler_test
+    COMMAND uo_http_req_handler_test)
+
+
 add_executable(uo_http_test
     uo_http_test.c)
 
@@ -36,19 +53,3 @@ add_test(NAME uo_http_test
 add_custom_command(TARGET uo_http_test POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_CURRENT_SOURCE_DIR}/test_content $<TARGET_FILE_DIR:uo_http_test>/test_content)
-
-
-add_executable(uo_http_req_handler_test
-    uo_http_req_handler_test.c)
-
-target_link_libraries(uo_http_req_handler_test
-    PRIVATE
-        uo::uo_http
-        uo::uo_util)
-
-target_compile_features(uo_http_req_handler_test
-    PUBLIC
-        c_std_11)
-
-add_test(NAME uo_http_req_handler_test
-    COMMAND uo_http_req_handler_test)

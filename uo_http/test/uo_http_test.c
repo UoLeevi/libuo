@@ -200,20 +200,14 @@ int main(
     clock_gettime(CLOCK_REALTIME, &ts);
     ts.tv_sec += 5;
 
-    while (sem_timedwait(&sem_c, &ts) == -1 && errno == EINTR)
-        continue;
+    for (int i = 0; i < 4; ++i)
+    {
+        while (sem_timedwait(&sem_c, &ts) == -1 && errno == EINTR)
+            continue;
 
-    while (sem_timedwait(&sem_c, &ts) == -1 && errno == EINTR)
-        continue;
-    
-    while (sem_timedwait(&sem_c, &ts) == -1 && errno == EINTR)
-        continue;
-    
-    while (sem_timedwait(&sem_c, &ts) == -1 && errno == EINTR)
-        continue;
-
-    while (sem_timedwait(&sem_s, &ts) == -1 && errno == EINTR)
-        continue;
+        while (sem_timedwait(&sem_s, &ts) == -1 && errno == EINTR)
+            continue;
+    }
 
     sem_destroy(&sem_c);
     sem_destroy(&sem_s);
