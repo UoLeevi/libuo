@@ -20,11 +20,10 @@
 
 typedef struct uo_http_file_cache_entry
 {
-    uo_refcount *refcount;
     char *filename;
     char *uri;
     const char *filetype;
-    char *data;
+    uo_refcount *content_ref;
     time_t mtime;
     size_t size;
     pthread_mutex_t mtx;
@@ -71,8 +70,7 @@ static uo_http_file_cache_entry *uo_http_file_cache_entry_create(
     fclose(fp);
 
     uo_http_file_cache_entry *cache_entry = calloc(1, sizeof *cache_entry);
-    cache_entry->refcount = uo_refcount_create(p, free);
-    cache_entry->data = p;
+    cache_entry->content_ref = uo_refcount_create(p, free);
     cache_entry->filename = strdup(filename);
     cache_entry->uri = strdup(uri);
     cache_entry->mtime = sb.st_mtime;
@@ -107,7 +105,7 @@ static void uo_http_file_cache_entry_destroy(
 {
     free(cache_entry->filename);
     free(cache_entry->uri);
-    uo_refcount_dec(cache_entry->refcount);
+    uo_refcount_dec(cache_entry->content_ref);
     pthread_mutex_unlock(&cache_entry->mtx);
     pthread_mutex_destroy(&cache_entry->mtx);
     free(cache_entry);
@@ -124,10 +122,10 @@ static bool uo_http_file_cache_entry_try_refresh(
     cache_entry->mtime = sb_new->st_mtime;
     size_t size = cache_entry->size = sb_new->st_size;
     
-    uo_refcount_dec(cache_entry->refcount);
+    uo_refcount_dec(cache_entry->content_ref);
 
-    char *p = cache_entry->data = malloc(size + 1);
-    cache_entry->refcount = uo_refcount_create(p, free);
+    char *p = malloc(size + 1);
+    cache_entry->content_ref = uo_refcount_create(p, free);
 
     if (fread(p, sizeof *p, size, fp) != size || ferror(fp))
     {
@@ -224,10 +222,10 @@ void uo_http_file_server_serve(
     const char *uri = http_req->uri;
     uo_http_file_cache_entry *cache_entry = uo_http_file_server_get_cache_entry(http_file_server, uri);
 
-    struct stat sb;
-
     if (cache_entry)
     {
+        struct stat sb;
+
         if (stat(cache_entry->filename, &sb) == -1)
         {
             // the file is no longer valid
@@ -241,7 +239,7 @@ void uo_http_file_server_serve(
             // the file has been modified
             if (uo_http_file_cache_entry_try_refresh(cache_entry, &sb))
             {
-                uo_http_res_set_content_ref(http_res, cache_entry->data, cache_entry->filetype, cache_entry->size, cache_entry->refcount);
+                uo_http_res_set_content_ref(http_res, cache_entry->content_ref, cache_entry->filetype, cache_entry->size);
                 pthread_mutex_unlock(&cache_entry->mtx);
             }
             else
@@ -256,7 +254,7 @@ void uo_http_file_server_serve(
         else
         {
             uo_http_res_set_status_line(http_res, UO_HTTP_200, UO_HTTP_VER_1_1);
-            uo_http_res_set_content_ref(http_res, cache_entry->data, cache_entry->filetype, cache_entry->size, cache_entry->refcount);
+            uo_http_res_set_content_ref(http_res, cache_entry->content_ref, cache_entry->filetype, cache_entry->size);
             pthread_mutex_unlock(&cache_entry->mtx);
         }
 
@@ -286,7 +284,7 @@ void uo_http_file_server_serve(
     if (cache_entry)
     {
         uo_http_res_set_status_line(http_res, UO_HTTP_200, UO_HTTP_VER_1_1);
-        uo_http_res_set_content_ref(http_res, cache_entry->data, cache_entry->filetype, cache_entry->size, cache_entry->refcount);
+        uo_http_res_set_content_ref(http_res, cache_entry->content_ref, cache_entry->filetype, cache_entry->size);
 
         if (!uo_http_file_server_try_set_cache_entry(http_file_server, cache_entry))
         {

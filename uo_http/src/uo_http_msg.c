@@ -82,10 +82,9 @@ bool uo_http_msg_set_content(
 
 bool uo_http_msg_set_content_ref(
     uo_http_msg *http_msg,
-    const char *content_ref,
+    uo_refcount *content_ref,
     const char *content_type,
-    size_t content_len,
-    uo_refcount *refcount)
+    size_t content_len)
 {
     assert(http_msg->flags.role == UO_HTTP_MSG_ROLE_SEND);
 
@@ -100,9 +99,9 @@ bool uo_http_msg_set_content_ref(
 
     http_msg->body_len = content_len;
 
-    http_msg->body = (char *)content_ref;
-    uo_refcount_inc(refcount);
-    uo_refstack_push_refcount(&http_msg->refstack, refcount);
+    http_msg->body = (char *)content_ref->ptr;
+    uo_refcount_inc(content_ref);
+    uo_refstack_push_refcount(&http_msg->refstack, content_ref);
 
     char *p = malloc(content_len_str_len + content_type_len + 2);
     uo_refstack_push(&http_msg->refstack, p, free);

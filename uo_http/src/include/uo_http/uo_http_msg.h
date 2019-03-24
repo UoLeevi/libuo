@@ -107,10 +107,9 @@ bool uo_http_msg_set_content(
 
 bool uo_http_msg_set_content_ref(
     uo_http_msg *,
-    const char *content_ref,
+    uo_refcount *content_ref,
     const char *content_type,
-    size_t content_len,
-    uo_refcount *refcount);
+    size_t content_len);
 
 bool uo_http_req_set_request_line(
     uo_http_req *,
