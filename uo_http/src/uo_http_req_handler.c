@@ -1,4 +1,5 @@
 #include "uo_http_req_handler.h"
+#include "uo_util.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -45,7 +46,7 @@ bool uo_http_req_handler_try(
     uo_http_req_handler *http_req_handler,
     const char *method_sp_uri,
     uo_strhashtbl *params,
-    uo_finstack *finstack)
+    uo_refstack *refstack)
 {
     char *req_pattern = http_req_handler->req_pattern;
     size_t i = http_req_handler->param_count;
@@ -100,7 +101,7 @@ bool uo_http_req_handler_try(
     i = http_req_handler->param_count;
     char *first_param_value = param_ptrs[(i - 1) * 3 + 1];
     char *param_value_buf = strdup(first_param_value);
-    uo_finstack_add(finstack, param_value_buf, free);
+    uo_refstack_push(refstack, param_value_buf, free);
 
     while (i--)
     {

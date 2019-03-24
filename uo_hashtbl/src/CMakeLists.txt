@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(uo_hashtbl VERSION 0.5.0)
+project(uo_hashtbl VERSION 0.6.0)
 
 if(NOT TARGET uo::uo_util)
     find_package(uo_util CONFIG REQUIRED)
@@ -8,19 +8,21 @@ if(NOT TARGET uo::uo_linklist)
     find_package(uo_linklist CONFIG REQUIRED)
 endif()
 
-add_library(uo_hashtbl INTERFACE)
+add_library(uo_hashtbl
+    uo_hashtbl.c)
 
 target_link_libraries(uo_hashtbl
-    INTERFACE
-        uo::uo_util
-        uo::uo_linklist)
+    PUBLIC
+        uo::uo_linklist
+    PRIVATE
+        uo::uo_util)
 
 target_compile_features(uo_hashtbl
-    INTERFACE
+    PUBLIC
         c_std_11)
 
 target_include_directories(uo_hashtbl
-    INTERFACE
+    PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/uo_hashtbl>
         $<INSTALL_INTERFACE:include/uo_hashtbl>)
 

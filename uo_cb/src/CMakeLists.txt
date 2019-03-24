@@ -1,11 +1,14 @@
 cmake_minimum_required(VERSION 3.12)
-project(uo_cb VERSION 0.5.0)
+project(uo_cb VERSION 0.6.0)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
 if(NOT TARGET uo::uo_stack)
     find_package(uo_stack CONFIG REQUIRED)
+endif()
+if(NOT TARGET uo::uo_refcount)
+    find_package(uo_refcount CONFIG REQUIRED)
 endif()
 if(NOT TARGET uo::uo_linklist)
     find_package(uo_linklist CONFIG REQUIRED)
@@ -22,6 +25,7 @@ add_library(uo_cb
 target_link_libraries(uo_cb
     PRIVATE
         uo::uo_stack
+        uo::uo_refcount
         uo::uo_linklist
         uo::uo_linkpool
         Threads::Threads

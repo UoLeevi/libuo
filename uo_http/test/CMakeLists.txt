@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(uo_http_test VERSION 0.5.1)
+project(uo_http_test VERSION 0.6.0)
 
 enable_testing()
 
@@ -12,7 +12,9 @@ endif()
 if(NOT TARGET uo::uo_macro)
     find_package(uo_macro CONFIG REQUIRED)
 endif()
-
+if(NOT TARGET uo::uo_util)
+    find_package(uo_util CONFIG REQUIRED)
+endif()
 
 add_executable(uo_http_test
     uo_http_test.c)
@@ -21,6 +23,7 @@ target_link_libraries(uo_http_test
     PRIVATE
         uo::uo_macro
         uo::uo_http
+        uo::uo_util
         Threads::Threads)
 
 target_compile_features(uo_http_test
@@ -40,7 +43,8 @@ add_executable(uo_http_req_handler_test
 
 target_link_libraries(uo_http_req_handler_test
     PRIVATE
-        uo::uo_http)
+        uo::uo_http
+        uo::uo_util)
 
 target_compile_features(uo_http_req_handler_test
     PUBLIC

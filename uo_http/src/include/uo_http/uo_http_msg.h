@@ -9,7 +9,8 @@ extern "C" {
 #include "uo_http_method.h"
 #include "uo_http_status.h"
 #include "uo_hashtbl.h"
-#include "uo_finstack.h"
+#include "uo_refcount.h"
+#include "uo_refstack.h"
 #include "uo_buf.h"
 
 #include <stdbool.h>
@@ -20,6 +21,9 @@ extern "C" {
 
 #define uo_http_req_set_content uo_http_msg_set_content
 #define uo_http_res_set_content uo_http_msg_set_content
+
+#define uo_http_req_set_content_ref uo_http_msg_set_content_ref
+#define uo_http_res_set_content_ref uo_http_msg_set_content_ref
 
 typedef struct uo_strhashtbl uo_strhashtbl;
 
@@ -44,10 +48,10 @@ typedef enum uo_http_msg_role
 typedef struct uo_http_msg
 {
     uo_strhashtbl headers;
+    uo_refstack refstack;
     uo_buf *buf;
     char *body;
     size_t body_len;
-    uo_finstack *finstack;
     union
     {
         struct // only for HTTP request
@@ -100,6 +104,13 @@ bool uo_http_msg_set_content(
     const char *content,
     const char *content_type,
     size_t content_len);
+
+bool uo_http_msg_set_content_ref(
+    uo_http_msg *,
+    const char *content_ref,
+    const char *content_type,
+    size_t content_len,
+    uo_refcount *refcount);
 
 bool uo_http_req_set_request_line(
     uo_http_req *,

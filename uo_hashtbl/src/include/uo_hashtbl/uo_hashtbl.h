@@ -6,14 +6,11 @@ extern "C" {
 #endif
 
 #include "uo_linklist.h"
-#include "uo_util.h"
 
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <assert.h>
 #include <stdlib.h>
-#include <string.h>
 
 /**
  * @brief uo_hashtbl is automatically resizing hash table
@@ -27,7 +24,7 @@ typedef struct uo_kvp_linklist uo_kvp_linklist;
  * 
  * @param initial_capacity  minimum initial capacity, note that resize occures when uo_hashtbl is half full
  */
-static void uo_hashtbl_create_at(
+void uo_hashtbl_create_at(
     uo_hashtbl *,
     size_t initial_capacity);
 
@@ -37,7 +34,7 @@ static void uo_hashtbl_create_at(
  * @param initial_capacity  minimum initial capacity, note that resize occures when uo_hashtbl is half full
  * @return uo_hashtbl *  created uo_hashtbl instance
  */
-static uo_hashtbl *uo_hashtbl_create(
+uo_hashtbl *uo_hashtbl_create(
     size_t initial_capacity);
 
 /**
@@ -59,7 +56,7 @@ static void uo_hashtbl_destroy(
  * 
  * @return size_t   the number of key value pairs stored to uo_hashtbl
  */
-static size_t uo_hashtbl_count(
+size_t uo_hashtbl_count(
     uo_hashtbl *);
 
 /**
@@ -78,7 +75,7 @@ static void *uo_hashtbl_get(
  * @param key       key that can be later used to retrieve the value using uo_hashtbl_get
  * @param value     pointer to value to be stored
  */
-static void uo_hashtbl_set(
+void uo_hashtbl_set(
     uo_hashtbl *, 
     const void *key, 
     const void *value);
@@ -89,7 +86,7 @@ static void uo_hashtbl_set(
  * @param key       key that was used when uo_hashtbl_set was used
  * @return void *   value held by the removed item or NULL if no such key existed in the uo_hashtbl 
  */
-static void *uo_hashtbl_remove(
+void *uo_hashtbl_remove(
     uo_hashtbl *, 
     const void *key);
 
@@ -99,7 +96,6 @@ static void *uo_hashtbl_remove(
  */
 static uo_kvp_linklist *uo_hashtbl_list(
     uo_hashtbl *);
-
 
 #define UO_HASHTBL_MIN_CAPACITY 0x10
 #define UO_HASHTBL_TAG_REMOVED ((uintptr_t)~0)
@@ -143,7 +139,7 @@ static uo_kvp_linklist *uo_hashtbl_list(
 #define uo__hashtbl_remove_f(prefix) \
     prefix ## hashtbl_remove
 
-#define uo_def_hashtbl(prefix, type, hash, equals)                                            \
+#define uo_decl_hashtbl(prefix, type)                                                         \
                                                                                               \
 typedef struct uo__kvp_type(prefix)                                                           \
 {                                                                                             \
@@ -151,7 +147,7 @@ typedef struct uo__kvp_type(prefix)                                             
     void *value;                                                                              \
 } uo__kvp_type(prefix);                                                                       \
                                                                                               \
-uo_def_linklist(uo__kvp_type(prefix));                                                        \
+uo_decl_linklist(uo__kvp_type(prefix), uo__kvp_type(prefix));                                 \
                                                                                               \
 typedef struct uo__hashtbl_type(prefix)                                                       \
 {                                                                                             \
@@ -162,28 +158,12 @@ typedef struct uo__hashtbl_type(prefix)                                         
     uo__kvp_linklist_type(prefix) *links;                                                     \
 } uo__hashtbl_type(prefix);                                                                   \
                                                                                               \
-static void uo__hashtbl_create_at_f(prefix)(                                                  \
-    uo__hashtbl_type(prefix) *hashtbl,                                                        \
-    size_t initial_capacity)                                                                  \
-{                                                                                             \
-    size_t capacity = initial_capacity >= UO_HASHTBL_MIN_CAPACITY                             \
-        ? uo_ceil_pow2(initial_capacity)                                                      \
-        : UO_HASHTBL_MIN_CAPACITY;                                                            \
+void uo__hashtbl_create_at_f(prefix)(                                                         \
+    uo__hashtbl_type(prefix) *,                                                               \
+    size_t initial_capacity);                                                                 \
                                                                                               \
-    hashtbl->count = 0;                                                                       \
-    hashtbl->removed_count = 0;                                                               \
-    hashtbl->links = calloc(hashtbl->capacity = capacity, sizeof *hashtbl->links);            \
-                                                                                              \
-    uo_linklist_selflink(hashtbl);                                                            \
-}                                                                                             \
-                                                                                              \
-static uo__hashtbl_type(prefix) *uo__hashtbl_create_f(prefix)(                                \
-    size_t initial_capacity)                                                                  \
-{                                                                                             \
-    uo__hashtbl_type(prefix) *hashtbl = malloc(sizeof *hashtbl);                              \
-    uo__hashtbl_create_at_f(prefix)(hashtbl, initial_capacity);                               \
-    return hashtbl;                                                                           \
-}                                                                                             \
+uo__hashtbl_type(prefix) *uo__hashtbl_create_f(prefix)(                                       \
+    size_t initial_capacity);                                                                 \
                                                                                               \
 static inline void uo__hashtbl_destroy_at_f(prefix)(                                          \
     uo__hashtbl_type(prefix) *hashtbl)                                                        \
@@ -198,7 +178,62 @@ static inline void uo__hashtbl_destroy_f(prefix)(                               
     free(hashtbl);                                                                            \
 }                                                                                             \
                                                                                               \
-static uo__kvp_linklist_type(prefix) *uo__hashtbl_find_link_f(prefix)(                        \
+uo__kvp_linklist_type(prefix) *uo__hashtbl_find_link_f(prefix)(                               \
+    uo__kvp_linklist_type(prefix) *links,                                                     \
+    size_t capacity,                                                                          \
+    type key);                                                                                \
+                                                                                              \
+static inline uo__kvp_linklist_type(prefix) *uo__hashtbl_list_f(prefix)(                      \
+    uo__hashtbl_type(prefix) *hashtbl)                                                        \
+{                                                                                             \
+    return (uo__kvp_linklist_type(prefix) *)&hashtbl->head;                                   \
+}                                                                                             \
+                                                                                              \
+static inline void *uo__hashtbl_get_f(prefix)(                                                \
+    uo__hashtbl_type(prefix) *hashtbl,                                                        \
+    type key)                                                                                 \
+{                                                                                             \
+    return key                                                                                \
+        ? uo__hashtbl_find_link_f(prefix)(                                                    \
+            hashtbl->links, hashtbl->capacity, (const type )key)->item.value                  \
+        : NULL;                                                                               \
+}                                                                                             \
+                                                                                              \
+void uo__hashtbl_set_f(prefix)(                                                               \
+    uo__hashtbl_type(prefix) *,                                                               \
+    type key,                                                                                 \
+    const void *value);                                                                       \
+                                                                                              \
+void *uo__hashtbl_remove_f(prefix)(                                                           \
+    uo__hashtbl_type(prefix) *,                                                               \
+    type key);
+
+#define uo_impl_hashtbl(prefix, type, hash, equals)                                           \
+                                                                                              \
+void uo__hashtbl_create_at_f(prefix)(                                                         \
+    uo__hashtbl_type(prefix) *hashtbl,                                                        \
+    size_t initial_capacity)                                                                  \
+{                                                                                             \
+    size_t capacity = initial_capacity >= UO_HASHTBL_MIN_CAPACITY                             \
+        ? uo_ceil_pow2(initial_capacity)                                                      \
+        : UO_HASHTBL_MIN_CAPACITY;                                                            \
+                                                                                              \
+    hashtbl->count = 0;                                                                       \
+    hashtbl->removed_count = 0;                                                               \
+    hashtbl->links = calloc(hashtbl->capacity = capacity, sizeof *hashtbl->links);            \
+                                                                                              \
+    uo_linklist_selflink(hashtbl);                                                            \
+}                                                                                             \
+                                                                                              \
+uo__hashtbl_type(prefix) *uo__hashtbl_create_f(prefix)(                                       \
+    size_t initial_capacity)                                                                  \
+{                                                                                             \
+    uo__hashtbl_type(prefix) *hashtbl = malloc(sizeof *hashtbl);                              \
+    uo__hashtbl_create_at_f(prefix)(hashtbl, initial_capacity);                               \
+    return hashtbl;                                                                           \
+}                                                                                             \
+                                                                                              \
+uo__kvp_linklist_type(prefix) *uo__hashtbl_find_link_f(prefix)(                               \
     uo__kvp_linklist_type(prefix) *links,                                                     \
     size_t capacity,                                                                          \
     type key)                                                                                 \
@@ -212,12 +247,6 @@ static uo__kvp_linklist_type(prefix) *uo__hashtbl_find_link_f(prefix)(          
         link = links + (++h & mask);                                                          \
                                                                                               \
     return (uo__kvp_linklist_type(prefix) *)link;                                             \
-}                                                                                             \
-                                                                                              \
-static inline uo__kvp_linklist_type(prefix) *uo__hashtbl_list_f(prefix)(                      \
-    uo__hashtbl_type(prefix) *hashtbl)                                                        \
-{                                                                                             \
-    return (uo__kvp_linklist_type(prefix) *)&hashtbl->head;                                   \
 }                                                                                             \
                                                                                               \
 static void uo__hashtbl_resize_f(prefix)(                                                     \
@@ -249,17 +278,7 @@ static void uo__hashtbl_resize_f(prefix)(                                       
     hashtbl->links = new_links;                                                               \
 }                                                                                             \
                                                                                               \
-static inline void *uo__hashtbl_get_f(prefix)(                                                \
-    uo__hashtbl_type(prefix) *hashtbl,                                                        \
-    type key)                                                                                 \
-{                                                                                             \
-    return key                                                                                \
-        ? uo__hashtbl_find_link_f(prefix)(                                                    \
-            hashtbl->links, hashtbl->capacity, (const type )key)->item.value                  \
-        : NULL;                                                                               \
-}                                                                                             \
-                                                                                              \
-static void uo__hashtbl_set_f(prefix)(                                                        \
+void uo__hashtbl_set_f(prefix)(                                                               \
     uo__hashtbl_type(prefix) *hashtbl,                                                        \
     type key,                                                                                 \
     const void *value)                                                                        \
@@ -285,7 +304,7 @@ static void uo__hashtbl_set_f(prefix)(                                          
     }                                                                                         \
 }                                                                                             \
                                                                                               \
-static void *uo__hashtbl_remove_f(prefix)(                                                    \
+void *uo__hashtbl_remove_f(prefix)(                                                           \
     uo__hashtbl_type(prefix) *hashtbl,                                                        \
     type key)                                                                                 \
 {                                                                                             \
@@ -320,11 +339,11 @@ static void *uo__hashtbl_remove_f(prefix)(                                      
     }                                                                                         \
                                                                                               \
     return value;                                                                             \
-}                                                                                             \
+}
 
-uo_def_hashtbl(uo_str, const char *, uo_strhash_djb2, uo_streq);
-uo_def_hashtbl(uo_, const void *, (uintptr_t), uo_eq);
-uo_def_hashtbl(uo_int, int, (uint64_t), uo_eq);
+uo_decl_hashtbl(uo_str, const char *);
+uo_decl_hashtbl(uo_, const void *);
+uo_decl_hashtbl(uo_int, int);
 
 #ifdef __cplusplus
 }

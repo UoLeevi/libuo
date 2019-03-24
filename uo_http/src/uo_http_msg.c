@@ -21,15 +21,16 @@ void uo_http_msg_create_at(
 
     uo_strhashtbl_create_at(&http_msg->headers, 0);
 
-    uo_finstack *finstack = http_msg->finstack = uo_finstack_create();
-    uo_finstack_add(finstack, finstack, (void (*)(void *))uo_finstack_destroy);
+    uo_refstack *refstack = &http_msg->refstack;
+    uo_refstack_create_at(refstack);
 }
 
 void uo_http_msg_destroy_at(
     uo_http_msg *http_msg)
 {
     uo_strhashtbl_destroy_at(&http_msg->headers);
-    uo_finstack_finalize(http_msg->finstack);
+    uo_refstack_finalize(&http_msg->refstack);
+    uo_refstack_destroy_at(&http_msg->refstack);
 }
 
 bool uo_http_msg_set_header(
@@ -62,11 +63,48 @@ bool uo_http_msg_set_content(
     http_msg->body_len = content_len;
 
     char *p = http_msg->body = malloc(content_len + content_len_str_len + content_type_len + 3);
-    uo_finstack_add(http_msg->finstack, p, free);
+    uo_refstack_push(&http_msg->refstack, p, free);
 
     memcpy(p, content, content_len);
     p += content_len;
     *p++ = '\0';
+
+    sprintf(p, "%lu", content_len);
+    uo_http_msg_set_header(http_msg, "content-length", p);
+    p += content_len_str_len + 1;
+
+    memcpy(p, content_type, content_type_len);
+    p += content_type_len;
+    *p++ = '\0';
+
+    return http_msg->flags.body = true;
+}
+
+bool uo_http_msg_set_content_ref(
+    uo_http_msg *http_msg,
+    const char *content_ref,
+    const char *content_type,
+    size_t content_len,
+    uo_refcount *refcount)
+{
+    assert(http_msg->flags.role == UO_HTTP_MSG_ROLE_SEND);
+
+    if (!content_len)
+    {
+        uo_http_msg_set_header(http_msg, "content-length", "0");
+        return http_msg->flags.body = true;
+    }
+
+    size_t content_len_str_len = snprintf(NULL, 0, "%lu", content_len);
+    size_t content_type_len = strlen(content_type);
+
+    http_msg->body_len = content_len;
+
+    http_msg->body = (char *)content_ref;
+    uo_refstack_push_refcount(&http_msg->refstack, refcount);
+
+    char *p = malloc(content_len_str_len + content_type_len + 2);
+    uo_refstack_push(&http_msg->refstack, p, free);
 
     sprintf(p, "%lu", content_len);
     uo_http_msg_set_header(http_msg, "content-length", p);
@@ -118,7 +156,7 @@ bool uo_http_req_set_request_line(
     size_t uri_len = strlen(uri);
 
     char *p = malloc(method_str_len + uri_len + version_str_len + 5);
-    uo_finstack_add(http_req->finstack, p, free);
+    uo_refstack_push(&http_req->refstack, p, free);
 
     http_req->method_sp_uri = memcpy(p, method_str, method_str_len);
     p += method_str_len;
@@ -205,7 +243,7 @@ bool uo_http_res_set_status_line(
     }
 
     char *p = malloc(version_str_len + status_str_len + 4);
-    uo_finstack_add(http_res->finstack, p, free);
+    uo_refstack_push(&http_res->refstack, p, free);
 
     http_res->version = memcpy(p, version_str, version_str_len);
     p += version_str_len;
@@ -239,7 +277,7 @@ bool uo_http_msg_parse_start_line(
     size_t start_line_len = cr - p + 2;
 
     char *start_line = malloc(start_line_len + 1);
-    uo_finstack_add(http_msg->finstack, start_line, free);
+    uo_refstack_push(&http_msg->refstack, start_line, free);
 
     p = memcpy(start_line, p, start_line_len);
     start_line[start_line_len] = '\0';
@@ -406,7 +444,7 @@ bool uo_http_msg_parse_headers(
     size_t headers_len = headers_end - headers_start;
 
     char *p = malloc(headers_len + 1);
-    uo_finstack_add(http_msg->finstack, p, free);
+    uo_refstack_push(&http_msg->refstack, p, free);
 
     p[headers_len] = '\0';
     memcpy(p, headers_start, headers_len);

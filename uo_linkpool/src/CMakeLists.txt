@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(uo_linkpool VERSION 0.5.0)
+project(uo_linkpool VERSION 0.6.0)
 
 if(NOT TARGET uo::uo_macro)
     find_package(uo_macro CONFIG REQUIRED)

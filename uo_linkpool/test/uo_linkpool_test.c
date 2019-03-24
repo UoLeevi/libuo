@@ -5,8 +5,13 @@
 
 typedef void (*testfunc)(int *);
 
-uo_def_linkpool(int);
-uo_def_linkpool(testfunc);
+uo_decl_linklist(int, int);
+uo_decl_linkpool(int, int);
+uo_decl_linklist(testfunc, testfunc);
+uo_decl_linkpool(testfunc, testfunc);
+
+uo_impl_linkpool(int, int);
+uo_impl_linkpool(testfunc, testfunc);
 
 void testfunc_increment(int *i)
 {

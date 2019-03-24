@@ -1,17 +1,23 @@
 cmake_minimum_required(VERSION 3.12)
-project(uo_http VERSION 0.5.1)
+project(uo_http VERSION 0.6.0)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
-if(NOT TARGET uo::uo_finstack)
-    find_package(uo_finstack CONFIG REQUIRED)
+if(NOT TARGET uo::uo_refcount)
+    find_package(uo_refcount CONFIG REQUIRED)
+endif()
+if(NOT TARGET uo::uo_refstack)
+    find_package(uo_refstack CONFIG REQUIRED)
 endif()
 if(NOT TARGET uo::uo_tcp)
     find_package(uo_tcp CONFIG REQUIRED)
 endif()
 if(NOT TARGET uo::uo_mem)
     find_package(uo_mem CONFIG REQUIRED)
+endif()
+if(NOT TARGET uo::uo_util)
+    find_package(uo_util CONFIG REQUIRED)
 endif()
 if(NOT TARGET uo::uo_hashtbl)
     find_package(uo_hashtbl CONFIG REQUIRED)
@@ -37,10 +43,12 @@ target_link_libraries(uo_http
         uo::uo_buf
         uo::uo_cb
         uo::uo_hashtbl
-        uo::uo_finstack
+        uo::uo_refstack
+        uo::uo_refcount
     PRIVATE
         uo::uo_tcp
         uo::uo_mem
+        uo::uo_util
         Threads::Threads)
 
 target_compile_features(uo_http

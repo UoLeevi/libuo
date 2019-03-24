@@ -1,4 +1,5 @@
 #include "uo_http_file_server.h"
+#include "uo_refcount.h"
 #include "uo_util.h"
 #include "uo_buf.h"
 #include "uo_macro.h"
@@ -19,6 +20,7 @@
 
 typedef struct uo_http_file_cache_entry
 {
+    uo_refcount *refcount;
     char *filename;
     char *uri;
     const char *filetype;
@@ -69,6 +71,7 @@ static uo_http_file_cache_entry *uo_http_file_cache_entry_create(
     fclose(fp);
 
     uo_http_file_cache_entry *cache_entry = calloc(1, sizeof *cache_entry);
+    cache_entry->refcount = uo_refcount_create(p, free);
     cache_entry->data = p;
     cache_entry->filename = strdup(filename);
     cache_entry->uri = strdup(uri);
@@ -104,7 +107,7 @@ static void uo_http_file_cache_entry_destroy(
 {
     free(cache_entry->filename);
     free(cache_entry->uri);
-    free(cache_entry->data);
+    uo_refcount_dec(cache_entry->refcount);
     pthread_mutex_unlock(&cache_entry->mtx);
     pthread_mutex_destroy(&cache_entry->mtx);
     free(cache_entry);
@@ -120,8 +123,11 @@ static bool uo_http_file_cache_entry_try_refresh(
 
     cache_entry->mtime = sb_new->st_mtime;
     size_t size = cache_entry->size = sb_new->st_size;
-    free(cache_entry->data);
+    
+    uo_refcount_dec(cache_entry->refcount);
+
     char *p = cache_entry->data = malloc(size + 1);
+    cache_entry->refcount = uo_refcount_create(p, free);
 
     if (fread(p, sizeof *p, size, fp) != size || ferror(fp))
     {
@@ -228,7 +234,7 @@ void uo_http_file_server_serve(
             uo_http_file_server_remove_cache_entry(http_file_server, uri);
             uo_http_file_cache_entry_destroy(cache_entry);
             uo_http_res_set_status_line(http_res, UO_HTTP_404, UO_HTTP_VER_1_1);
-            uo_http_msg_set_content(http_res, "404 Not Found", "text/plain", UO_STRLEN("404 Not Found"));
+            uo_http_msg_set_content_ref(http_res, "404 Not Found", "text/plain", UO_STRLEN("404 Not Found"), cache_entry->refcount);
         }
         else if (sb.st_mtime != cache_entry->mtime)
         {
@@ -244,7 +250,7 @@ void uo_http_file_server_serve(
                 uo_http_file_server_remove_cache_entry(http_file_server, uri);
                 uo_http_file_cache_entry_destroy(cache_entry);
                 uo_http_res_set_status_line(http_res, UO_HTTP_404, UO_HTTP_VER_1_1);
-                uo_http_msg_set_content(http_res, "404 Not Found", "text/plain", UO_STRLEN("404 Not Found"));
+                uo_http_msg_set_content_ref(http_res, "404 Not Found", "text/plain", UO_STRLEN("404 Not Found"), cache_entry->refcount);
             }
         }
         else
@@ -291,7 +297,7 @@ void uo_http_file_server_serve(
     else
     {
         uo_http_res_set_status_line(http_res, UO_HTTP_404, UO_HTTP_VER_1_1);
-        uo_http_msg_set_content(http_res, "404 Not Found", "text/plain", UO_STRLEN("404 Not Found"));
+        uo_http_msg_set_content_ref(http_res, "404 Not Found", "text/plain", UO_STRLEN("404 Not Found"), cache_entry->refcount);
     }
 
 }

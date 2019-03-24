@@ -7,7 +7,7 @@ extern "C" {
 
 #include "uo_cb.h"
 #include "uo_hashtbl.h"
-#include "uo_finstack.h"
+#include "uo_refstack.h"
 #include "uo_linklist.h"
 
 #include <stddef.h>
@@ -31,7 +31,7 @@ bool uo_http_req_handler_try(
     uo_http_req_handler *,
     const char *method_sp_uri,
     uo_strhashtbl *params,
-    uo_finstack *);
+    uo_refstack *);
 
 #ifdef __cplusplus
 }

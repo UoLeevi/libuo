@@ -1,5 +1,4 @@
 #include "uo_hashtbl.h"
-#include "uo_util.h"
 
 #include <string.h>
 #include <stdint.h>

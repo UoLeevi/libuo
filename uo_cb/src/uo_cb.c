@@ -4,6 +4,7 @@
 #include "uo_stack.h"
 #include "uo_linklist.h"
 #include "uo_linkpool.h"
+#include "uo_refcount.h"
 
 #include <pthread.h>
 #include <unistd.h>
@@ -19,8 +20,12 @@ struct uo_cb
     uo_linklist funclist;
 };
 
-uo_def_linkpool(uo_cb);
-uo_def_linkpool(uo_cb_func);
+uo_decl_linklist(uo_cb, uo_cb);
+uo_decl_linkpool(uo_cb, uo_cb);
+uo_impl_linkpool(uo_cb, uo_cb);
+uo_decl_linklist(uo_cb_func, uo_cb_func);
+uo_decl_linkpool(uo_cb_func, uo_cb_func);
+uo_impl_linkpool(uo_cb_func, uo_cb_func);
 
 static bool is_init;
 
@@ -28,6 +33,7 @@ static void uo_cb_quit(void)
 {
     uo_cb_func_linkpool_thrd_quit();
     uo_cb_linkpool_thrd_quit();
+    uo_refcount_linkpool_thrd_quit();
 }
 
 bool uo_cb_init() 
@@ -37,10 +43,10 @@ bool uo_cb_init()
 
     is_init = true;
 
+    is_init &= uo_refcount_linkpool_init();
     is_init &= uo_cb_linkpool_init();
     is_init &= uo_cb_func_linkpool_init();
-    is_init &= uo_cb_linkpool_thrd_init();
-    is_init &= uo_cb_func_linkpool_thrd_init();
+    is_init &= uo_cb_thrd_init();
 
     atexit(uo_cb_quit);
 
@@ -54,6 +60,7 @@ bool uo_cb_thrd_init()
 {
     bool is_init = true;
 
+    is_init &= uo_refcount_linkpool_thrd_init();
     is_init &= uo_cb_linkpool_thrd_init();
     is_init &= uo_cb_func_linkpool_thrd_init();
 
@@ -64,6 +71,7 @@ void uo_cb_thrd_quit()
 {
     uo_cb_func_linkpool_thrd_quit();
     uo_cb_linkpool_thrd_quit();
+    uo_refcount_linkpool_thrd_quit();
 }
 
 uo_cb *uo_cb_create()

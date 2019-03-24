@@ -153,7 +153,7 @@ static void uo_http_server_process_req_handlers(
         {
             uo_http_req_handler *http_req_handler = (uo_http_req_handler *)link;
 
-            if (uo_http_req_handler_try(http_req_handler, method_sp_uri, &http_conn->req_data, http_req->finstack))
+            if (uo_http_req_handler_try(http_req_handler, method_sp_uri, &http_conn->req_data, &http_req->refstack))
             {
                 http_req->temp.prev_handler = &http_req_handler->link;
                 uo_cb_prepend(cb, uo_http_server_process_req_handlers);
