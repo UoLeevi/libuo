@@ -62,7 +62,7 @@ void uo_http_conn_reset(
     uo_http_conn *);
 
 /**
- * @brief get a pointer to the request data that has been scanned from request URI
+ * @brief get a pointer to the request data that has been scanned from request URI or from request body
  * 
  * @param key       null terminated string key
  * @return char *   a pointer to the request data

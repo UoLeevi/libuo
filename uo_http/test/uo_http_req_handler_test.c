@@ -1,3 +1,4 @@
+#include "uo_http_req_handler.h"
 #include "uo_cb.h"
 #include "uo_hashtbl.h"
 #include "uo_refstack.h"
@@ -8,21 +9,6 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
-
-typedef struct uo_http_req_handler uo_http_req_handler;
-
-extern uo_http_req_handler *uo_http_req_handler_create(
-    const char *req_pattern,
-    uo_cb *);
-
-extern void uo_http_req_handler_destroy(
-    uo_http_req_handler *);
-
-extern bool uo_http_req_handler_try(
-    uo_http_req_handler *,
-    const char *method_sp_uri,
-    uo_strhashtbl *params,
-    uo_refstack *);
 
 int main(
     int argc, 

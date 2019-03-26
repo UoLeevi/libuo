@@ -25,6 +25,9 @@ endif()
 if(NOT TARGET uo::uo_buf)
     find_package(uo_buf CONFIG REQUIRED)
 endif()
+if(NOT TARGET uo::uo_json)
+    find_package(uo_json CONFIG REQUIRED)
+endif()
 if(NOT TARGET uo::uo_cb)
     find_package(uo_cb CONFIG REQUIRED)
 endif()
@@ -49,6 +52,7 @@ target_link_libraries(uo_http
         uo::uo_tcp
         uo::uo_mem
         uo::uo_util
+        uo::uo_json
         Threads::Threads)
 
 target_compile_features(uo_http

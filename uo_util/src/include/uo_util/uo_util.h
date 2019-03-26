@@ -174,6 +174,15 @@ static inline char *uo_strdiff(
     return (char *)str1 - 1;
 }
 
+static inline bool uo_isprefix(
+    const char *pre,
+    const char *str)
+{
+    const char *diff = uo_strdiff(pre, str);
+
+    return !diff || !*diff;
+}
+
 static char *uo_uri_decode(
     char *dst,
     const char *src,

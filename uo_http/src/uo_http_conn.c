@@ -3,6 +3,8 @@
 #include "uo_http_server.h"
 #include "uo_tcp_conn.h"
 #include "uo_hashtbl.h"
+#include "uo_json.h"
+#include "uo_util.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -88,7 +90,55 @@ char *uo_http_conn_get_req_data(
     uo_http_conn *http_conn,
     const char *key)
 {
-    return uo_strhashtbl_get(&http_conn->req_data, key);
+    char *data = uo_strhashtbl_get(&http_conn->req_data, key);
+    if (data)
+        return data;
+
+    uo_http_req *http_req = &http_conn->http_req;
+    if (!http_req->body)
+        return NULL;
+
+    char *content_type = uo_http_msg_get_header(http_req, "content-type");
+    if (!content_type)
+        return NULL;
+
+    if (uo_isprefix("application/json", content_type))
+    {
+        char *json_value = uo_json_find_value(http_req->body, key);
+        if (!json_value)
+            return NULL;
+
+        char *json_value_end = uo_json_find_end(json_value);
+        if (!json_value_end)
+            return NULL;
+
+        size_t key_len = strlen(key);
+        size_t json_len = json_value_end - json_value;
+        char *p = data = malloc(json_len + 1 + key_len + 1);
+        uo_refstack_push(&http_req->refstack, p, free);
+
+        memcpy(p, json_value, json_len);
+
+        if (*json_value == '"')
+        {
+            p = uo_json_decode_utf8(p, json_value, json_len);
+            if (!p)
+                return NULL;
+        }
+        else
+            p += key_len;
+
+        *p++ = '\0';
+
+        memcpy(p, key, key_len);
+        p[key_len] = '\0';
+
+        uo_strhashtbl_set(&http_conn->req_data, p, data);
+
+        return data;
+    }
+
+    return NULL;
 }
 
 void *uo_http_conn_get_user_data(
