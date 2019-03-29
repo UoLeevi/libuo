@@ -74,6 +74,7 @@ bool uo_http_msg_set_content(
     p += content_len_str_len + 1;
 
     memcpy(p, content_type, content_type_len);
+    uo_http_msg_set_header(http_msg, "content-type", p);
     p += content_type_len;
     *p++ = '\0';
 
@@ -111,6 +112,7 @@ bool uo_http_msg_set_content_ref(
     p += content_len_str_len + 1;
 
     memcpy(p, content_type, content_type_len);
+    uo_http_msg_set_header(http_msg, "content-type", p);
     p += content_type_len;
     *p++ = '\0';
 
